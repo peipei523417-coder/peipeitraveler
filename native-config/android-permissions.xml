@@ -1,0 +1,34 @@
+<!--
+  Android 權限設定
+  請將以下權限加入 android/app/src/main/AndroidManifest.xml
+  放在 <manifest> 標籤內，<application> 標籤之前
+-->
+
+<!-- 網路連接權限 -->
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+<!-- 相機權限 -->
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-feature android:name="android.hardware.camera" android:required="false" />
+
+<!-- 相簿/儲存權限 -->
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+<!-- 定位權限 -->
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+<!--
+  版本號設定
+  請在 android/app/build.gradle 中修改：
+  
+  android {
+      defaultConfig {
+          versionCode 1
+          versionName "1.0.0"
+      }
+  }
+-->

@@ -1,0 +1,308 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Samoyed Travel Planner Design System
+   Warm, cozy, and cute - inspired by fluffy Samoyeds
+   All colors in HSL format */
+
+@layer base {
+  :root {
+    /* Sky Blue Theme - Clean, Clear, Vibrant */
+    --background: 209 40% 96%;
+    --foreground: 222 47% 11%;
+
+    --card: 210 40% 98%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 214 31% 91%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary - Deeper Sky Blue with strong contrast */
+    --primary: 200 98% 39%;
+    --primary-foreground: 204 100% 97%;
+
+    /* Secondary - Light sky blue */
+    --secondary: 215 24% 26%;
+    --secondary-foreground: 210 40% 98%;
+
+    /* Muted - Soft gray-blue */
+    --muted: 215 20% 65%;
+    --muted-foreground: 222 47% 11%;
+
+    /* Success color */
+    --success: 142 70% 45%;
+    --success-foreground: 0 0% 100%;
+
+    /* Accent - Light sky highlight */
+    --accent: 210 40% 98%;
+    --accent-foreground: 215 19% 34%;
+
+    /* Destructive - Coral red */
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 85% 97%;
+
+    /* UI elements */
+    --border: 212 26% 83%;
+    --input: 212 26% 83%;
+    --ring: 200 98% 39%;
+
+    --radius: 0.5rem;
+
+    /* Custom tokens for Sky Blue theme */
+    --samoyed-cream: 200 40% 98%;
+    --samoyed-warm: 199 89% 48%;
+    --samoyed-peach: 199 70% 85%;
+    --samoyed-nose: 210 40% 20%;
+    --samoyed-shadow: 199 40% 60%;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 200 98% 39%;
+    --sidebar-primary-foreground: 204 100% 97%;
+    --sidebar-accent: 215 24% 26%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 212 26% 83%;
+    --sidebar-ring: 200 98% 39%;
+
+    /* Charts */
+    --chart-1: 198 93% 59%;
+    --chart-2: 213 93% 67%;
+    --chart-3: 215 20% 65%;
+    --chart-4: 215 16% 46%;
+    --chart-5: 215 19% 34%;
+    --sidebar: 210 40% 98%;
+
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    --font-serif: 'Lora', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+    --font-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+    /* Shadows with sky blue tint */
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+    --tracking-normal: 0em;
+    --spacing: 0.25rem;
+
+    /* Highlight colors for itinerary items */
+    --highlight-yellow: 48 96% 89%;
+    --highlight-green: 142 70% 90%;
+    --highlight-blue: 199 80% 90%;
+    --highlight-pink: 330 80% 92%;
+    --highlight-purple: 270 70% 92%;
+    --highlight-orange: 30 90% 90%;
+  }
+
+  .dark {
+    /* Dark mode with sky blue accents */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 217 32% 17%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 215 24% 26%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 198 93% 59%;
+    --primary-foreground: 204 80% 15%;
+
+    --secondary: 212 26% 83%;
+    --secondary-foreground: 228 84% 4%;
+
+    --muted: 215 16% 46%;
+    --muted-foreground: 210 40% 98%;
+
+    --success: 142 60% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --accent: 228 84% 4%;
+    --accent-foreground: 215 20% 65%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 85% 97%;
+
+    --border: 215 19% 34%;
+    --input: 215 19% 34%;
+    --ring: 198 93% 59%;
+
+    --samoyed-cream: 210 30% 15%;
+    --samoyed-warm: 199 89% 55%;
+    --samoyed-peach: 199 50% 30%;
+    --samoyed-nose: 200 30% 85%;
+    --samoyed-shadow: 199 30% 25%;
+
+    --sidebar-background: 210 45% 12%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 198 93% 59%;
+    --sidebar-primary-foreground: 204 80% 15%;
+    --sidebar-accent: 215 20% 65%;
+    --sidebar-accent-foreground: 228 84% 4%;
+    --sidebar-border: 215 19% 34%;
+    --sidebar-ring: 198 93% 59%;
+    --chart-1: 199 95% 73%;
+    --chart-2: 211 96% 78%;
+    --chart-3: 215 20% 65%;
+    --chart-4: 215 16% 46%;
+    --chart-5: 215 19% 34%;
+    --sidebar: 217 32% 17%;
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+
+    /* Highlight colors for dark mode */
+    --highlight-yellow: 48 80% 25%;
+    --highlight-green: 142 50% 25%;
+    --highlight-blue: 199 60% 30%;
+    --highlight-pink: 330 60% 30%;
+    --highlight-purple: 270 50% 30%;
+    --highlight-orange: 30 70% 28%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased font-bold;
+    font-family: 'Nunito', 'SF Pro Rounded', system-ui, sans-serif;
+    color: hsl(0 0% 0%);
+    /* Improve touch responsiveness on mobile */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Ensure all text is black bold */
+  p, span, label, a, li, td, th, div {
+    color: inherit;
+  }
+
+  /* Custom font for headings - more playful */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Nunito', 'SF Pro Rounded', system-ui, sans-serif;
+    font-weight: 700;
+  }
+
+  /* Mobile touch optimization */
+  button, a, [role="button"], input, select, textarea {
+    touch-action: manipulation;
+  }
+
+  /* Ensure minimum tap target size for accessibility */
+  @media (pointer: coarse) {
+    button, 
+    [role="button"],
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+}
+
+@layer components {
+  /* Samoyed card styling */
+  .samoyed-card {
+    @apply bg-card rounded-2xl border border-border/50;
+    box-shadow: 0 4px 20px -4px hsl(var(--samoyed-shadow) / 0.15),
+                0 2px 8px -2px hsl(var(--samoyed-shadow) / 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .samoyed-card:hover {
+    box-shadow: 0 8px 30px -4px hsl(var(--samoyed-shadow) / 0.2),
+                0 4px 12px -2px hsl(var(--samoyed-shadow) / 0.15);
+    transform: translateY(-2px);
+  }
+
+  /* Soft button style */
+  .samoyed-button {
+    @apply rounded-xl font-semibold transition-all duration-200;
+    box-shadow: 0 2px 8px -2px hsl(var(--primary) / 0.3);
+  }
+
+  .samoyed-button:hover {
+    box-shadow: 0 4px 12px -2px hsl(var(--primary) / 0.4);
+    transform: translateY(-1px);
+  }
+
+  .samoyed-button:active {
+    transform: translateY(0);
+  }
+
+  /* Paw print pattern background - Sky Blue version */
+  .paw-pattern {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2387ceeb' fill-opacity='0.15'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3Ccircle cx='24' cy='22' r='2.5'/%3E%3Ccircle cx='36' cy='22' r='2.5'/%3E%3Ccircle cx='21' cy='28' r='2'/%3E%3Ccircle cx='39' cy='28' r='2'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* Bounce animation for cute elements */
+  @keyframes bounce-soft {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  .animate-bounce-soft {
+    animation: bounce-soft 2s ease-in-out infinite;
+  }
+
+  /* Tail wag animation */
+  @keyframes wag {
+    0%, 100% {
+      transform: rotate(-10deg);
+    }
+    50% {
+      transform: rotate(10deg);
+    }
+  }
+
+  .animate-wag {
+    animation: wag 0.5s ease-in-out infinite;
+    transform-origin: bottom center;
+  }
+
+  /* Fade in animation */
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.5s ease-out forwards;
+  }
+
+  /* Staggered children animation */
+  .stagger-children > * {
+    opacity: 0;
+    animation: fade-in-up 0.4s ease-out forwards;
+  }
+
+  /* Highlight classes */
+  .highlight-yellow { background-color: hsl(var(--highlight-yellow)); }
+  .highlight-green { background-color: hsl(var(--highlight-green)); }
+  .highlight-blue { background-color: hsl(var(--highlight-blue)); }
+  .highlight-pink { background-color: hsl(var(--highlight-pink)); }
+  .highlight-purple { background-color: hsl(var(--highlight-purple)); }
+  .highlight-orange { background-color: hsl(var(--highlight-orange)); }
+}

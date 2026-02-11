@@ -1,0 +1,36 @@
+<!--
+  iOS Info.plist 權限設定
+  請將以下 key-value 加入 ios/App/App/Info.plist
+  放在 <dict> 標籤內
+-->
+
+<!-- 相機權限說明 -->
+<key>NSCameraUsageDescription</key>
+<string>PeiPeiGoTravel 需要使用相機來拍攝旅行照片</string>
+
+<!-- 相簿讀取權限說明 -->
+<key>NSPhotoLibraryUsageDescription</key>
+<string>PeiPeiGoTravel 需要存取相簿來選擇旅行照片</string>
+
+<!-- 相簿寫入權限說明 -->
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>PeiPeiGoTravel 需要儲存照片到相簿</string>
+
+<!-- 定位權限說明 (使用時) -->
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>PeiPeiGoTravel 需要您的位置來標記旅行地點</string>
+
+<!-- 定位權限說明 (背景) -->
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>PeiPeiGoTravel 需要您的位置來記錄旅行軌跡</string>
+
+<!--
+  版本號設定
+  請在 ios/App/App/Info.plist 中確認：
+  
+  <key>CFBundleShortVersionString</key>
+  <string>1.0.0</string>
+  
+  <key>CFBundleVersion</key>
+  <string>1</string>
+-->
