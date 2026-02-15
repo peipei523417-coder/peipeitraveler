@@ -17,7 +17,6 @@
     "@capacitor/cli": "^8.0.2",
     "@capacitor/core": "^8.0.2",
     "@capacitor/ios": "^8.0.2",
-    "@capgo/capacitor-purchases": "^5.0.8",
     "@fontsource/nunito": "^5.2.7",
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^3.10.0",
