@@ -1,4 +1,4 @@
-package com.peipeigo.travel;
+package com.peitravel.smartplanner;
 
 import com.getcapacitor.BridgeActivity;
 

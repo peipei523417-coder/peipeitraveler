@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -7,8 +8,11 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { Crown, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Crown, Sparkles, RotateCcw, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { usePro } from "@/contexts/ProContext";
+import { toast } from "sonner";
 
 interface UpgradeProDialogProps {
   open: boolean;
@@ -18,6 +22,43 @@ interface UpgradeProDialogProps {
 
 export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogProps) {
   const { t } = useTranslation();
+  const { completePurchase, restorePurchases } = usePro();
+  const [purchasing, setPurchasing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+
+  const handlePurchase = async () => {
+    setPurchasing(true);
+    try {
+      const success = await completePurchase();
+      if (success) {
+        toast.success(t("proEnabled"));
+        onOpenChange(false);
+      } else {
+        toast.error(t("error"));
+      }
+    } catch {
+      toast.error(t("error"));
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setRestoring(true);
+    try {
+      const restored = await restorePurchases();
+      if (restored) {
+        toast.success(t("proEnabled"));
+        onOpenChange(false);
+      } else {
+        toast.info(t("noRestorablepurchases") || "No purchases to restore");
+      }
+    } catch {
+      toast.error(t("error"));
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -55,13 +96,36 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
             </li>
           </ul>
         </div>
-        <AlertDialogFooter className="gap-2 sm:gap-2">
+        <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+          {/* Purchase Button */}
           <AlertDialogAction
-            onClick={() => onOpenChange(false)}
+            onClick={handlePurchase}
+            disabled={purchasing || restoring}
             className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl"
           >
-            {t("gotIt")}
+            {purchasing ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Crown className="w-4 h-4 mr-2" />
+            )}
+            {t("upgradeToPro")}
           </AlertDialogAction>
+
+          {/* Restore Purchases Button — REQUIRED for iOS review */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRestore}
+            disabled={purchasing || restoring}
+            className="w-full text-muted-foreground hover:text-foreground"
+          >
+            {restoring ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+            ) : (
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            {t("restorePurchases") || "Restore Purchases"}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
