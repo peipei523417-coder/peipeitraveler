@@ -1,42 +1,36 @@
 /**
- * billingService.ts - Cross-platform In-App Purchase Service
- * 
- * Handles Apple App Store & Google Play billing via Capacitor plugin.
+ * billingService.ts - Direct Native Billing (No RevenueCat)
+ *
+ * Connects directly to Apple StoreKit / Google Play Billing
+ * via a custom Capacitor plugin — zero third-party keys required.
+ *
  * Product ID: pro_function
- * 
- * Security: No API keys stored in code. All payment flows use
- * native Apple/Google payment sheets exclusively.
  */
+
+import { registerPlugin } from "@capacitor/core";
 
 const PRODUCT_ID = "pro_function";
 const PRO_STORAGE_KEY = "peipeigo_is_pro";
 
-// Dynamic import to avoid errors on web
-let PurchasesPlugin: any = null;
-
-async function getPurchasesPlugin() {
-  if (PurchasesPlugin) return PurchasesPlugin;
-  try {
-    const mod = await import("@capgo/capacitor-purchases");
-    PurchasesPlugin = mod.CapacitorPurchases;
-    return PurchasesPlugin;
-  } catch {
-    console.warn("[Billing] Native purchases plugin not available (web environment)");
-    return null;
-  }
+// ── Custom native plugin interface ──────────────────────────
+interface NativeBillingPlugin {
+  /** Fetch product details from the store */
+  getProducts(options: { productIds: string[] }): Promise<{ products: any[] }>;
+  /** Launch the native payment sheet for a product */
+  purchase(options: { productId: string }): Promise<{ success: boolean; transactionId?: string }>;
+  /** Query the store for previously completed purchases */
+  restorePurchases(): Promise<{ purchases: { productId: string; transactionId: string }[] }>;
 }
 
 /**
- * Check if running on a native platform (iOS/Android)
+ * Register the plugin — on native it calls Swift/Kotlin,
+ * on web it falls back to the stub below.
  */
-function isNativePlatform(): boolean {
-  return typeof (window as any)?.Capacitor !== "undefined" &&
-    (window as any)?.Capacitor?.isNativePlatform?.() === true;
-}
+const NativeBilling = registerPlugin<NativeBillingPlugin>("NativeBilling", {
+  web: () => import("./billingWeb").then((m) => new m.NativeBillingWeb()),
+});
 
-/**
- * Read PRO status from localStorage (instant, offline-capable)
- */
+// ── LocalStorage helpers ────────────────────────────────────
 export function getLocalProStatus(): boolean {
   try {
     return localStorage.getItem(PRO_STORAGE_KEY) === "true";
@@ -45,90 +39,53 @@ export function getLocalProStatus(): boolean {
   }
 }
 
-/**
- * Save PRO status to localStorage
- */
 export function setLocalProStatus(isPro: boolean): void {
   try {
     localStorage.setItem(PRO_STORAGE_KEY, isPro ? "true" : "false");
   } catch {
-    console.error("[Billing] Failed to save PRO status to localStorage");
+    console.error("[Billing] Failed to persist PRO status");
   }
 }
 
-/**
- * Initialize the billing plugin (call once at app startup on native)
- */
+// ── Platform detection ──────────────────────────────────────
+function isNativePlatform(): boolean {
+  return (
+    typeof (window as any)?.Capacitor !== "undefined" &&
+    (window as any)?.Capacitor?.isNativePlatform?.() === true
+  );
+}
+
+// ── Public API ──────────────────────────────────────────────
+
+/** No-op on web; native plugin self-initialises */
 export async function initBilling(): Promise<void> {
   if (!isNativePlatform()) {
-    console.log("[Billing] Web environment — skipping native billing init");
+    console.log("[Billing] Web environment — native billing skipped");
     return;
   }
-
-  try {
-    const plugin = await getPurchasesPlugin();
-    if (!plugin) return;
-    
-    // RevenueCat / native plugin will be configured in native layer
-    // No API keys exposed in JS code
-    console.log("[Billing] Native billing plugin initialized");
-  } catch (error) {
-    console.error("[Billing] Init error:", error);
-  }
+  console.log("[Billing] Native billing ready (direct StoreKit / Google Play)");
 }
 
 /**
- * Purchase the PRO subscription/product
- * Opens the native Apple/Google payment sheet — no custom UI
- * 
- * @returns true if purchase succeeded
+ * Purchase pro_function — opens the NATIVE payment sheet.
+ * Returns true on success.
  */
 export async function purchasePro(): Promise<boolean> {
   if (!isNativePlatform()) {
-    // Web fallback: simulate purchase for testing
-    console.log("[Billing] Web environment — simulating purchase");
+    console.log("[Billing] Web — simulating purchase");
     setLocalProStatus(true);
     return true;
   }
 
   try {
-    const plugin = await getPurchasesPlugin();
-    if (!plugin) return false;
-
-    // Get available packages
-    const offerings = await plugin.getOfferings();
-    const currentOffering = offerings?.current;
-    
-    if (!currentOffering) {
-      console.error("[Billing] No offerings available");
-      return false;
+    const result = await NativeBilling.purchase({ productId: PRODUCT_ID });
+    if (result.success) {
+      setLocalProStatus(true);
+      return true;
     }
-
-    // Find the pro_function product
-    const proPackage = currentOffering.availablePackages?.find(
-      (pkg: any) => pkg.product?.identifier === PRODUCT_ID
-    ) || currentOffering.availablePackages?.[0];
-
-    if (!proPackage) {
-      console.error("[Billing] Product not found:", PRODUCT_ID);
-      return false;
-    }
-
-    // This opens the NATIVE payment sheet (Apple/Google)
-    const result = await plugin.purchasePackage({ aPackage: proPackage });
-    
-    if (result?.customerInfo) {
-      const isActive = Object.keys(result.customerInfo.entitlements?.active || {}).length > 0;
-      if (isActive) {
-        setLocalProStatus(true);
-        return true;
-      }
-    }
-
     return false;
   } catch (error: any) {
-    // User cancelled is not an error
-    if (error?.code === "1" || error?.message?.includes("cancelled")) {
+    if (error?.message?.includes("cancel")) {
       console.log("[Billing] Purchase cancelled by user");
       return false;
     }
@@ -138,30 +95,19 @@ export async function purchasePro(): Promise<boolean> {
 }
 
 /**
- * Restore previous purchases — REQUIRED for iOS App Store review
- * Without this, Apple will reject the app.
- * 
- * @returns true if PRO entitlement was found and restored
+ * Restore purchases — REQUIRED for iOS App Store review.
+ * Queries the store for historical receipts of pro_function.
  */
 export async function restorePurchases(): Promise<boolean> {
   if (!isNativePlatform()) {
-    // Web: check localStorage
     return getLocalProStatus();
   }
 
   try {
-    const plugin = await getPurchasesPlugin();
-    if (!plugin) return false;
-
-    const result = await plugin.restorePurchases();
-    
-    if (result?.customerInfo) {
-      const isActive = Object.keys(result.customerInfo.entitlements?.active || {}).length > 0;
-      setLocalProStatus(isActive);
-      return isActive;
-    }
-
-    return false;
+    const result = await NativeBilling.restorePurchases();
+    const hasPro = result.purchases.some((p) => p.productId === PRODUCT_ID);
+    setLocalProStatus(hasPro);
+    return hasPro;
   } catch (error) {
     console.error("[Billing] Restore error:", error);
     return false;
@@ -169,28 +115,8 @@ export async function restorePurchases(): Promise<boolean> {
 }
 
 /**
- * Check current entitlement status from the store
+ * Check current entitlement (reads local cache; native re-validates on app launch)
  */
 export async function checkEntitlements(): Promise<boolean> {
-  if (!isNativePlatform()) {
-    return getLocalProStatus();
-  }
-
-  try {
-    const plugin = await getPurchasesPlugin();
-    if (!plugin) return getLocalProStatus();
-
-    const info = await plugin.getCustomerInfo();
-    
-    if (info?.customerInfo) {
-      const isActive = Object.keys(info.customerInfo.entitlements?.active || {}).length > 0;
-      setLocalProStatus(isActive);
-      return isActive;
-    }
-
-    return getLocalProStatus();
-  } catch (error) {
-    console.error("[Billing] Check entitlements error:", error);
-    return getLocalProStatus();
-  }
+  return getLocalProStatus();
 }
