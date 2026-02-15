@@ -1,22 +1,40 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  getLocalProStatus,
+  setLocalProStatus,
+  checkEntitlements,
+  purchasePro,
+  restorePurchases as restoreBilling,
+  initBilling,
+} from "@/services/billingService";
 
 export type ProUpgradeSource = 'project_limit' | 'day_limit' | 'settings' | 'restore';
 
 export function useProStatus() {
   const { user } = useAuth();
-  const [isPro, setIsPro] = useState(false);
+  const [isPro, setIsPro] = useState(() => getLocalProStatus());
   const [loading, setLoading] = useState(true);
+
+  // Initialize billing on mount
+  useEffect(() => {
+    initBilling();
+  }, []);
 
   const fetchProStatus = useCallback(async () => {
     if (!user) {
       setIsPro(false);
+      setLocalProStatus(false);
       setLoading(false);
       return;
     }
 
     try {
+      // Check native entitlements first (will fall back to localStorage on web)
+      const hasEntitlement = await checkEntitlements();
+      
+      // Also check database
       const { data, error } = await supabase
         .from("user_profiles")
         .select("is_pro")
@@ -25,23 +43,29 @@ export function useProStatus() {
 
       if (error) {
         console.error("Error fetching pro status:", error);
-        setIsPro(false);
-      } else if (data) {
-        setIsPro(data.is_pro);
-      } else {
-        // Create profile if not exists - new users start as FREE
-        const { error: insertError } = await supabase
-          .from("user_profiles")
-          .insert({ user_id: user.id, is_pro: false });
-
-        if (insertError) {
-          console.error("Error creating profile:", insertError);
-        }
-        setIsPro(false);
       }
+      
+      // PRO if either native entitlement OR database says so
+      const proStatus = hasEntitlement || (data?.is_pro ?? false);
+      
+      if (!data) {
+        // Create profile if not exists
+        await supabase
+          .from("user_profiles")
+          .insert({ user_id: user.id, is_pro: proStatus });
+      } else if (proStatus !== data.is_pro) {
+        // Sync database with native status
+        await supabase
+          .from("user_profiles")
+          .upsert({ user_id: user.id, is_pro: proStatus }, { onConflict: "user_id" });
+      }
+
+      setIsPro(proStatus);
+      setLocalProStatus(proStatus);
     } catch (error) {
       console.error("Error in fetchProStatus:", error);
-      setIsPro(false);
+      // Fall back to localStorage
+      setIsPro(getLocalProStatus());
     } finally {
       setLoading(false);
     }
@@ -52,110 +76,72 @@ export function useProStatus() {
   }, [fetchProStatus]);
 
   /**
-   * Request PRO upgrade - This is the IAP-compliant upgrade flow
-   * This function should be called when user wants to upgrade to PRO.
-   * 
-   * For Apple/Google Store compliance:
-   * - Do NOT implement external payment links here
-   * - This will be replaced with native IAP when packaging for app stores
-   * - For web version, can implement Stripe/other payment later
-   * 
-   * @param source - Where the upgrade request came from (for analytics)
-   * @returns Promise<boolean> - True if upgrade dialog should be shown
+   * Request PRO upgrade — triggers native Apple/Google payment sheet
    */
   const requestUpgrade = useCallback(async (_source: ProUpgradeSource): Promise<boolean> => {
-    // Return true to show the upgrade dialog
-    // The actual payment flow will be implemented:
-    // - For mobile apps: Apple/Google In-App Purchase
-    // - For web: Stripe or other payment processor
-    return true;
+    return true; // Show upgrade dialog
   }, []);
 
   /**
-   * Restore purchases - For App Store compliance
-   * This allows users to restore their PRO status on a new device
-   * 
-   * In production, this will:
-   * 1. Query Apple/Google for active subscriptions
-   * 2. Verify the subscription status
-   * 3. Update the local database if valid
+   * Execute purchase via native IAP
    */
-  const restorePurchases = useCallback(async (): Promise<boolean> => {
-    if (!user) return false;
-
+  const completePurchase = useCallback(async (): Promise<boolean> => {
     try {
-      // Re-fetch the current status from database
-      // In production with IAP, this would:
-      // 1. Call native IAP restore API
-      // 2. Verify receipt with Apple/Google
-      // 3. Update database based on verification result
-      await fetchProStatus();
-      return isPro;
-    } catch (error) {
-      console.error("Error restoring purchases:", error);
-      return false;
-    }
-  }, [user, fetchProStatus, isPro]);
-
-  /**
-   * Complete PRO upgrade - Called after successful IAP transaction
-   * This function should ONLY be called after payment is verified
-   * 
-   * In production:
-   * - For mobile: Called after IAP verification from native layer
-   * - For web: Called after Stripe webhook confirms payment
-   * 
-   * @param transactionId - The IAP transaction ID for record keeping
-   */
-  const completePurchase = useCallback(async (transactionId?: string): Promise<boolean> => {
-    if (!user) return false;
-
-    try {
-      // In production, this would also store the transaction ID
-      // for future reference and subscription management
-      const { error } = await supabase
-        .from("user_profiles")
-        .upsert({ 
-          user_id: user.id, 
-          is_pro: true,
-          // In production: store transaction_id, purchase_date, etc.
-        }, { 
-          onConflict: "user_id" 
-        });
-
-      if (error) {
-        console.error("Error completing purchase:", error);
-        return false;
+      const success = await purchasePro();
+      if (success) {
+        setIsPro(true);
+        setLocalProStatus(true);
+        
+        // Sync to database
+        if (user) {
+          await supabase
+            .from("user_profiles")
+            .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
+        }
       }
-
-      setIsPro(true);
-      return true;
+      return success;
     } catch (error) {
       console.error("Error in completePurchase:", error);
       return false;
     }
   }, [user]);
 
-  // Legacy toggle function - DEPRECATED
-  // This is kept for backwards compatibility but should NOT be used
-  // for production IAP flows. Use requestUpgrade + completePurchase instead.
-  const toggleProStatus = useCallback(async () => {
-    console.warn("toggleProStatus is deprecated. Use requestUpgrade() for upgrade flow.");
-    
-    if (!user) return;
+  /**
+   * Restore purchases — REQUIRED for iOS App Store review
+   */
+  const restorePurchases = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
 
+    try {
+      const restored = await restoreBilling();
+      if (restored) {
+        setIsPro(true);
+        setLocalProStatus(true);
+        await supabase
+          .from("user_profiles")
+          .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
+      }
+      return restored;
+    } catch (error) {
+      console.error("Error restoring purchases:", error);
+      return false;
+    }
+  }, [user]);
+
+  // Legacy toggle — kept for dev testing only
+  const toggleProStatus = useCallback(async () => {
+    if (!user) return;
     try {
       const newStatus = !isPro;
       const { error } = await supabase
         .from("user_profiles")
         .upsert({ user_id: user.id, is_pro: newStatus }, { onConflict: "user_id" });
-
       if (error) {
         console.error("Error toggling pro status:", error);
         return;
       }
-
       setIsPro(newStatus);
+      setLocalProStatus(newStatus);
     } catch (error) {
       console.error("Error in toggleProStatus:", error);
     }
@@ -164,12 +150,10 @@ export function useProStatus() {
   return { 
     isPro, 
     loading, 
-    // New IAP-compliant methods
     requestUpgrade,
     restorePurchases,
     completePurchase,
     refetch: fetchProStatus,
-    // Legacy method - kept for compatibility
     toggleProStatus,
   };
 }
