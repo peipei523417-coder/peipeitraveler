@@ -24,6 +24,7 @@ import { History, Plane, Plus, Crown, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePro } from "@/contexts/ProContext";
+import { LoginDialog } from "@/components/LoginDialog";
 
 // Free tier limits
 const FREE_PROJECT_LIMIT = 1;
@@ -47,6 +48,7 @@ export default function Index() {
   const [shareProject, setShareProject] = useState<TravelProject | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [upgradeDialogType, setUpgradeDialogType] = useState<"project" | "day">("project");
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
 
   // SWR pattern: show cache instantly, revalidate in background
   useEffect(() => {
@@ -238,6 +240,36 @@ export default function Index() {
   };
 
   const hasMoreProjects = allProjects.length > 6;
+
+  // Auth loading state
+  if (authLoading) {
+    return <PageSkeleton variant="index" />;
+  }
+
+  // Require authentication - show login screen if not signed in
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#F2F2F2] flex flex-col items-center justify-center px-6">
+        <div className="text-center max-w-md">
+          <Plane className="w-16 h-16 text-primary mx-auto mb-6" />
+          <h1 className="text-2xl font-bold text-foreground mb-3">
+            {t("myProjects")}
+          </h1>
+          <p className="text-muted-foreground mb-8">
+            登入以建立和管理你的旅遊計畫，資料將安全同步到所有裝置。
+          </p>
+          <Button
+            size="lg"
+            className="gap-2 rounded-xl w-full max-w-xs"
+            onClick={() => setLoginDialogOpen(true)}
+          >
+            Google 登入開始使用
+          </Button>
+        </div>
+        <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
+      </div>
+    );
+  }
 
   // Show skeleton instead of blank screen or blocking loader
   if (loading && !isLoaded) {

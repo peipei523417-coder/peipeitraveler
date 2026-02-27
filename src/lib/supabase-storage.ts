@@ -60,12 +60,12 @@ export async function getProjects(): Promise<TravelProject[]> {
     .select("*")
     .order("start_date", { ascending: true });
   
-  // If user is logged in, only show their own projects
+  // Strict isolation: only show projects owned by the current user
   if (user) {
     query = query.eq("user_id", user.id);
   } else {
-    // For anonymous users, show legacy projects (user_id is null)
-    query = query.is("user_id", null);
+    // Not authenticated - return empty
+    return [];
   }
   
   const { data: projects, error } = await query;
