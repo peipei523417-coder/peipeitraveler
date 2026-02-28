@@ -22,8 +22,14 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const handleOAuthLogin = async (provider: "google" | "apple") => {
     setLoading(provider);
     try {
+      // Use deep link scheme on native Android/iOS, web URL otherwise
+      const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+      const redirectUri = isNative
+        ? "com.peitravel.smartplanner://oauth-callback"
+        : window.location.origin;
+
       const { error, redirected } = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: window.location.origin,
+        redirect_uri: redirectUri,
       });
 
       if (redirected) {
