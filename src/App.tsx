@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProProvider } from "@/contexts/ProContext";
 import { LoadingProvider, useLoading } from "@/contexts/LoadingContext";
@@ -20,21 +20,48 @@ import "@fontsource/nunito/700.css";
 
 const queryClient = new QueryClient();
 
+function DeepLinkHandler() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleDeepLink = (event: any) => {
+      const url = event?.url || "";
+      // Handle share deep links: https://peipeigotravel.lovable.app/share/:code
+      const shareMatch = url.match(/\/share\/([^?#]+)/);
+      if (shareMatch) {
+        navigate(`/share/${shareMatch[1]}`);
+        return;
+      }
+      // Handle OAuth callback (Capacitor handles session automatically)
+    };
+
+    // Listen for Capacitor App URL open events
+    const setupListener = async () => {
+      try {
+        const { App: CapApp } = await import("@capacitor/app");
+        CapApp.addListener("appUrlOpen", handleDeepLink);
+      } catch {
+        // Not on native platform, skip
+      }
+    };
+    setupListener();
+  }, [navigate]);
+
+  return null;
+}
+
 function AppContent() {
   const { hasInitiallyLoaded, markAsLoaded } = useLoading();
   const [showInitialLoader, setShowInitialLoader] = useState(!hasInitiallyLoaded);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // If already loaded before, skip the loader entirely
     if (hasInitiallyLoaded) {
       setShowInitialLoader(false);
       setIsReady(true);
       return;
     }
 
-    // Simulate minimal app initialization (fonts, etc.)
-    // The actual data loading happens in each page
     const timer = setTimeout(() => {
       setIsReady(true);
     }, 100);
@@ -58,6 +85,7 @@ function AppContent() {
 
   return (
     <BrowserRouter>
+      <DeepLinkHandler />
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/project/:id" element={<ProjectDetail />} />
