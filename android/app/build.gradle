@@ -28,6 +28,9 @@ android {
     }
 
     configurations.all {
+        resolutionStrategy {
+            force 'androidx.browser:browser:1.8.0'
+        }
         resolutionStrategy.eachDependency { DependencyResolveDetails details ->
             if (details.requested.group == 'androidx.core' || details.requested.group == 'androidx.activity') {
                 details.useVersion details.requested.version
