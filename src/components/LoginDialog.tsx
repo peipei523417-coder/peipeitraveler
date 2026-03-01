@@ -2,13 +2,13 @@ import { useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface LoginDialogProps {
@@ -22,27 +22,51 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const handleOAuthLogin = async (provider: "google" | "apple") => {
     setLoading(provider);
     try {
-      // Use deep link scheme on native Android/iOS, web URL otherwise
       const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
-      const redirectUri = isNative
-        ? "com.peitravel.smartplanner://oauth-callback"
-        : window.location.origin;
 
-      const { error, redirected } = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: redirectUri,
-      });
+      if (isNative) {
+        // Native: use Supabase OAuth with skipBrowserRedirect to get the URL,
+        // then open it in an external browser (Chrome Custom Tabs on Android).
+        // This ensures the custom scheme deep link can trigger the Android intent.
+        const redirectTo = "com.peitravel.smartplanner://oauth-callback";
 
-      if (redirected) {
-        return; // Page is redirecting
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            skipBrowserRedirect: true,
+            redirectTo,
+          },
+        });
+
+        if (error) {
+          toast.error(`登入失敗：${error.message}`);
+          return;
+        }
+
+        if (data?.url) {
+          const { Browser } = await import("@capacitor/browser");
+          await Browser.open({ url: data.url, windowName: "_self" });
+          // Browser will open externally → user authenticates → redirect to custom scheme
+          // → Android intent fires → DeepLinkHandler receives tokens → setSession()
+          // Close the dialog since we're waiting for the deep link callback
+          onOpenChange(false);
+        }
+      } else {
+        // Web: use Lovable Cloud OAuth (redirects within browser)
+        const { error, redirected } = await lovable.auth.signInWithOAuth(provider, {
+          redirect_uri: window.location.origin,
+        });
+
+        if (redirected) return;
+
+        if (error) {
+          toast.error(`登入失敗：${error.message}`);
+          return;
+        }
+
+        toast.success("登入成功！");
+        onOpenChange(false);
       }
-
-      if (error) {
-        toast.error(`登入失敗：${error.message}`);
-        return;
-      }
-
-      toast.success("登入成功！");
-      onOpenChange(false);
     } catch (err) {
       console.error("OAuth error:", err);
       toast.error("登入時發生錯誤");
