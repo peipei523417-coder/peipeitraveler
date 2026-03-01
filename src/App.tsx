@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,13 +27,39 @@ function DeepLinkHandler() {
   useEffect(() => {
     const handleDeepLink = (event: any) => {
       const url = event?.url || "";
+
       // Handle share deep links: https://peipeigotravel.lovable.app/share/:code
       const shareMatch = url.match(/\/share\/([^?#]+)/);
       if (shareMatch) {
         navigate(`/share/${shareMatch[1]}`);
         return;
       }
-      // Handle OAuth callback (Capacitor handles session automatically)
+
+      // Handle OAuth callback — extract tokens from URL fragment and set session
+      if (url.includes("oauth-callback") || url.includes("access_token")) {
+        try {
+          const hashPart = url.split("#")[1];
+          if (hashPart) {
+            const params = new URLSearchParams(hashPart);
+            const accessToken = params.get("access_token");
+            const refreshToken = params.get("refresh_token");
+            if (accessToken && refreshToken) {
+              supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              }).then(() => {
+                navigate("/", { replace: true });
+              });
+              return;
+            }
+          }
+        } catch (e) {
+          console.error("OAuth deep link error:", e);
+        }
+        // Even without tokens, navigate home to avoid 404
+        navigate("/", { replace: true });
+        return;
+      }
     };
 
     // Listen for Capacitor App URL open events
