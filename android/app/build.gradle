@@ -59,6 +59,8 @@ dependencies {
     implementation project(':capacitor-android')
     // Google Play Billing — direct store connection, no third-party SDK
     implementation "com.android.billingclient:billing:7.1.1"
+    // Pin androidx.browser to a version compatible with compileSdk 35
+    implementation "androidx.browser:browser:1.8.0"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
