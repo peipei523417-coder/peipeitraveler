@@ -37,6 +37,11 @@ function DeepLinkHandler() {
 
       // Handle OAuth callback — extract tokens from URL fragment and set session
       if (url.includes("oauth-callback") || url.includes("access_token")) {
+        // Close the external browser (Chrome Custom Tabs) that was used for OAuth
+        import("@capacitor/browser")
+          .then(({ Browser }) => Browser.close())
+          .catch(() => {}); // Ignore if not available
+
         try {
           const hashPart = url.split("#")[1];
           if (hashPart) {
