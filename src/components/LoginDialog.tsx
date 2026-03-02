@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
-import { supabase } from "@/integrations/supabase/client";
+// supabase import kept for potential future use
 import { toast } from "sonner";
 
 interface LoginDialogProps {
@@ -25,32 +25,17 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
 
       if (isNative) {
-        // Native: use Supabase OAuth with skipBrowserRedirect to get the URL,
-        // then open it in an external browser (Chrome Custom Tabs on Android).
-        // This ensures the custom scheme deep link can trigger the Android intent.
-        const redirectTo = "com.peitravel.smartplanner://oauth-callback";
+        // Native: open the production relay page in the system browser.
+        // The relay page initiates Lovable Cloud OAuth (which manages Google/Apple
+        // credentials via its proxy), then redirects tokens back to the app
+        // via the custom scheme deep link.
+        const relayUrl = `https://peipeigotravel.lovable.app/native-oauth?provider=${provider}`;
 
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider,
-          options: {
-            skipBrowserRedirect: true,
-            redirectTo,
-          },
-        });
-
-        if (error) {
-          toast.error(`登入失敗：${error.message}`);
-          return;
-        }
-
-        if (data?.url) {
-          const { Browser } = await import("@capacitor/browser");
-          await Browser.open({ url: data.url, windowName: "_self" });
-          // Browser will open externally → user authenticates → redirect to custom scheme
-          // → Android intent fires → DeepLinkHandler receives tokens → setSession()
-          // Close the dialog since we're waiting for the deep link callback
-          onOpenChange(false);
-        }
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: relayUrl, windowName: "_self" });
+        // Browser opens → relay page does Lovable Cloud OAuth → redirect to custom scheme
+        // → Android/iOS intent fires → DeepLinkHandler receives tokens → setSession()
+        onOpenChange(false);
       } else {
         // Web: use Lovable Cloud OAuth (redirects within browser)
         const { error, redirected } = await lovable.auth.signInWithOAuth(provider, {

@@ -14,6 +14,7 @@ import Index from "./pages/Index";
 import ProjectDetail from "./pages/ProjectDetail";
 import SharePage from "./pages/SharePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import NativeOAuth from "./pages/NativeOAuth";
 import NotFound from "./pages/NotFound";
 import "@fontsource/nunito/400.css";
 import "@fontsource/nunito/600.css";
@@ -122,6 +123,7 @@ function AppContent() {
         <Route path="/" element={<Index />} />
         <Route path="/project/:id" element={<ProjectDetail />} />
         <Route path="/share/:shareCode" element={<SharePage />} />
+        <Route path="/native-oauth" element={<NativeOAuth />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
