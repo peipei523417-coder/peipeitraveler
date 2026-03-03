@@ -1,0 +1,9 @@
+-- Add performance indexes on user_id and project_id
+CREATE INDEX IF NOT EXISTS idx_travel_projects_user_id ON public.travel_projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_itinerary_items_project_id ON public.itinerary_items(project_id);
+CREATE INDEX IF NOT EXISTS idx_itinerary_items_user_id ON public.itinerary_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_share_links_share_code ON public.share_links(share_code);
+CREATE INDEX IF NOT EXISTS idx_share_links_project_id ON public.share_links(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_collaborators_project_id ON public.project_collaborators(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_collaborators_email ON public.project_collaborators(email);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON public.user_profiles(user_id);
