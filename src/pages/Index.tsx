@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { TravelProject, ProjectFormData } from "@/types/travel";
@@ -19,8 +19,9 @@ import { AuthButton } from "@/components/AuthButton";
 import { UpgradeProDialog } from "@/components/UpgradeProDialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { PageSkeleton } from "@/components/PageSkeleton";
+import { ProjectActionSheet } from "@/components/ProjectActionSheet";
 import { Button } from "@/components/ui/button";
-import { History, Plane, Plus, Crown, Zap } from "lucide-react";
+import { Plane, Plus, Crown, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePro } from "@/contexts/ProContext";
@@ -29,6 +30,7 @@ import { LoginDialog } from "@/components/LoginDialog";
 // Free tier limits
 const FREE_PROJECT_LIMIT = 1;
 const FREE_DAY_LIMIT = 3;
+const PRO_PROJECT_LIMIT = 100;
 
 export default function Index() {
   const navigate = useNavigate();
@@ -38,9 +40,7 @@ export default function Index() {
   const { projects: cachedProjects, isLoaded, loadProjects, invalidateCache } = useProjectCache();
   
   const [projects, setProjects] = useState<TravelProject[]>([]);
-  const [allProjects, setAllProjects] = useState<TravelProject[]>([]);
   const [loading, setLoading] = useState(!isLoaded);
-  const [showAll, setShowAll] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<TravelProject | null>(null);
@@ -49,26 +49,27 @@ export default function Index() {
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [upgradeDialogType, setUpgradeDialogType] = useState<"project" | "day">("project");
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  
+  // Long-press state for mobile
+  const [actionSheetProject, setActionSheetProject] = useState<TravelProject | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   // SWR pattern: show cache instantly, revalidate in background
   useEffect(() => {
     if (isLoaded) {
-      // Instant display from cache - zero delay
-      setAllProjects(cachedProjects);
-      setProjects(showAll ? cachedProjects : cachedProjects.slice(0, 6));
+      setProjects(cachedProjects);
       setLoading(false);
       
-      // Background revalidate (don't block UI)
       if (!authLoading) {
         loadProjects().then(fresh => {
-          setAllProjects(fresh);
-          setProjects(showAll ? fresh : fresh.slice(0, 6));
+          setProjects(fresh);
         }).catch(() => {});
       }
     } else if (!authLoading) {
       loadProjectsFromCache();
     }
-  }, [showAll, authLoading, isLoaded]);
+  }, [authLoading, isLoaded]);
 
   // Invalidate cache when user identity changes
   const prevUserRef = useRef(user?.id);
@@ -83,8 +84,7 @@ export default function Index() {
     setLoading(true);
     try {
       const all = await loadProjects();
-      setAllProjects(all);
-      setProjects(showAll ? all : all.slice(0, 6));
+      setProjects(all);
     } catch (error) {
       console.error("Error loading projects:", error);
       toast.error(t("error"));
@@ -99,8 +99,8 @@ export default function Index() {
   };
 
   const handleCreateProjectClick = () => {
-    // Check free tier limit
-    if (!isPro && allProjects.length >= FREE_PROJECT_LIMIT) {
+    const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
+    if (projects.length >= limit) {
       setUpgradeDialogType("project");
       setUpgradeDialogOpen(true);
       return;
@@ -109,14 +109,13 @@ export default function Index() {
   };
 
   const handleCreateProject = async (data: ProjectFormData, coverFile?: File) => {
-    // Double-check free tier limit
-    if (!isPro && allProjects.length >= FREE_PROJECT_LIMIT) {
+    const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
+    if (projects.length >= limit) {
       setUpgradeDialogType("project");
       setUpgradeDialogOpen(true);
       return;
     }
 
-    // Check day limit for free tier
     const startDate = new Date(data.startDate);
     const endDate = new Date(data.endDate);
     const dayCount = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -141,7 +140,6 @@ export default function Index() {
         return;
       }
       
-      // Upload cover if provided
       if (coverFile) {
         const imageUrl = await uploadProjectImage(project.id, coverFile);
         if (imageUrl) {
@@ -163,7 +161,6 @@ export default function Index() {
     try {
       let coverImageUrl = data.coverImageUrl;
       
-      // Upload new cover if provided
       if (coverFile) {
         const newUrl = await uploadProjectImage(editingProject.id, coverFile);
         if (newUrl) {
@@ -179,7 +176,6 @@ export default function Index() {
         isPublic: data.isPublic,
       });
 
-      // Update password if public and password provided
       if (data.isPublic && data.editPassword) {
         const { updateProjectSharing } = await import("@/lib/supabase-storage");
         await updateProjectSharing(editingProject.id, data.isPublic, data.editPassword);
@@ -210,7 +206,6 @@ export default function Index() {
   };
 
   const handleDuplicateProject = async (project: TravelProject) => {
-    // PRO paywall for duplicate
     if (!isPro) {
       setUpgradeDialogType("project");
       setUpgradeDialogOpen(true);
@@ -236,17 +231,45 @@ export default function Index() {
   };
 
   const handleProjectClick = (project: TravelProject) => {
+    // Prevent navigation if long-press was triggered
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
     navigate(`/project/${project.id}`);
   };
 
-  const hasMoreProjects = allProjects.length > 6;
+  // Long-press handlers for mobile
+  const handleTouchStart = useCallback((project: TravelProject) => {
+    longPressTriggeredRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      setActionSheetProject(project);
+      // Haptic feedback if available
+      if (navigator.vibrate) navigator.vibrate(50);
+    }, 500);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
 
   // Auth loading state
   if (authLoading) {
     return <PageSkeleton variant="index" />;
   }
 
-  // Require authentication - show login screen if not signed in
+  // Require authentication
   if (!user) {
     return (
       <div className="min-h-screen bg-[#F2F2F2] flex flex-col items-center justify-center px-6">
@@ -268,24 +291,22 @@ export default function Index() {
     );
   }
 
-  // Show skeleton instead of blank screen or blocking loader
+  // Show skeleton while loading
   if (loading && !isLoaded) {
     return <PageSkeleton variant="index" />;
   }
 
   return (
     <div className="min-h-screen bg-[#F2F2F2]">
-      {/* Premium Header with Light Sky Blue */}
+      {/* Header */}
       <header 
         className="relative overflow-hidden"
         style={{
           background: `linear-gradient(135deg, #E8F4FC 0%, #D6EBF8 50%, #C4E2F4 100%)`,
         }}
       >
-        {/* Header Content */}
         <div className="relative z-10 container max-w-6xl px-6 py-5">
           <div className="flex items-center justify-between">
-            {/* Left: Brand - Black Bold Text */}
             <h1 
               className="text-xl md:text-2xl font-bold text-foreground tracking-wide"
               style={{ fontFamily: "'Inter', 'Noto Sans TC', sans-serif" }}
@@ -293,12 +314,9 @@ export default function Index() {
               {t("myProjects")}
             </h1>
             
-            {/* Right: Language, PRO Toggle & Login */}
             <div className="flex items-center gap-2">
-              {/* Language Selector */}
               <LanguageSelector />
               
-              {/* PRO Toggle (for testing) */}
               {user && (
                 <Button
                   variant="outline"
@@ -318,11 +336,10 @@ export default function Index() {
           </div>
         </div>
         
-        {/* Bottom subtle border */}
         <div className="absolute bottom-0 left-0 right-0 h-px bg-sky-300/30" />
       </header>
 
-      {/* Clean White Canvas - Main Content */}
+      {/* Main Content - Scrollable */}
       <main className="container max-w-6xl px-6 py-12">
         {projects.length === 0 && !loading ? (
           <EmptyState
@@ -341,55 +358,68 @@ export default function Index() {
                   {t("myProjects")}
                 </h2>
                 <span className="text-sm text-muted-foreground font-normal">
-                  ({showAll ? allProjects.length : Math.min(projects.length, 6)})
+                  ({projects.length})
                 </span>
               </div>
               
               <div className="flex items-center gap-2">
-                {hasMoreProjects && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowAll(!showAll)}
-                    className="gap-2 text-muted-foreground hover:text-foreground"
-                  >
-                    <History className="w-4 h-4" />
-                    {showAll ? t("back") : t("myProjects")}
-                  </Button>
-                )}
                 <Button
                   onClick={handleCreateProjectClick}
                   className="gap-2 rounded-xl"
                 >
                   <Plus className="w-4 h-4" />
                   {t("newProject")}
-                  {!isPro && allProjects.length >= FREE_PROJECT_LIMIT && (
+                  {!isPro && projects.length >= FREE_PROJECT_LIMIT && (
                     <Crown className="w-3 h-3 text-amber-300" />
                   )}
                 </Button>
               </div>
             </div>
 
-            {/* Project Grid */}
+            {/* Project Grid - Scrollable, no limit */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {projects.map((project) => (
-                <ProjectCard
+                <div
                   key={project.id}
-                  project={project}
-                  onClick={handleProjectClick}
-                  onEdit={(p) => setEditingProject(p)}
-                  onDelete={(p) => {
-                    setDeletingProject(p);
-                    setDeleteDialogOpen(true);
+                  onTouchStart={() => handleTouchStart(project)}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchMove={handleTouchMove}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setActionSheetProject(project);
                   }}
-                  onDuplicate={handleDuplicateProject}
-                  onShare={handleShareProject}
-                />
+                >
+                  <ProjectCard
+                    project={project}
+                    onClick={handleProjectClick}
+                    onEdit={(p) => setEditingProject(p)}
+                    onDelete={(p) => {
+                      setDeletingProject(p);
+                      setDeleteDialogOpen(true);
+                    }}
+                    onDuplicate={handleDuplicateProject}
+                    onShare={handleShareProject}
+                  />
+                </div>
               ))}
             </div>
           </>
         )}
       </main>
+
+      {/* Long-press Action Sheet (mobile) */}
+      <ProjectActionSheet
+        project={actionSheetProject}
+        open={!!actionSheetProject}
+        onOpenChange={(open) => !open && setActionSheetProject(null)}
+        onShare={handleShareProject}
+        onDuplicate={handleDuplicateProject}
+        onEdit={(p) => setEditingProject(p)}
+        onDelete={(p) => {
+          setDeletingProject(p);
+          setDeleteDialogOpen(true);
+        }}
+      />
 
       {/* Dialogs */}
       <ProjectDialog
@@ -426,12 +456,10 @@ export default function Index() {
         onOpenChange={(open) => !open && setShareProject(null)}
         project={shareProject}
         onProjectUpdate={(updated) => {
-          // Reload projects to sync status icons
           refreshProjects();
         }}
       />
 
-      {/* Upgrade PRO Dialog */}
       <UpgradeProDialog
         open={upgradeDialogOpen}
         onOpenChange={setUpgradeDialogOpen}

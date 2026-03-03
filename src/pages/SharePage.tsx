@@ -161,35 +161,74 @@ export default function SharePage() {
     setError(null);
 
     try {
-      // Use the public view which only returns public projects
-      const { data: projectData, error: fetchError } = await supabase
-        .from("public_travel_projects")
-        .select("id, name, start_date, end_date, cover_image_url, is_public, has_edit_password, created_at, updated_at")
-        .eq("id", shareCode)
-        .single();
+      // First try: use share_code to look up via RPC function
+      const { data: sharedData, error: sharedError } = await supabase
+        .rpc("get_shared_project_by_code", { p_share_code: shareCode });
 
-      if (fetchError || !projectData) {
+      let projectId: string | null = null;
+      let projectName: string | null = null;
+      let startDate: string | null = null;
+      let endDate: string | null = null;
+      let coverImageUrl: string | null = null;
+      let requiresPassword = false;
+
+      if (sharedData && sharedData.length > 0) {
+        // Found via share_links table
+        const row = sharedData[0];
+        projectId = row.project_id;
+        projectName = row.project_name;
+        startDate = row.start_date;
+        endDate = row.end_date;
+        coverImageUrl = row.cover_image_url;
+        requiresPassword = row.requires_password;
+      } else {
+        // Fallback: try shareCode as direct project ID (for public projects shared by ID)
+        const { data: publicData } = await supabase
+          .from("public_travel_projects")
+          .select("id, name, start_date, end_date, cover_image_url, is_public, has_edit_password, created_at, updated_at")
+          .eq("id", shareCode)
+          .maybeSingle();
+
+        if (!publicData || !publicData.is_public) {
+          setError(t("privateTrip"));
+          setLoading(false);
+          return;
+        }
+
+        projectId = publicData.id;
+        projectName = publicData.name;
+        startDate = publicData.start_date;
+        endDate = publicData.end_date;
+        coverImageUrl = publicData.cover_image_url;
+        requiresPassword = publicData.has_edit_password || false;
+      }
+
+      if (!projectId) {
         setError(t("privateTrip"));
         setLoading(false);
         return;
       }
 
-      // Check if project is private
-      if (!projectData.is_public) {
-        setError(t("privateTrip"));
-        setLoading(false);
-        return;
-      }
+      setHasEditPassword(requiresPassword);
 
-      setHasEditPassword(projectData.has_edit_password || false);
-
-      // Fetch itinerary items from public view
+      // Fetch itinerary items from public view using the resolved project ID
       const { data: items } = await supabase
         .from("public_itinerary_items")
         .select("*")
-        .eq("project_id", shareCode);
+        .eq("project_id", projectId);
 
-      const loadedProject = dbRowToProject(projectData, items || []);
+      const projectRow = {
+        id: projectId,
+        name: projectName,
+        start_date: startDate,
+        end_date: endDate,
+        cover_image_url: coverImageUrl,
+        is_public: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const loadedProject = dbRowToProject(projectRow, items || []);
       setProject(loadedProject);
     } catch {
       setError(t("privateTrip"));
