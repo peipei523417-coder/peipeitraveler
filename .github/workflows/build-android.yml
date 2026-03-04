@@ -26,8 +26,35 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Debug repository structure
+        run: |
+          echo "=== pwd ==="
+          pwd
+          echo "=== ls root ==="
+          ls -la
+          echo "=== package.json location ==="
+          find . -name "package.json" -not -path "*/node_modules/*" | head -20
+          echo "=== index.html location ==="
+          find . -name "index.html" -not -path "*/node_modules/*" -not -path "*/android/*" | head -20
+          echo "=== main.tsx location ==="
+          find . -name "main.tsx" -not -path "*/node_modules/*" | head -20
+          echo "=== vite.config location ==="
+          find . -name "vite.config.*" -not -path "*/node_modules/*" | head -20
+          echo "=== src/ exists? ==="
+          ls -la src/ 2>/dev/null || echo "NO src/ in root!"
+          echo "=== index.html content ==="
+          cat index.html 2>/dev/null || echo "NO index.html in root!"
+          echo "=== package.json build script ==="
+          grep -A2 '"build"' package.json 2>/dev/null || echo "NO package.json in root!"
+
       - name: Build web assets (Vite production build)
         run: |
+          echo "=== pwd before build ==="
+          pwd
+          echo "=== Confirming index.html, src/, vite.config.ts exist ==="
+          test -f index.html && echo "✅ index.html" || echo "❌ index.html MISSING"
+          test -d src && echo "✅ src/" || echo "❌ src/ MISSING"
+          test -f vite.config.ts && echo "✅ vite.config.ts" || echo "❌ vite.config.ts MISSING"
           echo "=== Running Vite production build ==="
           npx vite build
           echo "=== Vite build complete ==="
