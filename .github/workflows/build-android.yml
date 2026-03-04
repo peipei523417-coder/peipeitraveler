@@ -33,15 +33,38 @@ jobs:
           echo "=== Checking dist/ contents ==="
           ls -la dist/
           test -f dist/index.html && echo "✅ index.html exists" || (echo "❌ index.html missing!" && exit 1)
+          echo "=== dist/assets/ ==="
+          ls -la dist/assets/ || echo "No assets dir"
 
       - name: Sync Capacitor Android
-        run: npx cap sync android
-
-      - name: Verify embedded assets
         run: |
-          echo "=== Checking Android assets ==="
+          echo "=== Running npx cap sync android ==="
+          npx cap sync android
+          echo "=== Sync complete ==="
+
+      - name: Verify embedded assets (MUST EXIST)
+        run: |
+          echo "=== Checking Android embedded assets ==="
+          if [ ! -d "android/app/src/main/assets/public" ]; then
+            echo "❌ FATAL: android/app/src/main/assets/public/ does NOT exist!"
+            echo "npx cap sync failed to copy web assets."
+            exit 1
+          fi
           ls -la android/app/src/main/assets/public/
-          test -f android/app/src/main/assets/public/index.html && echo "✅ Embedded assets OK" || (echo "❌ Assets missing!" && exit 1)
+          test -f android/app/src/main/assets/public/index.html && echo "✅ index.html embedded" || (echo "❌ index.html missing in assets!" && exit 1)
+          echo "=== Checking capacitor.config.json ==="
+          test -f android/app/src/main/assets/capacitor.config.json && echo "✅ capacitor.config.json exists" || (echo "❌ capacitor.config.json missing!" && exit 1)
+          cat android/app/src/main/assets/capacitor.config.json
+          echo ""
+          echo "=== Verifying NO server.url in config ==="
+          if grep -q '"url"' android/app/src/main/assets/capacitor.config.json; then
+            echo "❌ FATAL: server.url found in capacitor.config.json! App will load remote URL!"
+            cat android/app/src/main/assets/capacitor.config.json
+            exit 1
+          fi
+          echo "✅ No server.url — app will load from capacitor://localhost"
+          echo "=== Checking capacitor-cordova-android-plugins ==="
+          ls -la android/capacitor-cordova-android-plugins/ || echo "⚠️ cordova plugins dir missing"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -67,8 +90,8 @@ jobs:
           grep -n "versionCode" android/app/build.gradle
           grep -n "versionName" android/app/build.gradle
           echo "App ID: com.peitravel.smartplanner"
-          echo "Version Code: 19"
-          echo "Version Name: 1.0.19"
+          echo "Version Code: 20"
+          echo "Version Name: 1.0.20"
 
       - name: Build release AAB
         working-directory: android
@@ -89,6 +112,6 @@ jobs:
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-v1.0.19-signed
+          name: app-release-v1.0.20-signed
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}
           retention-days: 7
