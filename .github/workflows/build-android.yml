@@ -22,19 +22,40 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build web assets
-        run: npm run build
+      - name: Build web assets (Vite production build)
+        run: |
+          echo "=== Running Vite production build ==="
+          npx vite build
+          echo "=== Vite build complete ==="
         env:
+          NODE_ENV: production
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
-      - name: Verify dist output
+      - name: Verify dist output (MUST be full production build)
         run: |
           echo "=== Checking dist/ contents ==="
           ls -la dist/
           test -f dist/index.html && echo "✅ index.html exists" || (echo "❌ index.html missing!" && exit 1)
           echo "=== dist/assets/ ==="
           ls -la dist/assets/ || echo "No assets dir"
+          echo "=== dist total size ==="
+          DIST_SIZE=$(du -sk dist/ | cut -f1)
+          echo "dist/ size: ${DIST_SIZE}KB"
+          if [ "$DIST_SIZE" -lt 500 ]; then
+            echo "❌ FATAL: dist/ is only ${DIST_SIZE}KB — this is NOT a full production build!"
+            echo "Expected at least 500KB+ with JS/CSS bundles."
+            exit 1
+          fi
+          echo "✅ dist/ size looks correct: ${DIST_SIZE}KB"
+          echo "=== JS bundle count ==="
+          JS_COUNT=$(find dist/assets -name "*.js" 2>/dev/null | wc -l)
+          echo "JS files: $JS_COUNT"
+          if [ "$JS_COUNT" -lt 1 ]; then
+            echo "❌ FATAL: No JS bundles found in dist/assets/"
+            exit 1
+          fi
+          echo "✅ JS bundles present"
 
       - name: Sync Capacitor Android
         run: |
