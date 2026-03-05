@@ -31,7 +31,7 @@ import { Switch } from "@/components/ui/switch";
 interface ItineraryItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (item: Omit<ItineraryItem, "id">) => void;
+  onSubmit: (item: Omit<ItineraryItem, "id">, imageFile?: File) => void;
   initialData?: ItineraryItem;
   mode: "create" | "edit";
   suggestedStartTime?: string;
@@ -54,6 +54,7 @@ export function ItineraryItemDialog({
   const [description, setDescription] = useState(initialData?.description || "");
   const [googleMapsUrl, setGoogleMapsUrl] = useState(initialData?.googleMapsUrl || "");
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [highlightColor, setHighlightColor] = useState<HighlightColor>(
     initialData?.highlightColor || "none"
   );
@@ -142,16 +143,19 @@ export function ItineraryItemDialog({
     const priceNum = parseInt(price, 10);
     const personsNum = parseInt(persons, 10) || 1;
     
+    // If there's a new file, pass it along; don't store base64/blob URL in imageUrl
+    const itemImageUrl = imageFile ? undefined : (imageUrl.trim() || undefined);
+    
     onSubmit({
       startTime: useTime ? startTime : "",
       endTime: useTime ? endTime : "",
       description: description.trim(),
       googleMapsUrl: googleMapsUrl.trim() || undefined,
-      imageUrl: imageUrl.trim() || undefined,
+      imageUrl: itemImageUrl,
       highlightColor: highlightColor,
       price: !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
       persons: personsNum > 0 ? personsNum : 1,
-    });
+    }, imageFile || undefined);
     
     // Reset form
     setUseTime(false);
@@ -160,6 +164,7 @@ export function ItineraryItemDialog({
     setDescription("");
     setGoogleMapsUrl("");
     setImageUrl("");
+    setImageFile(null);
     setHighlightColor("none");
     setPrice("");
     setPersons("1");
@@ -170,11 +175,11 @@ export function ItineraryItemDialog({
     const file = e.target.files?.[0];
     if (!file) return;
     
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImageUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    // Store the File object for later upload to Storage
+    setImageFile(file);
+    // Create a local preview URL (not stored in DB)
+    const previewUrl = URL.createObjectURL(file);
+    setImageUrl(previewUrl);
   };
 
   return (

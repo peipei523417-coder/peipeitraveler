@@ -7,7 +7,8 @@ import {
   addItineraryItem, 
   updateItineraryItem, 
   deleteItineraryItem,
-  updateItineraryItemIcon
+  updateItineraryItemIcon,
+  uploadProjectImage
 } from "@/lib/supabase-storage";
 import { useProjectCache } from "@/contexts/ProjectCacheContext";
 import { Button } from "@/components/ui/button";
@@ -107,14 +108,23 @@ export default function ProjectDetail() {
     setLoading(false);
   };
 
-  const handleAddItem = async (item: Omit<ItineraryItem, "id">) => {
+  const handleAddItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project) return;
     
     isLocalUpdateRef.current = true;
     
+    // Upload image to Storage if a file was provided
+    let finalItem = { ...item };
+    if (imageFile) {
+      const storagePath = await uploadProjectImage(project.id, imageFile);
+      if (storagePath) {
+        finalItem.imageUrl = storagePath;
+      }
+    }
+    
     // Optimistic UI: add item to state immediately with a temp ID
     const tempId = `temp-${Date.now()}`;
-    const optimisticItem: ItineraryItem = { ...item, id: tempId } as ItineraryItem;
+    const optimisticItem: ItineraryItem = { ...finalItem, id: tempId } as ItineraryItem;
     const optimisticProject = {
       ...project,
       itinerary: project.itinerary.map(day =>
@@ -127,7 +137,7 @@ export default function ProjectDetail() {
     showSaveIndicator();
     
     // Background sync
-    const updated = await addItineraryItem(project.id, activeDay, item);
+    const updated = await addItineraryItem(project.id, activeDay, finalItem);
     if (updated) {
       setProject(updated);
       updateProjectInCache(updated);
@@ -136,10 +146,19 @@ export default function ProjectDetail() {
     setTimeout(() => { isLocalUpdateRef.current = false; }, 1000);
   };
 
-  const handleEditItem = async (item: Omit<ItineraryItem, "id">) => {
+  const handleEditItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project || !editingItem) return;
     
     isLocalUpdateRef.current = true;
+    
+    // Upload image to Storage if a file was provided
+    let finalItem = { ...item };
+    if (imageFile) {
+      const storagePath = await uploadProjectImage(project.id, imageFile);
+      if (storagePath) {
+        finalItem.imageUrl = storagePath;
+      }
+    }
     
     // Optimistic UI: update item in state immediately
     const optimisticProject = {
@@ -147,7 +166,7 @@ export default function ProjectDetail() {
       itinerary: project.itinerary.map(day => ({
         ...day,
         items: day.items.map(i =>
-          i.id === editingItem.id ? { ...i, ...item } : i
+          i.id === editingItem.id ? { ...i, ...finalItem } : i
         ),
       })),
     };
@@ -156,7 +175,7 @@ export default function ProjectDetail() {
     showSaveIndicator();
     
     // Background sync
-    const updated = await updateItineraryItem(project.id, editingItem.id, item);
+    const updated = await updateItineraryItem(project.id, editingItem.id, finalItem);
     if (updated) {
       setProject(updated);
       updateProjectInCache(updated);
