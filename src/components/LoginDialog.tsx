@@ -29,10 +29,14 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         // The relay page initiates Lovable Cloud OAuth (which manages Google/Apple
         // credentials via its proxy), then redirects tokens back to the app
         // via the custom scheme deep link.
-        const relayUrl = `https://peipeigotravel.lovable.app/native-oauth?provider=${provider}`;
+        // Use hash route so the published SPA (HashRouter) resolves correctly
+        const relayUrl = `https://peipeigotravel.lovable.app/#/native-oauth?provider=${provider}`;
 
         const { Browser } = await import("@capacitor/browser");
-        await Browser.open({ url: relayUrl, windowName: "_self" });
+        // CRITICAL: Do NOT use windowName: "_self" — that loads the URL inside
+        // the WebView, hijacking it to the remote domain. Default "_blank" opens
+        // Chrome Custom Tabs (Android) / SFSafariViewController (iOS) instead.
+        await Browser.open({ url: relayUrl });
         // Browser opens → relay page does Lovable Cloud OAuth → redirect to custom scheme
         // → Android/iOS intent fires → DeepLinkHandler receives tokens → setSession()
         onOpenChange(false);
