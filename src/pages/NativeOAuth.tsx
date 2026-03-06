@@ -32,6 +32,10 @@ export default function NativeOAuth() {
 
     const doAuth = async () => {
       try {
+        // Set flag BEFORE redirect so the published web app knows to bounce
+        // tokens back to the native app via custom scheme after OAuth completes.
+        localStorage.setItem('native_oauth_pending', '1');
+
         const result = await lovable.auth.signInWithOAuth(provider, {
           redirect_uri: window.location.origin,
         });
