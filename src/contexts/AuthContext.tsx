@@ -37,6 +37,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener BEFORE getting session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        // Native OAuth bounce: if this page is running in the external browser
+        // (Chrome Custom Tabs) after OAuth completed, redirect tokens back to
+        // the native app via custom scheme and stop further processing.
+        if (currentSession && localStorage.getItem('native_oauth_pending')) {
+          localStorage.removeItem('native_oauth_pending');
+          const NATIVE_SCHEME = 'com.peitravel.smartplanner';
+          const callbackUrl = `${NATIVE_SCHEME}://oauth-callback#access_token=${encodeURIComponent(currentSession.access_token)}&refresh_token=${encodeURIComponent(currentSession.refresh_token)}`;
+          window.location.href = callbackUrl;
+          return;
+        }
+
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);
