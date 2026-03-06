@@ -16,6 +16,22 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+/**
+ * Build a redirect URL that works in Chrome Custom Tabs (Android)
+ * and SFSafariViewController (iOS).
+ */
+function buildNativeBounceUrl(session: Session): string {
+  const NATIVE_SCHEME = "com.peitravel.smartplanner";
+  const NATIVE_PACKAGE = "com.peitravel.smartplanner";
+  const fragment = `access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}`;
+
+  const isAndroid = /android/i.test(navigator.userAgent);
+  if (isAndroid) {
+    return `intent://oauth-callback#${fragment}#Intent;scheme=${NATIVE_SCHEME};package=${NATIVE_PACKAGE};end`;
+  }
+  return `${NATIVE_SCHEME}://oauth-callback#${fragment}`;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Optimistic: check localStorage for existing session to avoid loading flash
   const hasStoredSession = (() => {
@@ -39,12 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (event, currentSession) => {
         // Native OAuth bounce: if this page is running in the external browser
         // (Chrome Custom Tabs) after OAuth completed, redirect tokens back to
-        // the native app via custom scheme and stop further processing.
+        // the native app via intent:// (Android) or custom scheme (iOS).
         if (currentSession && localStorage.getItem('native_oauth_pending')) {
           localStorage.removeItem('native_oauth_pending');
-          const NATIVE_SCHEME = 'com.peitravel.smartplanner';
-          const callbackUrl = `${NATIVE_SCHEME}://oauth-callback#access_token=${encodeURIComponent(currentSession.access_token)}&refresh_token=${encodeURIComponent(currentSession.refresh_token)}`;
-          window.location.href = callbackUrl;
+          const bounceUrl = buildNativeBounceUrl(currentSession);
+          window.location.href = bounceUrl;
           return;
         }
 
