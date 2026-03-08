@@ -38,16 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener BEFORE getting session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
-        // Native OAuth bounce: if this page is running in the external browser
-        // (Chrome Custom Tabs) after OAuth completed, redirect tokens back to
-        // the native app via intent:// (Android) or custom scheme (iOS).
-        if (currentSession && localStorage.getItem('native_oauth_pending')) {
-          localStorage.removeItem('native_oauth_pending');
-          const bounceUrl = buildNativeBounceUrl(currentSession);
-          window.location.href = bounceUrl;
-          return;
-        }
-
+        // NOTE: Native OAuth bounce is handled by NativeOAuth page, not here.
+        // This prevents bounce logic from running in the wrong context.
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);

@@ -26,7 +26,7 @@ function DeepLinkHandler() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleDeepLink = (event: any) => {
+    const handleDeepLink = async (event: any) => {
       const url = event?.url || "";
 
       // Handle share deep links: https://peipeigotravel.lovable.app/share/:code
