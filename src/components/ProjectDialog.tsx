@@ -386,7 +386,7 @@ export function ProjectDialog({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground pl-8">
-                {isPublic ? t("publicProjectHint") : t("privateDescription")}
+                {isPublic ? t("publicDescription") : t("privateDescription")}
               </p>
             </div>
           </div>
