@@ -44,20 +44,35 @@ function DeepLinkHandler() {
           .catch(() => {}); // Ignore if not available
 
         try {
-          const hashPart = url.split("#")[1];
-          if (hashPart) {
-            const params = new URLSearchParams(hashPart);
-            const accessToken = params.get("access_token");
-            const refreshToken = params.get("refresh_token");
-            if (accessToken && refreshToken) {
-              supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              }).then(() => {
-                navigate("/", { replace: true });
-              });
-              return;
+          // Parse tokens from URL - handle both hash fragment and intent:// format
+          let accessToken: string | null = null;
+          let refreshToken: string | null = null;
+          
+          // Try to extract from URL hash/fragment
+          const hashIndex = url.indexOf("#");
+          if (hashIndex !== -1) {
+            const hashPart = url.substring(hashIndex + 1);
+            // Handle intent:// format which may have multiple # characters
+            const tokenPart = hashPart.split("#")[0]; // Get first fragment (tokens)
+            const params = new URLSearchParams(tokenPart);
+            accessToken = params.get("access_token");
+            refreshToken = params.get("refresh_token");
+          }
+          
+          if (accessToken && refreshToken) {
+            console.log("Setting session from deep link tokens...");
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            
+            if (error) {
+              console.error("setSession error:", error);
+            } else {
+              console.log("Session set successfully!");
             }
+            navigate("/", { replace: true });
+            return;
           }
         } catch (e) {
           console.error("OAuth deep link error:", e);
