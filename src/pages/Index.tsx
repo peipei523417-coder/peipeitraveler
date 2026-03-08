@@ -27,10 +27,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePro } from "@/contexts/ProContext";
 import { LoginDialog } from "@/components/LoginDialog";
 
-// Free tier limits
+// Tier limits
 const FREE_PROJECT_LIMIT = 1;
 const FREE_DAY_LIMIT = 3;
-const PRO_PROJECT_LIMIT = 100;
+const PRO_PROJECT_LIMIT = 20;
+const PRO_DAY_LIMIT = 20;
 
 export default function Index() {
   const navigate = useNavigate();
