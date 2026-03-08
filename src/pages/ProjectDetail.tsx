@@ -12,7 +12,7 @@ import {
 } from "@/lib/supabase-storage";
 import { useProjectCache } from "@/contexts/ProjectCacheContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, MapPin } from "lucide-react";
+import { ArrowLeft, Check, MapPin, BookOpen } from "lucide-react";
 import { formatShortDate } from "@/i18n/date-utils";
 import { DayTabs } from "@/components/DayTabs";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { useSignedImageUrl } from "@/hooks/useSignedImageUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
+import { TripOverviewDialog } from "@/components/TripOverviewDialog";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +38,7 @@ export default function ProjectDetail() {
   const [saved, setSaved] = useState(false);
   const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
   const [daysRemaining, setDaysRemaining] = useState(0);
+  const [overviewOpen, setOverviewOpen] = useState(false);
   
   // Track if we're currently performing a local update to skip realtime reload
   const isLocalUpdateRef = useRef(false);
@@ -330,7 +332,17 @@ export default function ProjectDetail() {
                       ({t("totalBudget")}: ${totalBudget.toLocaleString()})
                     </p>
                   )}
-                </div>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setOverviewOpen(true)}
+              className="rounded-xl gap-1.5 text-xs flex-shrink-0"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              {t("tripOverview")}
+            </Button>
               </div>
             </div>
             
@@ -387,6 +399,13 @@ export default function ProjectDetail() {
         open={expiryWarningOpen}
         onOpenChange={setExpiryWarningOpen}
         daysRemaining={daysRemaining}
+      />
+
+      {/* Trip Overview */}
+      <TripOverviewDialog
+        open={overviewOpen}
+        onOpenChange={setOverviewOpen}
+        project={project}
       />
     </div>
   );
