@@ -8,25 +8,45 @@ const NATIVE_SCHEME = "com.peitravel.smartplanner";
 const NATIVE_PACKAGE = "com.peitravel.smartplanner";
 
 /**
- * Build a redirect URL that works in Chrome Custom Tabs (Android)
- * and SFSafariViewController (iOS).
+ * Build redirect URL(s) to bounce tokens back to the native app.
  *
- * Android Chrome Custom Tabs often block raw custom-scheme redirects
- * (`com.peitravel.smartplanner://...`). The `intent://` format is the
- * officially supported way to trigger an Android Intent from Chrome.
+ * Android: Use intent:// with S. (String) extras so tokens survive the
+ * intent parsing. MainActivity.java reconstructs the URL fragment before
+ * Capacitor processes it.
  *
- * iOS handles custom schemes directly, so we use the raw scheme there.
+ * iOS: Custom scheme with fragment works directly.
  */
-function buildNativeRedirectUrl(accessToken: string, refreshToken: string): string {
-  const fragment = `access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`;
+function buildNativeRedirectUrls(accessToken: string, refreshToken: string) {
+  const encodedAt = encodeURIComponent(accessToken);
+  const encodedRt = encodeURIComponent(refreshToken);
+  const fragment = `access_token=${encodedAt}&refresh_token=${encodedRt}`;
+
+  const customSchemeUrl = `${NATIVE_SCHEME}://oauth-callback#${fragment}`;
 
   const isAndroid = /android/i.test(navigator.userAgent);
   if (isAndroid) {
-    // intent://  format for Android Chrome Custom Tabs
-    return `intent://oauth-callback#${fragment}#Intent;scheme=${NATIVE_SCHEME};package=${NATIVE_PACKAGE};end`;
+    // intent:// with S. extras — tokens passed as intent string extras
+    const intentUrl = `intent://oauth-callback#Intent;scheme=${NATIVE_SCHEME};package=${NATIVE_PACKAGE};S.access_token=${encodedAt};S.refresh_token=${encodedRt};end`;
+    return { primary: intentUrl, fallback: customSchemeUrl };
   }
-  // iOS / fallback: raw custom scheme
-  return `${NATIVE_SCHEME}://oauth-callback#${fragment}`;
+
+  // iOS / fallback
+  return { primary: customSchemeUrl, fallback: customSchemeUrl };
+}
+
+/**
+ * Attempt redirect with primary URL, then fallback after a delay.
+ */
+function attemptNativeRedirect(urls: { primary: string; fallback: string }) {
+  // Primary attempt
+  window.location.href = urls.primary;
+
+  // If primary doesn't work within 1.5s, try fallback (custom scheme)
+  if (urls.primary !== urls.fallback) {
+    setTimeout(() => {
+      window.location.href = urls.fallback;
+    }, 1500);
+  }
 }
 
 /**
@@ -35,16 +55,14 @@ function buildNativeRedirectUrl(accessToken: string, refreshToken: string): stri
  *
  * Flow:
  * 1. Native app opens this page via Browser.open().
- * 2. Page checks if a session already exists (returning from OAuth redirect).
- *    - YES → bounce tokens to the native app via intent:// / custom scheme.
- *    - NO  → initiate Lovable Cloud OAuth.
- * 3. OAuth redirects browser back to this origin; step 2 picks up the session.
+ * 2. Page initiates Lovable Cloud OAuth (or detects returning from OAuth).
+ * 3. After getting tokens, bounces to native app via intent:// or custom scheme.
  */
 export default function NativeOAuth() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("正在登入中，請稍候⋯");
   const [hasError, setHasError] = useState(false);
-  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const provider = searchParams.get("provider") as "google" | "apple" | null;
@@ -60,22 +78,19 @@ export default function NativeOAuth() {
         const { data: { session: existingSession } } = await supabase.auth.getSession();
         if (existingSession && localStorage.getItem("native_oauth_pending")) {
           localStorage.removeItem("native_oauth_pending");
-          const url = buildNativeRedirectUrl(
+          const urls = buildNativeRedirectUrls(
             existingSession.access_token,
             existingSession.refresh_token
           );
           setStatus("登入成功！正在返回 App⋯");
-          setRedirectUrl(url);
-          // Use a small delay to allow the UI to update
-          setTimeout(() => { window.location.href = url; }, 300);
+          setFallbackUrl(urls.fallback);
+          setTimeout(() => attemptNativeRedirect(urls), 300);
           return;
         }
 
         // Step 2: No session yet — initiate OAuth
         localStorage.setItem("native_oauth_pending", "1");
 
-        // CRITICAL: redirect_uri must return to THIS page so we can bounce tokens
-        const currentUrl = window.location.href.split("?")[0]; // Remove any existing query params
         const result = await lovable.auth.signInWithOAuth(provider, {
           redirect_uri: `${window.location.origin}/#/native-oauth?provider=${provider}`,
         });
@@ -92,16 +107,16 @@ export default function NativeOAuth() {
           return;
         }
 
-        // Got tokens directly (rare path) — bounce to native app
+        // Got tokens directly (Lovable auth bridge processed callback)
         localStorage.removeItem("native_oauth_pending");
         if (result.tokens) {
-          const url = buildNativeRedirectUrl(
+          const urls = buildNativeRedirectUrls(
             result.tokens.access_token,
             result.tokens.refresh_token
           );
           setStatus("登入成功！正在返回 App⋯");
-          setRedirectUrl(url);
-          setTimeout(() => { window.location.href = url; }, 300);
+          setFallbackUrl(urls.fallback);
+          setTimeout(() => attemptNativeRedirect(urls), 300);
         }
       } catch (err) {
         console.error("NativeOAuth error:", err);
@@ -116,19 +131,24 @@ export default function NativeOAuth() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4 px-6">
-      {!hasError && !redirectUrl && (
+      {!hasError && !fallbackUrl && (
         <AirplaneLoader isComplete={false} onComplete={() => {}} />
       )}
       <p className="text-lg text-center text-foreground">{status}</p>
 
-      {/* Manual fallback button — in case automatic redirect fails */}
-      {redirectUrl && (
-        <a
-          href={redirectUrl}
-          className="mt-4 px-6 py-3 bg-primary text-primary-foreground rounded-xl text-center font-bold"
-        >
-          點擊此處返回 App
-        </a>
+      {/* Manual fallback button — ALWAYS visible after login success */}
+      {fallbackUrl && (
+        <div className="flex flex-col items-center gap-3 mt-4">
+          <a
+            href={fallbackUrl}
+            className="px-8 py-4 bg-primary text-primary-foreground rounded-xl text-center font-bold text-lg shadow-lg"
+          >
+            👆 點擊此處返回 App
+          </a>
+          <p className="text-sm text-muted-foreground text-center">
+            如果沒有自動跳轉，請點擊上方按鈕
+          </p>
+        </div>
       )}
 
       {hasError && (
