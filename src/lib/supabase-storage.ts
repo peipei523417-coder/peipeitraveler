@@ -430,12 +430,20 @@ export async function uploadProjectImage(
   projectId: string,
   file: File
 ): Promise<string | undefined> {
-  const fileExt = file.name.split(".").pop();
+  // Compress image before upload to save storage space
+  const { compressImage } = await import("@/lib/image-compress");
+  const { file: optimizedFile, originalSize, compressedSize, wasCompressed } = await compressImage(file);
+  
+  if (wasCompressed) {
+    console.log(`[Upload] Compressed: ${(originalSize / 1024).toFixed(0)}KB → ${(compressedSize / 1024).toFixed(0)}KB (saved ${((1 - compressedSize / originalSize) * 100).toFixed(0)}%)`);
+  }
+
+  const fileExt = optimizedFile.name.split(".").pop();
   const fileName = `${projectId}/${Date.now()}.${fileExt}`;
   
   const { error } = await supabase.storage
     .from("project-images")
-    .upload(fileName, file, { upsert: true });
+    .upload(fileName, optimizedFile, { upsert: true });
   
   if (error) {
     console.error("Error uploading image:", error);
