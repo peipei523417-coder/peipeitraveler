@@ -121,7 +121,8 @@ export default function Index() {
     const endDate = new Date(data.endDate);
     const dayCount = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    if (!isPro && dayCount > FREE_DAY_LIMIT) {
+    const dayLimit = isPro ? PRO_DAY_LIMIT : FREE_DAY_LIMIT;
+    if (dayCount > dayLimit) {
       setUpgradeDialogType("day");
       setUpgradeDialogOpen(true);
       return;
