@@ -1174,6 +1174,7 @@ export const translations = {
       highlightColor: "Markierungsfarbe",
       noItems: "Keine Elemente für diesen Tag",
       tripOverview: "Reiseübersicht",
+      overviewExpiryNotice: "Abgelaufene Projektdaten werden 30 Tage aufbewahrt und danach automatisch gelöscht. Bitte speichern Sie benötigte Informationen im Voraus.",
       addFirstItem: "Füge dein erstes Element hinzu!",
       itemDeleted: "Element gelöscht",
       itemCreated: "Element hinzugefügt",
