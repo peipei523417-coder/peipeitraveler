@@ -1167,6 +1167,7 @@ export const translations = {
       googleMapsUrl: "Google Maps URL",
       highlightColor: "Markierungsfarbe",
       noItems: "Keine Elemente für diesen Tag",
+      tripOverview: "Reiseübersicht",
       addFirstItem: "Füge dein erstes Element hinzu!",
       itemDeleted: "Element gelöscht",
       itemCreated: "Element hinzugefügt",
