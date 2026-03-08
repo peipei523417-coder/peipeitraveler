@@ -1085,6 +1085,8 @@ export const translations = {
       unlimitedDaysNew: "Jusqu'à 20 jours de voyage (Planifiez de longs voyages ensemble)",
       luckyTravel: "Bonne chance dans vos voyages ❤️",
       gotIt: "Compris",
+      expiryWarningTitle: "Le projet sera bientôt supprimé",
+      expiryWarningDesc: "Ce voyage est terminé. Le projet et toutes les images seront supprimés dans {{days}} jours.",
       toggleProStatus: "Basculer le Statut PRO",
       proEnabled: "PRO activé",
       proDisabled: "PRO désactivé",
