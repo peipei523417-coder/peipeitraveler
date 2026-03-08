@@ -51,6 +51,7 @@ export const translations = {
       googleMapsUrl: "Google Maps 連結",
       highlightColor: "標記顏色",
       noItems: "這天還沒有行程",
+      tripOverview: "旅程主頁",
       addFirstItem: "新增第一個行程吧！",
       itemDeleted: "行程已刪除",
       itemCreated: "行程已新增",
