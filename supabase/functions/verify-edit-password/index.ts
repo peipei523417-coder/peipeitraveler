@@ -250,7 +250,7 @@ serve(async (req) => {
   }
 
   try {
-    const { projectId, password, action, shareCode, itemData, itemId, dayNumber } = await req.json();
+    const { projectId, password, action, shareCode, itemData, itemId, dayNumber, imageBase64, imageFileName } = await req.json();
 
     // Service role client for database operations
     const supabase = createClient(
