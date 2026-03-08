@@ -51,6 +51,9 @@ export default function Index() {
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [upgradeDialogType, setUpgradeDialogType] = useState<"project" | "day">("project");
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
+  const [expiryDaysRemaining, setExpiryDaysRemaining] = useState(0);
+  const expiryCheckedRef = useRef(false);
   
   // Long-press state for mobile
   const [actionSheetProject, setActionSheetProject] = useState<TravelProject | null>(null);
