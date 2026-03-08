@@ -400,6 +400,13 @@ export default function ProjectDetail() {
         onOpenChange={setExpiryWarningOpen}
         daysRemaining={daysRemaining}
       />
+
+      {/* Trip Overview */}
+      <TripOverviewDialog
+        open={overviewOpen}
+        onOpenChange={setOverviewOpen}
+        project={project}
+      />
     </div>
   );
 }
