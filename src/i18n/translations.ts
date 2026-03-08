@@ -347,6 +347,8 @@ export const translations = {
       unlimitedDaysNew: "Up to 20 trip days (Plan long trips abroad together)",
       luckyTravel: "Extra luck on your journeys ❤️",
       gotIt: "Got it",
+      expiryWarningTitle: "Project will be deleted soon",
+      expiryWarningDesc: "This trip has ended. The project and all images will be automatically deleted in {{days}} days. Please back up important data.",
       toggleProStatus: "Toggle PRO Status",
       proEnabled: "PRO enabled",
       proDisabled: "PRO disabled",
