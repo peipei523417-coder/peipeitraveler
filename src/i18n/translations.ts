@@ -52,6 +52,7 @@ export const translations = {
       highlightColor: "標記顏色",
       noItems: "這天還沒有行程",
       tripOverview: "旅程主頁",
+      overviewExpiryNotice: "過期專案資料將保留30天，之後系統會自動清除，請提前保存需要的資訊。",
       addFirstItem: "新增第一個行程吧！",
       itemDeleted: "行程已刪除",
       itemCreated: "行程已新增",
