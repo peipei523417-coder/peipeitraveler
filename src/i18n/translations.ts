@@ -428,6 +428,7 @@ export const translations = {
       highlightColor: "Color de Resaltado",
       noItems: "No hay elementos para este día",
       tripOverview: "Resumen del Viaje",
+      overviewExpiryNotice: "Los datos del proyecto expirado se conservarán durante 30 días, después el sistema los eliminará automáticamente. Guarde la información necesaria con anticipación.",
       addFirstItem: "¡Añade tu primer elemento!",
       itemDeleted: "Elemento eliminado",
       itemCreated: "Elemento añadido",
