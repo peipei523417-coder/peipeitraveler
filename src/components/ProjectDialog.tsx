@@ -58,7 +58,7 @@ export function ProjectDialog({
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [coverPreview, setCoverPreview] = useState<string | undefined>(undefined);
   const [coverFile, setCoverFile] = useState<File | undefined>();
-  const [isPublic, setIsPublic] = useState(false);
+  const [isPublic, setIsPublic] = useState(true);
   const [editPassword, setEditPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
