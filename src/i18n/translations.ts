@@ -533,6 +533,8 @@ export const translations = {
       unlimitedDaysNew: "Hasta 20 días de viaje (Planifica viajes largos juntos)",
       luckyTravel: "Suerte extra en tus viajes ❤️",
       gotIt: "Entendido",
+      expiryWarningTitle: "El proyecto se eliminará pronto",
+      expiryWarningDesc: "Este viaje ha terminado. El proyecto y todas las imágenes se eliminarán automáticamente en {{days}} días.",
       toggleProStatus: "Cambiar estado PRO",
       proEnabled: "PRO activado",
       proDisabled: "PRO desactivado",
