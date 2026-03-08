@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { useSignedImageUrl } from "@/hooks/useSignedImageUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
+import { TripOverviewDialog } from "@/components/TripOverviewDialog";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
