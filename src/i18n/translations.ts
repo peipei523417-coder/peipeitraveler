@@ -804,6 +804,7 @@ export const translations = {
       highlightColor: "ハイライト色",
       noItems: "この日の予定はありません",
       tripOverview: "旅行概要",
+      overviewExpiryNotice: "期限切れのプロジェクトデータは30日間保持され、その後自動的に削除されます。必要な情報は事前に保存してください。",
       addFirstItem: "最初の予定を追加しましょう！",
       itemDeleted: "予定を削除しました",
       itemCreated: "予定を追加しました",
