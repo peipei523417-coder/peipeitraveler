@@ -471,6 +471,12 @@ export default function Index() {
         onOpenChange={setUpgradeDialogOpen}
         type={upgradeDialogType}
       />
+
+      <ExpiryWarningDialog
+        open={expiryWarningOpen}
+        onOpenChange={setExpiryWarningOpen}
+        daysRemaining={expiryDaysRemaining}
+      />
     </div>
   );
 }
