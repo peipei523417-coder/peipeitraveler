@@ -144,8 +144,8 @@ jobs:
           grep -n "versionCode" android/app/build.gradle
           grep -n "versionName" android/app/build.gradle
           echo "App ID: com.peitravel.smartplanner"
-          echo "Version Code: 31"
-          echo "Version Name: 1.0.31"
+          echo "Version Code: 32"
+          echo "Version Name: 1.0.32"
 
       - name: Build release AAB
         working-directory: android
