@@ -109,6 +109,20 @@ export default function ProjectDetail() {
     setProject(loaded);
     updateProjectInCache(loaded);
     setLoading(false);
+
+    // Check expiry warning (only on initial load)
+    if (isInitialLoad && loaded.endDate) {
+      const endDate = new Date(loaded.endDate);
+      const deleteDate = new Date(endDate);
+      deleteDate.setDate(deleteDate.getDate() + 30);
+      const now = new Date();
+      const msRemaining = deleteDate.getTime() - now.getTime();
+      const daysLeft = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+      if (daysLeft <= 7 && daysLeft > 0) {
+        setDaysRemaining(daysLeft);
+        setExpiryWarningOpen(true);
+      }
+    }
   };
 
   const handleAddItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
