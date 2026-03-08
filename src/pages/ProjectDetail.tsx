@@ -35,6 +35,8 @@ export default function ProjectDetail() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [saved, setSaved] = useState(false);
+  const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
+  const [daysRemaining, setDaysRemaining] = useState(0);
   
   // Track if we're currently performing a local update to skip realtime reload
   const isLocalUpdateRef = useRef(false);
