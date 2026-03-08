@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { TravelProject, ItineraryItem, TimelineIconType } from "@/types/travel";
@@ -21,6 +21,7 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { toast } from "sonner";
 import { useSignedImageUrl } from "@/hooks/useSignedImageUrl";
 import { supabase } from "@/integrations/supabase/client";
+import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +35,8 @@ export default function ProjectDetail() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [saved, setSaved] = useState(false);
+  const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
+  const [daysRemaining, setDaysRemaining] = useState(0);
   
   // Track if we're currently performing a local update to skip realtime reload
   const isLocalUpdateRef = useRef(false);
@@ -106,6 +109,20 @@ export default function ProjectDetail() {
     setProject(loaded);
     updateProjectInCache(loaded);
     setLoading(false);
+
+    // Check expiry warning (only on initial load)
+    if (isInitialLoad && loaded.endDate) {
+      const endDate = new Date(loaded.endDate);
+      const deleteDate = new Date(endDate);
+      deleteDate.setDate(deleteDate.getDate() + 30);
+      const now = new Date();
+      const msRemaining = deleteDate.getTime() - now.getTime();
+      const daysLeft = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+      if (daysLeft <= 7 && daysLeft > 0) {
+        setDaysRemaining(daysLeft);
+        setExpiryWarningOpen(true);
+      }
+    }
   };
 
   const handleAddItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
@@ -363,6 +380,13 @@ export default function ProjectDetail() {
         mode={editingItem ? "edit" : "create"}
         suggestedStartTime={getNextSuggestedTime()}
         existingItems={currentDay?.items || []}
+      />
+
+      {/* Expiry Warning */}
+      <ExpiryWarningDialog
+        open={expiryWarningOpen}
+        onOpenChange={setExpiryWarningOpen}
+        daysRemaining={daysRemaining}
       />
     </div>
   );
