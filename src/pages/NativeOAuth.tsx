@@ -109,30 +109,30 @@ export default function NativeOAuth() {
   }, [searchParams]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-6 px-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-6 px-6">
       {!hasError && !returnUrl && (
         <AirplaneLoader isComplete={false} onComplete={() => {}} />
       )}
-      <p className="text-lg text-center text-gray-800">{status}</p>
+      <p className="text-lg text-center text-foreground">{status}</p>
 
       {/* Primary return button — user tap is most reliable for custom scheme */}
       {returnUrl && (
         <div className="flex flex-col items-center gap-4 mt-2">
           <a
             href={returnUrl}
-            className="px-10 py-5 bg-blue-600 text-white rounded-2xl text-center font-bold text-xl shadow-xl active:bg-blue-700 no-underline"
+            className="px-10 py-5 bg-primary text-primary-foreground rounded-2xl text-center font-bold text-xl shadow-xl no-underline"
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             👆 點擊此處返回 App
           </a>
-          <p className="text-sm text-gray-500 text-center">
+          <p className="text-sm text-muted-foreground text-center">
             登入成功！點擊上方按鈕即可返回 PeiPeiGoTravel
           </p>
         </div>
       )}
 
       {hasError && (
-        <p className="text-sm text-gray-500 text-center">
+        <p className="text-sm text-muted-foreground text-center">
           請關閉此頁面並返回 PeiPeiGoTravel App
         </p>
       )}
