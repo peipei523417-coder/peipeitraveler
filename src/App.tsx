@@ -5,7 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, useNavigate } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProProvider } from "@/contexts/ProContext";
 import { LoadingProvider, useLoading } from "@/contexts/LoadingContext";
 import { ProjectCacheProvider } from "@/contexts/ProjectCacheContext";
@@ -22,8 +22,32 @@ import "@fontsource/nunito/700.css";
 
 const queryClient = new QueryClient();
 
+/**
+ * Handles deep links from native app (Capacitor).
+ * Specifically handles OAuth callback and share links.
+ */
 function DeepLinkHandler() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Clear oauth_returning flag once auth is confirmed
+  useEffect(() => {
+    if (user && localStorage.getItem("oauth_returning") === "1") {
+      console.log("[DeepLink] Auth confirmed, clearing oauth_returning flag");
+      localStorage.removeItem("oauth_returning");
+    }
+  }, [user]);
+
+  // Safety timeout: clear flag after 10 seconds to prevent permanent blocking
+  useEffect(() => {
+    if (localStorage.getItem("oauth_returning") === "1") {
+      const timeout = setTimeout(() => {
+        console.log("[DeepLink] Safety timeout: clearing oauth_returning flag");
+        localStorage.removeItem("oauth_returning");
+      }, 10000);
+      return () => clearTimeout(timeout);
+    }
+  }, []);
 
   useEffect(() => {
     const handleDeepLink = async (event: any) => {
@@ -41,7 +65,8 @@ function DeepLinkHandler() {
       if (url.includes("oauth-callback") || url.includes("access_token")) {
         console.log("[DeepLink] OAuth callback detected");
 
-        // Mark OAuth in progress so Index doesn't flash login screen
+        // Mark OAuth in progress — flag will be cleared by useEffect above
+        // when auth state is confirmed, NOT here.
         localStorage.setItem("oauth_returning", "1");
 
         // Close Chrome Custom Tabs IMMEDIATELY
@@ -58,9 +83,7 @@ function DeepLinkHandler() {
           let refreshToken: string | null = null;
 
           // METHOD 1: Parse from query parameters (most reliable on Android)
-          // URL format: com.peitravel.smartplanner://oauth-callback?access_token=XXX&refresh_token=YYY
           try {
-            // Replace custom scheme with https to make URL parseable
             const normalizedUrl = url.replace(/^[^:]+:\/\//, "https://");
             const urlObj = new URL(normalizedUrl);
             accessToken = urlObj.searchParams.get("access_token");
@@ -72,7 +95,7 @@ function DeepLinkHandler() {
             console.log("[DeepLink] URL() parsing failed, trying manual parse");
           }
 
-          // METHOD 2: Fallback — parse from fragment (for older builds or iOS)
+          // METHOD 2: Fallback — parse from fragment
           if (!accessToken || !refreshToken) {
             const hashIndex = url.indexOf("#");
             if (hashIndex !== -1) {
@@ -107,20 +130,22 @@ function DeepLinkHandler() {
 
             if (error) {
               console.error("[DeepLink] setSession error:", error);
+              localStorage.removeItem("oauth_returning");
             } else {
               console.log("[DeepLink] Session set successfully!");
-              // Wait for onAuthStateChange to propagate to React state
-              await new Promise(resolve => setTimeout(resolve, 500));
+              // Don't remove oauth_returning here — let useEffect clear it
+              // when auth state propagates to React context
             }
           } else {
             console.error("[DeepLink] No tokens found in URL:", url);
+            localStorage.removeItem("oauth_returning");
           }
         } catch (e) {
           console.error("[DeepLink] OAuth deep link error:", e);
+          localStorage.removeItem("oauth_returning");
         }
 
-        // Clear the flag and navigate home
-        localStorage.removeItem("oauth_returning");
+        // Navigate home
         navigate("/", { replace: true });
         return;
       }
@@ -165,7 +190,6 @@ function AppContent() {
     markAsLoaded();
   };
 
-  // Show initial loader only on first app load
   if (showInitialLoader && !hasInitiallyLoaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
