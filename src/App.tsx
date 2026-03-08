@@ -38,10 +38,19 @@ function DeepLinkHandler() {
 
       // Handle OAuth callback — extract tokens from URL fragment and set session
       if (url.includes("oauth-callback") || url.includes("access_token")) {
-        // Close the external browser (Chrome Custom Tabs) that was used for OAuth
-        import("@capacitor/browser")
-          .then(({ Browser }) => Browser.close())
-          .catch(() => {}); // Ignore if not available
+        console.log("[DeepLink] OAuth callback received:", url.substring(0, 80));
+
+        // Mark OAuth in progress so Index doesn't flash login screen
+        sessionStorage.setItem("oauth_returning", "1");
+
+        // Close Chrome Custom Tabs IMMEDIATELY with await
+        try {
+          const { Browser } = await import("@capacitor/browser");
+          await Browser.close();
+          console.log("[DeepLink] Browser.close() succeeded");
+        } catch (e) {
+          console.warn("[DeepLink] Browser.close() failed:", e);
+        }
 
         try {
           // Parse tokens from URL - handle both hash fragment and intent:// format
@@ -60,24 +69,26 @@ function DeepLinkHandler() {
           }
           
           if (accessToken && refreshToken) {
-            console.log("Setting session from deep link tokens...");
+            console.log("[DeepLink] Setting session from tokens...");
             const { error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             });
             
             if (error) {
-              console.error("setSession error:", error);
+              console.error("[DeepLink] setSession error:", error);
             } else {
-              console.log("Session set successfully!");
+              console.log("[DeepLink] Session set successfully!");
+              // Wait for onAuthStateChange to propagate to React state
+              await new Promise(resolve => setTimeout(resolve, 300));
             }
-            navigate("/", { replace: true });
-            return;
           }
         } catch (e) {
-          console.error("OAuth deep link error:", e);
+          console.error("[DeepLink] OAuth deep link error:", e);
         }
-        // Even without tokens, navigate home to avoid 404
+
+        // Clear the flag and navigate home
+        sessionStorage.removeItem("oauth_returning");
         navigate("/", { replace: true });
         return;
       }
