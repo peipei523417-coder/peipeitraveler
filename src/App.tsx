@@ -28,6 +28,7 @@ function DeepLinkHandler() {
   useEffect(() => {
     const handleDeepLink = async (event: any) => {
       const url = event?.url || "";
+      console.log("[DeepLink] Received URL:", url);
 
       // Handle share deep links: https://peipeigotravel.lovable.app/share/:code
       const shareMatch = url.match(/\/share\/([^?#]+)/);
@@ -36,14 +37,14 @@ function DeepLinkHandler() {
         return;
       }
 
-      // Handle OAuth callback — extract tokens from URL fragment and set session
+      // Handle OAuth callback — extract tokens and set session
       if (url.includes("oauth-callback") || url.includes("access_token")) {
-        console.log("[DeepLink] OAuth callback received:", url.substring(0, 80));
+        console.log("[DeepLink] OAuth callback detected");
 
         // Mark OAuth in progress so Index doesn't flash login screen
-        sessionStorage.setItem("oauth_returning", "1");
+        localStorage.setItem("oauth_returning", "1");
 
-        // Close Chrome Custom Tabs IMMEDIATELY with await
+        // Close Chrome Custom Tabs IMMEDIATELY
         try {
           const { Browser } = await import("@capacitor/browser");
           await Browser.close();
@@ -53,42 +54,73 @@ function DeepLinkHandler() {
         }
 
         try {
-          // Parse tokens from URL - handle both hash fragment and intent:// format
           let accessToken: string | null = null;
           let refreshToken: string | null = null;
-          
-          // Try to extract from URL hash/fragment
-          const hashIndex = url.indexOf("#");
-          if (hashIndex !== -1) {
-            const hashPart = url.substring(hashIndex + 1);
-            // Handle intent:// format which may have multiple # characters
-            const tokenPart = hashPart.split("#")[0]; // Get first fragment (tokens)
-            const params = new URLSearchParams(tokenPart);
-            accessToken = params.get("access_token");
-            refreshToken = params.get("refresh_token");
+
+          // METHOD 1: Parse from query parameters (most reliable on Android)
+          // URL format: com.peitravel.smartplanner://oauth-callback?access_token=XXX&refresh_token=YYY
+          try {
+            // Replace custom scheme with https to make URL parseable
+            const normalizedUrl = url.replace(/^[^:]+:\/\//, "https://");
+            const urlObj = new URL(normalizedUrl);
+            accessToken = urlObj.searchParams.get("access_token");
+            refreshToken = urlObj.searchParams.get("refresh_token");
+            if (accessToken) {
+              console.log("[DeepLink] Tokens found in query params");
+            }
+          } catch {
+            console.log("[DeepLink] URL() parsing failed, trying manual parse");
           }
-          
+
+          // METHOD 2: Fallback — parse from fragment (for older builds or iOS)
+          if (!accessToken || !refreshToken) {
+            const hashIndex = url.indexOf("#");
+            if (hashIndex !== -1) {
+              const hashPart = url.substring(hashIndex + 1);
+              const tokenPart = hashPart.split("#")[0];
+              const params = new URLSearchParams(tokenPart);
+              accessToken = accessToken || params.get("access_token");
+              refreshToken = refreshToken || params.get("refresh_token");
+              if (accessToken) {
+                console.log("[DeepLink] Tokens found in fragment");
+              }
+            }
+          }
+
+          // METHOD 3: Fallback — manual regex extraction
+          if (!accessToken || !refreshToken) {
+            const atMatch = url.match(/access_token=([^&#]+)/);
+            const rtMatch = url.match(/refresh_token=([^&#]+)/);
+            if (atMatch) accessToken = decodeURIComponent(atMatch[1]);
+            if (rtMatch) refreshToken = decodeURIComponent(rtMatch[1]);
+            if (accessToken) {
+              console.log("[DeepLink] Tokens found via regex");
+            }
+          }
+
           if (accessToken && refreshToken) {
             console.log("[DeepLink] Setting session from tokens...");
             const { error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             });
-            
+
             if (error) {
               console.error("[DeepLink] setSession error:", error);
             } else {
               console.log("[DeepLink] Session set successfully!");
               // Wait for onAuthStateChange to propagate to React state
-              await new Promise(resolve => setTimeout(resolve, 300));
+              await new Promise(resolve => setTimeout(resolve, 500));
             }
+          } else {
+            console.error("[DeepLink] No tokens found in URL:", url);
           }
         } catch (e) {
           console.error("[DeepLink] OAuth deep link error:", e);
         }
 
         // Clear the flag and navigate home
-        sessionStorage.removeItem("oauth_returning");
+        localStorage.removeItem("oauth_returning");
         navigate("/", { replace: true });
         return;
       }

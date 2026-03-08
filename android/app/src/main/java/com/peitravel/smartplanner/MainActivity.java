@@ -14,28 +14,43 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Called when an intent:// deep link fires while the activity already exists.
-     * 
-     * The intent:// URL passes tokens as S. (String) extras because Android
-     * strips URI fragments during intent parsing. We reconstruct the full URL
-     * with tokens in the fragment so Capacitor's appUrlOpen event can parse them.
+     * Called when a deep link fires (both cold-start and existing activity).
+     *
+     * Handles TWO URL formats:
+     * 1. intent:// URLs → tokens come as S. (String) extras
+     * 2. Custom scheme URLs (com.peitravel.smartplanner://...) → tokens in query params
+     *
+     * For BOTH cases, we reconstruct the URL with tokens in query parameters
+     * so Capacitor's appUrlOpen event can parse them reliably.
+     * NOTE: We use query params (?key=val) NOT fragment (#key=val) because
+     * Android/Chrome strips fragments from custom scheme URIs.
      */
     @Override
     protected void onNewIntent(Intent intent) {
         if (intent != null && intent.getData() != null) {
-            String accessToken = intent.getStringExtra("access_token");
-            String refreshToken = intent.getStringExtra("refresh_token");
+            String accessToken = null;
+            String refreshToken = null;
+            Uri originalData = intent.getData();
 
+            // Method 1: Try intent extras (from intent:// URLs)
+            accessToken = intent.getStringExtra("access_token");
+            refreshToken = intent.getStringExtra("refresh_token");
+
+            // Method 2: Try query parameters (from custom scheme URLs)
+            if (accessToken == null || refreshToken == null) {
+                accessToken = originalData.getQueryParameter("access_token");
+                refreshToken = originalData.getQueryParameter("refresh_token");
+            }
+
+            // If we found tokens, reconstruct URL with query params for Capacitor
             if (accessToken != null && refreshToken != null) {
-                // Reconstruct URL with tokens in fragment for Capacitor to process
-                Uri originalData = intent.getData();
                 String scheme = originalData.getScheme();
                 String host = originalData.getHost();
                 if (scheme == null) scheme = "com.peitravel.smartplanner";
                 if (host == null) host = "oauth-callback";
 
                 String reconstructedUrl = scheme + "://" + host
-                    + "#access_token=" + Uri.encode(accessToken)
+                    + "?access_token=" + Uri.encode(accessToken)
                     + "&refresh_token=" + Uri.encode(refreshToken);
 
                 intent.setData(Uri.parse(reconstructedUrl));

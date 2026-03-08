@@ -5,16 +5,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { AirplaneLoader } from "@/components/AirplaneLoader";
 
 const NATIVE_SCHEME = "com.peitravel.smartplanner";
+const NATIVE_HOST = "oauth-callback";
 
 /**
- * Build the custom-scheme URL to bounce tokens back to the native app.
- * Works on both Android and iOS — the OS intercepts the custom scheme
- * because AndroidManifest / Info.plist declares the intent-filter / URL type.
+ * Build TWO return URLs:
+ * 1. Primary: intent:// URL with tokens as S. (String) extras — most reliable on Android
+ *    because Android intent extras are NEVER stripped.
+ * 2. Fallback: custom scheme URL with tokens as QUERY PARAMETERS (not fragment!)
+ *    Android/Chrome reliably strips fragments from custom scheme URLs,
+ *    but query parameters are preserved.
  */
-function buildReturnUrl(accessToken: string, refreshToken: string): string {
+function buildIntentUrl(accessToken: string, refreshToken: string): string {
   const encodedAt = encodeURIComponent(accessToken);
   const encodedRt = encodeURIComponent(refreshToken);
-  return `${NATIVE_SCHEME}://oauth-callback#access_token=${encodedAt}&refresh_token=${encodedRt}`;
+  // intent://oauth-callback#Intent;scheme=com.peitravel.smartplanner;
+  // S.access_token=...;S.refresh_token=...;end
+  return `intent://${NATIVE_HOST}#Intent;scheme=${NATIVE_SCHEME};S.access_token=${encodedAt};S.refresh_token=${encodedRt};end`;
+}
+
+function buildFallbackUrl(accessToken: string, refreshToken: string): string {
+  const encodedAt = encodeURIComponent(accessToken);
+  const encodedRt = encodeURIComponent(refreshToken);
+  // Use query params (?) NOT fragment (#) — Android strips fragments from custom scheme URLs
+  return `${NATIVE_SCHEME}://${NATIVE_HOST}?access_token=${encodedAt}&refresh_token=${encodedRt}`;
 }
 
 /**
@@ -25,17 +38,15 @@ function buildReturnUrl(accessToken: string, refreshToken: string): string {
  * 1. Native app opens this page via Browser.open().
  * 2. Page initiates Lovable Cloud OAuth (or detects returning from OAuth).
  * 3. After getting tokens, shows a prominent "Return to App" link.
- *    The link uses the custom scheme which Android/iOS intercepts to open the app.
- *
- * IMPORTANT: We do NOT rely on programmatic `window.location.href` redirects
- * because Chrome Custom Tabs may silently block JavaScript-initiated scheme
- * or intent:// navigations. A user-tapped <a> link is the most reliable method.
+ *    Uses intent:// URL (Android) which reliably passes tokens as extras.
+ *    Falls back to custom scheme with query params for iOS.
  */
 export default function NativeOAuth() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("正在登入中，請稍候⋯");
   const [hasError, setHasError] = useState(false);
-  const [returnUrl, setReturnUrl] = useState<string | null>(null);
+  const [intentUrl, setIntentUrl] = useState<string | null>(null);
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const provider = searchParams.get("provider") as "google" | "apple" | null;
@@ -51,11 +62,8 @@ export default function NativeOAuth() {
         const { data: { session: existingSession } } = await supabase.auth.getSession();
         if (existingSession && localStorage.getItem("native_oauth_pending")) {
           localStorage.removeItem("native_oauth_pending");
-          const url = buildReturnUrl(
-            existingSession.access_token,
-            existingSession.refresh_token
-          );
-          setReturnUrl(url);
+          setIntentUrl(buildIntentUrl(existingSession.access_token, existingSession.refresh_token));
+          setFallbackUrl(buildFallbackUrl(existingSession.access_token, existingSession.refresh_token));
           setStatus("登入成功！請點擊下方按鈕返回 App");
           return;
         }
@@ -82,11 +90,8 @@ export default function NativeOAuth() {
         // Got tokens directly (Lovable auth bridge processed callback)
         localStorage.removeItem("native_oauth_pending");
         if (result.tokens) {
-          const url = buildReturnUrl(
-            result.tokens.access_token,
-            result.tokens.refresh_token
-          );
-          setReturnUrl(url);
+          setIntentUrl(buildIntentUrl(result.tokens.access_token, result.tokens.refresh_token));
+          setFallbackUrl(buildFallbackUrl(result.tokens.access_token, result.tokens.refresh_token));
           setStatus("登入成功！請點擊下方按鈕返回 App");
         }
       } catch (err) {
@@ -102,20 +107,29 @@ export default function NativeOAuth() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-6 px-6">
-      {!hasError && !returnUrl && (
+      {!hasError && !intentUrl && (
         <AirplaneLoader isComplete={false} onComplete={() => {}} />
       )}
       <p className="text-lg text-center text-foreground">{status}</p>
 
-      {/* Primary return button — user tap is most reliable for custom scheme */}
-      {returnUrl && (
+      {/* Primary return button — intent:// is most reliable on Android */}
+      {intentUrl && fallbackUrl && (
         <div className="flex flex-col items-center gap-4 mt-2">
+          {/* intent:// link — works on Android, Chrome intercepts and opens app */}
           <a
-            href={returnUrl}
+            href={intentUrl}
             className="px-10 py-5 bg-primary text-primary-foreground rounded-2xl text-center font-bold text-xl shadow-xl no-underline"
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             👆 點擊此處返回 App
+          </a>
+          {/* Fallback link for iOS or if intent:// fails */}
+          <a
+            href={fallbackUrl}
+            className="px-6 py-3 bg-muted text-muted-foreground rounded-xl text-center text-sm no-underline"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            若無法返回，請點這裡
           </a>
           <p className="text-sm text-muted-foreground text-center">
             登入成功！點擊上方按鈕即可返回 PeiPeiGoTravel
