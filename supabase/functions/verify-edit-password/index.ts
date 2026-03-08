@@ -482,6 +482,21 @@ serve(async (req) => {
         );
       }
 
+      if (!imageBase64 || typeof imageBase64 !== "string") {
+        return new Response(
+          JSON.stringify({ error: "imageBase64 is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Limit to ~5MB base64 (~3.75MB file)
+      if (imageBase64.length > 5 * 1024 * 1024) {
+        return new Response(
+          JSON.stringify({ error: "Image too large (max 5MB)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const { valid, isPublic } = await verifyProjectPassword(projectIdResult.value!, password);
       if (!isPublic) {
         return new Response(
@@ -496,18 +511,47 @@ serve(async (req) => {
         );
       }
 
-      // Expect imageBase64 and fileName in the request
-      const { imageBase64, fileName: reqFileName } = await req.json().catch(() => ({}));
-      // Re-parse since we already parsed above — use the original parsed data
-      const bodyData = { projectId, password, action, imageBase64: (await req.clone().json().catch(() => ({}))).imageBase64 };
-      
-      // Actually we need to get imageBase64 from the original parse. Let me handle differently.
-      // The issue is we already consumed req.json(). Let's accept imageBase64 from the top-level parse.
-      
-      return new Response(
-        JSON.stringify({ error: "Use upload-image-v2 endpoint" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      try {
+        // Decode base64 to binary
+        const binaryStr = atob(imageBase64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+
+        const ext = imageFileName?.split(".")?.pop() || "jpg";
+        const storagePath = `${projectIdResult.value}/${Date.now()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("project-images")
+          .upload(storagePath, bytes, {
+            contentType: `image/${ext === "png" ? "png" : "jpeg"}`,
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error("Storage upload error:", uploadError);
+          return new Response(
+            JSON.stringify({ error: "Failed to upload image" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("project-images")
+          .getPublicUrl(storagePath);
+
+        return new Response(
+          JSON.stringify({ success: true, imageUrl: urlData.publicUrl }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (e) {
+        console.error("Image upload error:", e);
+        return new Response(
+          JSON.stringify({ error: "Failed to process image" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Delete itinerary item with password
