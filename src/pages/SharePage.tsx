@@ -116,6 +116,51 @@ async function edgeFunctionCrud(
   }
 }
 
+// Upload image via edge function (for non-owner editors with password)
+async function edgeFunctionUploadImage(
+  projectId: string,
+  password: string,
+  file: File
+): Promise<string | undefined> {
+  try {
+    // Compress image first
+    const { compressImage } = await import("@/lib/image-compress");
+    const { file: optimizedFile } = await compressImage(file);
+    
+    // Convert to base64
+    const buffer = await optimizedFile.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-edit-password`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          action: "upload-image",
+          projectId,
+          password,
+          imageBase64: base64,
+          imageFileName: optimizedFile.name,
+        }),
+      }
+    );
+    const result = await response.json();
+    return result.success ? result.imageUrl : undefined;
+  } catch (e) {
+    console.error("Edge function image upload error:", e);
+    return undefined;
+  }
+}
+
 export default function SharePage() {
   const { shareCode } = useParams<{ shareCode: string }>();
   const navigate = useNavigate();
@@ -262,28 +307,40 @@ export default function SharePage() {
     }
   };
 
-  const handleAddItem = async (item: Omit<ItineraryItem, "id">) => {
+  const handleAddItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project || !editPassword) return;
+    
+    let imageUrl = item.imageUrl;
+    if (imageFile) {
+      const uploadedUrl = await edgeFunctionUploadImage(project.id, editPassword, imageFile);
+      if (uploadedUrl) imageUrl = uploadedUrl;
+    }
     
     const result = await edgeFunctionCrud("add-item", project.id, editPassword, {
       dayNumber: activeDay,
-      itemData: item,
+      itemData: { ...item, imageUrl },
     });
     
     if (result.success) {
-      await loadProject(); // Reload to get updated items
+      await loadProject();
       toast.success(t("itemCreated"));
     } else {
       toast.error(result.error || t("error"));
     }
   };
 
-  const handleEditItem = async (item: Omit<ItineraryItem, "id">) => {
+  const handleEditItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project || !editingItem || !editPassword) return;
+    
+    let imageUrl = item.imageUrl;
+    if (imageFile) {
+      const uploadedUrl = await edgeFunctionUploadImage(project.id, editPassword, imageFile);
+      if (uploadedUrl) imageUrl = uploadedUrl;
+    }
     
     const result = await edgeFunctionCrud("update-item", project.id, editPassword, {
       itemId: editingItem.id,
-      itemData: item,
+      itemData: { ...item, imageUrl },
     });
     
     if (result.success) {

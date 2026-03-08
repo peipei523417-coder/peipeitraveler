@@ -250,7 +250,7 @@ serve(async (req) => {
   }
 
   try {
-    const { projectId, password, action, shareCode, itemData, itemId, dayNumber } = await req.json();
+    const { projectId, password, action, shareCode, itemData, itemId, dayNumber, imageBase64, imageFileName } = await req.json();
 
     // Service role client for database operations
     const supabase = createClient(
@@ -465,6 +465,95 @@ serve(async (req) => {
       );
     }
     
+    // Upload image with password (for share page editors)
+    if (action === "upload-image") {
+      const projectIdResult = validateUuid(projectId, "Project ID");
+      if (!projectIdResult.valid) {
+        return new Response(
+          JSON.stringify({ error: projectIdResult.error }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!password || typeof password !== "string") {
+        return new Response(
+          JSON.stringify({ error: "Password is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!imageBase64 || typeof imageBase64 !== "string") {
+        return new Response(
+          JSON.stringify({ error: "imageBase64 is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Limit to ~5MB base64 (~3.75MB file)
+      if (imageBase64.length > 5 * 1024 * 1024) {
+        return new Response(
+          JSON.stringify({ error: "Image too large (max 5MB)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { valid, isPublic } = await verifyProjectPassword(projectIdResult.value!, password);
+      if (!isPublic) {
+        return new Response(
+          JSON.stringify({ error: "Project not found or not public" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!valid) {
+        return new Response(
+          JSON.stringify({ error: "Invalid password" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      try {
+        // Decode base64 to binary
+        const binaryStr = atob(imageBase64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+
+        const ext = imageFileName?.split(".")?.pop() || "jpg";
+        const storagePath = `${projectIdResult.value}/${Date.now()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("project-images")
+          .upload(storagePath, bytes, {
+            contentType: `image/${ext === "png" ? "png" : "jpeg"}`,
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error("Storage upload error:", uploadError);
+          return new Response(
+            JSON.stringify({ error: "Failed to upload image" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("project-images")
+          .getPublicUrl(storagePath);
+
+        return new Response(
+          JSON.stringify({ success: true, imageUrl: urlData.publicUrl }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (e) {
+        console.error("Image upload error:", e);
+        return new Response(
+          JSON.stringify({ error: "Failed to process image" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Delete itinerary item with password
     if (action === "delete-item") {
       // Validate projectId
