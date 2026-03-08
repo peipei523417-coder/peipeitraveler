@@ -199,18 +199,6 @@ export function ProjectDialog({
   const handleSubmit = () => {
     if (!name.trim() || !dateRange?.from || !dateRange?.to) return;
     
-    // Validate password if public
-    if (isPublic) {
-      if (!editPassword) {
-        setPasswordError(t("passwordRequired"));
-        return;
-      }
-      if (!validatePassword(editPassword)) {
-        setPasswordError(t("passwordInvalid"));
-        return;
-      }
-    }
-    
     // Clear draft on successful submit
     clearDraft();
     
@@ -220,7 +208,6 @@ export function ProjectDialog({
       endDate: dateRange.to,
       coverImageUrl: coverPreview,
       isPublic,
-      editPassword: isPublic ? editPassword : undefined,
     }, coverFile);
     
     resetForm();
