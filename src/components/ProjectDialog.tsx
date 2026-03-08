@@ -139,7 +139,7 @@ export function ProjectDialog({
     setDateRange(undefined);
     setCoverPreview(undefined);
     setCoverFile(undefined);
-    setIsPublic(false);
+    setIsPublic(true);
     setEditPassword("");
     setPasswordError("");
   };
