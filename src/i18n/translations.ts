@@ -161,6 +161,8 @@ export const translations = {
       unlimitedDaysNew: "20 天旅遊行程（出國長途旅行，也能共享編排）",
       luckyTravel: "幸運值在旅途中滿滿發生 ❤️",
       gotIt: "我知道了",
+      expiryWarningTitle: "專案即將自動刪除",
+      expiryWarningDesc: "此專案的旅遊已結束，系統將在 {{days}} 天後自動刪除此專案及所有圖片。如需保留，請備份重要資料。",
       toggleProStatus: "切換 PRO 狀態",
       proEnabled: "PRO 版已啟用",
       proDisabled: "PRO 版已停用",
