@@ -307,28 +307,40 @@ export default function SharePage() {
     }
   };
 
-  const handleAddItem = async (item: Omit<ItineraryItem, "id">) => {
+  const handleAddItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project || !editPassword) return;
+    
+    let imageUrl = item.imageUrl;
+    if (imageFile) {
+      const uploadedUrl = await edgeFunctionUploadImage(project.id, editPassword, imageFile);
+      if (uploadedUrl) imageUrl = uploadedUrl;
+    }
     
     const result = await edgeFunctionCrud("add-item", project.id, editPassword, {
       dayNumber: activeDay,
-      itemData: item,
+      itemData: { ...item, imageUrl },
     });
     
     if (result.success) {
-      await loadProject(); // Reload to get updated items
+      await loadProject();
       toast.success(t("itemCreated"));
     } else {
       toast.error(result.error || t("error"));
     }
   };
 
-  const handleEditItem = async (item: Omit<ItineraryItem, "id">) => {
+  const handleEditItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project || !editingItem || !editPassword) return;
+    
+    let imageUrl = item.imageUrl;
+    if (imageFile) {
+      const uploadedUrl = await edgeFunctionUploadImage(project.id, editPassword, imageFile);
+      if (uploadedUrl) imageUrl = uploadedUrl;
+    }
     
     const result = await edgeFunctionCrud("update-item", project.id, editPassword, {
       itemId: editingItem.id,
-      itemData: item,
+      itemData: { ...item, imageUrl },
     });
     
     if (result.success) {
