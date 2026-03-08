@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePro } from "@/contexts/ProContext";
 import { LoginDialog } from "@/components/LoginDialog";
+import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 
 // Tier limits
 const FREE_PROJECT_LIMIT = 1;
