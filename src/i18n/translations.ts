@@ -240,6 +240,7 @@ export const translations = {
       highlightColor: "Highlight Color",
       noItems: "No items for this day",
       tripOverview: "Trip Overview",
+      overviewExpiryNotice: "Expired project data will be retained for 30 days, after which the system will automatically delete it. Please save any needed information in advance.",
       addFirstItem: "Add your first item!",
       itemDeleted: "Item deleted",
       itemCreated: "Item added",
