@@ -238,6 +238,7 @@ export const translations = {
       googleMapsUrl: "Google Maps URL",
       highlightColor: "Highlight Color",
       noItems: "No items for this day",
+      tripOverview: "Trip Overview",
       addFirstItem: "Add your first item!",
       itemDeleted: "Item deleted",
       itemCreated: "Item added",
