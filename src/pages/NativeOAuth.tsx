@@ -74,8 +74,10 @@ export default function NativeOAuth() {
         // Step 2: No session yet — initiate OAuth
         localStorage.setItem("native_oauth_pending", "1");
 
+        // CRITICAL: redirect_uri must return to THIS page so we can bounce tokens
+        const currentUrl = window.location.href.split("?")[0]; // Remove any existing query params
         const result = await lovable.auth.signInWithOAuth(provider, {
-          redirect_uri: window.location.origin,
+          redirect_uri: `${window.location.origin}/#/native-oauth?provider=${provider}`,
         });
 
         if (result.redirected) {
