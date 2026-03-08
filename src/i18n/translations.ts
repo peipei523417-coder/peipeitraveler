@@ -612,6 +612,7 @@ export const translations = {
       googleMapsUrl: "Google Maps URL",
       highlightColor: "하이라이트 색상",
       noItems: "이 날의 일정이 없습니다",
+      tripOverview: "여행 개요",
       addFirstItem: "첫 일정을 추가하세요!",
       itemDeleted: "일정 삭제됨",
       itemCreated: "일정 추가됨",
