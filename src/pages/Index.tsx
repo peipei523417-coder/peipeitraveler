@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePro } from "@/contexts/ProContext";
 import { LoginDialog } from "@/components/LoginDialog";
+import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 
 // Tier limits
 const FREE_PROJECT_LIMIT = 1;
@@ -50,6 +51,9 @@ export default function Index() {
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [upgradeDialogType, setUpgradeDialogType] = useState<"project" | "day">("project");
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
+  const [expiryDaysRemaining, setExpiryDaysRemaining] = useState(0);
+  const expiryCheckedRef = useRef(false);
   
   // Long-press state for mobile
   const [actionSheetProject, setActionSheetProject] = useState<TravelProject | null>(null);
@@ -71,6 +75,30 @@ export default function Index() {
       loadProjectsFromCache();
     }
   }, [authLoading, isLoaded]);
+
+  // Check for expiring projects once when projects load
+  useEffect(() => {
+    if (expiryCheckedRef.current || projects.length === 0) return;
+    expiryCheckedRef.current = true;
+    
+    const now = new Date();
+    let soonestDays = Infinity;
+    
+    for (const p of projects) {
+      const endDate = new Date(p.endDate);
+      const deleteDate = new Date(endDate);
+      deleteDate.setDate(deleteDate.getDate() + 30);
+      const daysLeft = Math.ceil((deleteDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysLeft > 0 && daysLeft <= 7 && daysLeft < soonestDays) {
+        soonestDays = daysLeft;
+      }
+    }
+    
+    if (soonestDays <= 7) {
+      setExpiryDaysRemaining(soonestDays);
+      setExpiryWarningOpen(true);
+    }
+  }, [projects]);
 
   // Invalidate cache when user identity changes
   const prevUserRef = useRef(user?.id);
@@ -466,6 +494,12 @@ export default function Index() {
         open={upgradeDialogOpen}
         onOpenChange={setUpgradeDialogOpen}
         type={upgradeDialogType}
+      />
+
+      <ExpiryWarningDialog
+        open={expiryWarningOpen}
+        onOpenChange={setExpiryWarningOpen}
+        daysRemaining={expiryDaysRemaining}
       />
     </div>
   );
