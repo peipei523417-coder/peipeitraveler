@@ -57,11 +57,6 @@ export default function NativeOAuth() {
           );
           setReturnUrl(url);
           setStatus("登入成功！請點擊下方按鈕返回 App");
-
-          // Also attempt a programmatic redirect as a bonus (may or may not work)
-          setTimeout(() => {
-            try { window.location.href = url; } catch {}
-          }, 500);
           return;
         }
 
