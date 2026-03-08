@@ -295,7 +295,7 @@ export default function Index() {
   }, []);
 
   // Auth loading state or OAuth return in progress
-  const isOAuthReturning = typeof sessionStorage !== 'undefined' && sessionStorage.getItem("oauth_returning") === "1";
+  const isOAuthReturning = typeof localStorage !== 'undefined' && localStorage.getItem("oauth_returning") === "1";
   if (authLoading || isOAuthReturning) {
     return <PageSkeleton variant="index" />;
   }
