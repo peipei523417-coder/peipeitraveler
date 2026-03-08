@@ -38,6 +38,7 @@ export default function ProjectDetail() {
   const [saved, setSaved] = useState(false);
   const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
   const [daysRemaining, setDaysRemaining] = useState(0);
+  const [overviewOpen, setOverviewOpen] = useState(false);
   
   // Track if we're currently performing a local update to skip realtime reload
   const isLocalUpdateRef = useRef(false);
