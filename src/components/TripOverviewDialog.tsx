@@ -54,15 +54,15 @@ export function TripOverviewDialog({ open, onOpenChange, project }: TripOverview
                     {[...day.items]
                       .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""))
                       .map((item) => (
-                        <div key={item.id} className="flex items-start gap-2 text-sm">
+                        <div key={item.id} className="flex items-start gap-2 text-sm min-w-0">
                           {item.startTime ? (
-                            <span className="text-xs font-mono text-primary font-semibold whitespace-nowrap mt-0.5 min-w-[40px]">
+                            <span className="text-xs font-mono text-primary font-semibold whitespace-nowrap mt-0.5 flex-shrink-0">
                               {item.startTime}
                             </span>
                           ) : (
-                            <span className="min-w-[40px]" />
+                            <span className="w-[40px] flex-shrink-0" />
                           )}
-                          <span className="text-foreground/90 leading-snug break-words">
+                          <span className="text-foreground/90 leading-snug min-w-0" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                             {item.description}
                           </span>
                         </div>
