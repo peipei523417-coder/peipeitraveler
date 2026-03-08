@@ -719,6 +719,8 @@ export const translations = {
       unlimitedDaysNew: "최대 20일 여행 (해외 장기 여행도 함께 계획)",
       luckyTravel: "여행 중 행운이 가득 ❤️",
       gotIt: "알겠습니다",
+      expiryWarningTitle: "프로젝트가 곧 삭제됩니다",
+      expiryWarningDesc: "이 여행이 종료되었습니다. {{days}}일 후 프로젝트와 모든 이미지가 자동 삭제됩니다.",
       toggleProStatus: "PRO 상태 전환",
       proEnabled: "PRO 활성화됨",
       proDisabled: "PRO 비활성화됨",
