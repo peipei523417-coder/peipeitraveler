@@ -16,21 +16,6 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
-/**
- * Build a redirect URL that works in Chrome Custom Tabs (Android)
- * and SFSafariViewController (iOS).
- */
-function buildNativeBounceUrl(session: Session): string {
-  const NATIVE_SCHEME = "com.peitravel.smartplanner";
-  const NATIVE_PACKAGE = "com.peitravel.smartplanner";
-  const fragment = `access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}`;
-
-  const isAndroid = /android/i.test(navigator.userAgent);
-  if (isAndroid) {
-    return `intent://oauth-callback#${fragment}#Intent;scheme=${NATIVE_SCHEME};package=${NATIVE_PACKAGE};end`;
-  }
-  return `${NATIVE_SCHEME}://oauth-callback#${fragment}`;
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Optimistic: check localStorage for existing session to avoid loading flash
