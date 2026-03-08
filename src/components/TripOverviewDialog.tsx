@@ -15,7 +15,7 @@ export function TripOverviewDialog({ open, onOpenChange, project }: TripOverview
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md mx-auto max-h-[85vh] p-0 rounded-2xl overflow-hidden">
+      <DialogContent className="max-w-md mx-auto max-h-[85vh] p-0 rounded-2xl overflow-hidden cursor-pointer" onClick={() => onOpenChange(false)}>
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50 bg-muted/30">
           <DialogTitle className="text-lg font-bold text-foreground">
             {t("tripOverview")}
