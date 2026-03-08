@@ -381,6 +381,13 @@ export default function ProjectDetail() {
         suggestedStartTime={getNextSuggestedTime()}
         existingItems={currentDay?.items || []}
       />
+
+      {/* Expiry Warning */}
+      <ExpiryWarningDialog
+        open={expiryWarningOpen}
+        onOpenChange={setExpiryWarningOpen}
+        daysRemaining={daysRemaining}
+      />
     </div>
   );
 }
