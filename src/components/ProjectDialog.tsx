@@ -199,18 +199,6 @@ export function ProjectDialog({
   const handleSubmit = () => {
     if (!name.trim() || !dateRange?.from || !dateRange?.to) return;
     
-    // Validate password if public
-    if (isPublic) {
-      if (!editPassword) {
-        setPasswordError(t("passwordRequired"));
-        return;
-      }
-      if (!validatePassword(editPassword)) {
-        setPasswordError(t("passwordInvalid"));
-        return;
-      }
-    }
-    
     // Clear draft on successful submit
     clearDraft();
     
@@ -220,7 +208,6 @@ export function ProjectDialog({
       endDate: dateRange.to,
       coverImageUrl: coverPreview,
       isPublic,
-      editPassword: isPublic ? editPassword : undefined,
     }, coverFile);
     
     resetForm();
@@ -371,7 +358,7 @@ export function ProjectDialog({
             </div>
 
             {/* Project Visibility Toggle */}
-            <div className="space-y-4 pt-2 border-t border-border">
+            <div className="space-y-3 pt-2 border-t border-border">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {isPublic ? (
@@ -383,58 +370,24 @@ export function ProjectDialog({
                     <Label className="text-sm font-medium">
                       {t("projectVisibility")}
                     </Label>
-                    <p className="text-xs text-muted-foreground">
-                      {isPublic ? t("publicDescription") : t("privateDescription")}
-                    </p>
                   </div>
                 </div>
-                <Switch
-                  checked={isPublic}
-                  onCheckedChange={handlePublicToggle}
-                />
+                <div className="flex items-center gap-2">
+                  <span className={cn("text-xs font-medium", !isPublic ? "text-foreground" : "text-muted-foreground")}>
+                    {t("private")}
+                  </span>
+                  <Switch
+                    checked={isPublic}
+                    onCheckedChange={handlePublicToggle}
+                  />
+                  <span className={cn("text-xs font-medium", isPublic ? "text-foreground" : "text-muted-foreground")}>
+                    {t("public")}
+                  </span>
+                </div>
               </div>
-
-              {/* Password Field - Only visible when public */}
-              {isPublic && (
-                <div className="space-y-2 pl-8">
-                  <Label htmlFor="editPassword" className="text-sm font-medium">
-                    {t("editPassword")}
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="editPassword"
-                      type={showPassword ? "text" : "password"}
-                      placeholder={t("editPasswordPlaceholder")}
-                      value={editPassword}
-                      onChange={(e) => {
-                        setEditPassword(e.target.value);
-                        setPasswordError("");
-                      }}
-                      className={cn(
-                        "rounded-xl h-11 pr-10",
-                        passwordError && "border-destructive"
-                      )}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                  {passwordError && (
-                    <p className="text-xs text-destructive">{passwordError}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {t("passwordHint")}
-                  </p>
-                </div>
-              )}
+              <p className="text-xs text-muted-foreground pl-8">
+                {isPublic ? t("publicDescription") : t("privateDescription")}
+              </p>
             </div>
           </div>
           
