@@ -144,8 +144,8 @@ jobs:
           grep -n "versionCode" android/app/build.gradle
           grep -n "versionName" android/app/build.gradle
           echo "App ID: com.peitravel.smartplanner"
-          echo "Version Code: 33"
-          echo "Version Name: 1.0.33"
+          echo "Version Code: 34"
+          echo "Version Name: 1.0.34"
 
       - name: Build release AAB
         working-directory: android
@@ -166,6 +166,6 @@ jobs:
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-v1.0.33-signed
+          name: app-release-v1.0.34-signed
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}
           retention-days: 7
