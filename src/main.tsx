@@ -20,6 +20,17 @@ import "./i18n";
  */
 (() => {
   try {
+    // CRITICAL: This interceptor is ONLY for the web relay page
+    // (peipeigotravel.lovable.app). On native (capacitor://), skip entirely
+    // to prevent redirect loops when native_oauth_pending is stale.
+    const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+    if (isNative) {
+      // Clean up any stale flags from previous attempts
+      localStorage.removeItem('native_oauth_pending');
+      localStorage.removeItem('native_oauth_provider');
+      return;
+    }
+
     const isPending = localStorage.getItem('native_oauth_pending');
     if (!isPending) return;
 
