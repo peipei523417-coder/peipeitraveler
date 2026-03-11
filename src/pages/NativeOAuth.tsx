@@ -56,6 +56,7 @@ export default function NativeOAuth() {
   const [hasError, setHasError] = useState(false);
   const [intentUrl, setIntentUrl] = useState<string | null>(null);
   const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
+  const [showManualReturn, setShowManualReturn] = useState(false);
   const hasAutoReturnRef = useRef(false);
 
   useEffect(() => {
