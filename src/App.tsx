@@ -66,7 +66,10 @@ function DeepLinkHandler() {
       }
 
       // Handle OAuth callback — extract tokens and set session
-      const isOAuthCallback = url.includes("oauth-callback") || url.includes("access_token");
+      const isOAuthCallback =
+        url.includes("oauth-callback") ||
+        url.includes("/auth/callback") ||
+        url.includes("access_token");
       if (!isOAuthCallback) return;
 
       // Ignore duplicate callback events with same URL in a short window
