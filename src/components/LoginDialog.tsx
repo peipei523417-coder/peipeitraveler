@@ -8,8 +8,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
-// supabase import kept for potential future use
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+/** Production URL used as OAuth redirect for native apps */
+const PRODUCTION_URL = "https://peipeigotravel.lovable.app";
 
 interface LoginDialogProps {
   open: boolean;
@@ -25,23 +28,41 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
 
       if (isNative) {
-        // Native: open the production relay page in the system browser.
-        // The relay page initiates Lovable Cloud OAuth (which manages Google/Apple
-        // credentials via its proxy), then redirects tokens back to the app
-        // via the custom scheme deep link.
-        // Use hash route so the published SPA (HashRouter) resolves correctly
-        const relayUrl = `https://peipeigotravel.lovable.app/#/native-oauth?provider=${provider}`;
+        // ──────────────────────────────────────────────────────
+        // NATIVE PKCE FLOW (v1.0.36)
+        //
+        // 1. Call supabase.auth.signInWithOAuth with skipBrowserRedirect
+        //    → Supabase generates the OAuth URL, stores PKCE code_verifier
+        //      in THIS WebView's localStorage.
+        // 2. Open the URL in Chrome Custom Tabs / SFSafariViewController.
+        // 3. After Google login, Supabase redirects to:
+        //      https://peipeigotravel.lovable.app?native_callback=1#access_token=…
+        // 4. The web page's main.tsx interceptor detects native_callback=1,
+        //    extracts tokens from hash, and redirects to:
+        //      com.peitravel.smartplanner://auth/callback?access_token=…&refresh_token=…
+        // 5. Android/iOS intent fires → DeepLinkHandler sets session.
+        // ──────────────────────────────────────────────────────
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${PRODUCTION_URL}?native_callback=1`,
+            skipBrowserRedirect: true,
+          },
+        });
 
-        const { Browser } = await import("@capacitor/browser");
-        // CRITICAL: Do NOT use windowName: "_self" — that loads the URL inside
-        // the WebView, hijacking it to the remote domain. Default "_blank" opens
-        // Chrome Custom Tabs (Android) / SFSafariViewController (iOS) instead.
-        await Browser.open({ url: relayUrl });
-        // Browser opens → relay page does Lovable Cloud OAuth → redirect to custom scheme
-        // → Android/iOS intent fires → DeepLinkHandler receives tokens → setSession()
+        if (error) {
+          toast.error(`登入失敗：${error.message}`);
+          return;
+        }
+
+        if (data?.url) {
+          const { Browser } = await import("@capacitor/browser");
+          await Browser.open({ url: data.url });
+        }
+
         onOpenChange(false);
       } else {
-        // Web: use Lovable Cloud OAuth (redirects within browser)
+        // WEB: use Lovable Cloud OAuth (redirects within browser)
         const { error, redirected } = await lovable.auth.signInWithOAuth(provider, {
           redirect_uri: window.location.origin,
         });
