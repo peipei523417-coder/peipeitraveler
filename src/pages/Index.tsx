@@ -294,14 +294,7 @@ export default function Index() {
     }
   }, []);
 
-  // Auth loading state or OAuth return in progress
-  // Also check native_oauth_pending — if set, the user is in the middle of
-  // native OAuth in Chrome Custom Tabs and shouldn't see login screen
-  const isOAuthReturning = typeof localStorage !== 'undefined' && (
-    localStorage.getItem("oauth_returning") === "1" ||
-    localStorage.getItem("native_oauth_pending") === "1"
-  );
-  if (authLoading || isOAuthReturning) {
+  if (authLoading) {
     return <PageSkeleton variant="index" />;
   }
 
