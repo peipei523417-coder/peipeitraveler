@@ -163,19 +163,38 @@ export default function NativeOAuth() {
     if (!intentUrl || !fallbackUrl || hasError || hasAutoReturnRef.current) return;
 
     hasAutoReturnRef.current = true;
+    setShowManualReturn(false);
     setStatus("登入成功，正在返回 App⋯");
 
     const intentTimer = window.setTimeout(() => {
       window.location.href = intentUrl;
     }, 250);
 
-    const fallbackTimer = window.setTimeout(() => {
-      window.location.href = fallbackUrl;
-    }, 1800);
+    const manualTimer = window.setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        setShowManualReturn(true);
+        setStatus("若尚未返回 App，請點下方按鈕手動返回");
+      }
+    }, 2200);
+
+    const stopManualPrompt = () => {
+      clearTimeout(manualTimer);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        stopManualPrompt();
+      }
+    };
+
+    window.addEventListener("pagehide", stopManualPrompt);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       clearTimeout(intentTimer);
-      clearTimeout(fallbackTimer);
+      clearTimeout(manualTimer);
+      window.removeEventListener("pagehide", stopManualPrompt);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [intentUrl, fallbackUrl, hasError]);
 
