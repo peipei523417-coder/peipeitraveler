@@ -14,7 +14,6 @@ import Index from "./pages/Index";
 import ProjectDetail from "./pages/ProjectDetail";
 import SharePage from "./pages/SharePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
-import NativeOAuth from "./pages/NativeOAuth";
 import NotFound from "./pages/NotFound";
 import "@fontsource/nunito/400.css";
 import "@fontsource/nunito/600.css";
@@ -23,156 +22,118 @@ import "@fontsource/nunito/700.css";
 const queryClient = new QueryClient();
 
 /**
- * Handles deep links from native app (Capacitor).
- * Specifically handles OAuth callback and share links.
+ * DeepLinkHandler — handles OAuth callbacks and share links on native.
+ *
+ * v1.0.36: Simplified to only handle:
+ * 1. OAuth tokens from deep link (access_token + refresh_token in query params)
+ * 2. PKCE code from deep link (code in query params → exchangeCodeForSession)
+ * 3. Share links (/share/:code)
  */
 function DeepLinkHandler() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isHandlingOAuthRef = useRef(false);
-  const lastHandledOAuthUrlRef = useRef<string | null>(null);
-
-  // Clear oauth_returning flag once auth is confirmed
-  useEffect(() => {
-    if (user && localStorage.getItem("oauth_returning") === "1") {
-      console.log("[DeepLink] Auth confirmed, clearing oauth_returning flag");
-      localStorage.removeItem("oauth_returning");
-    }
-  }, [user]);
-
-  // Safety timeout: clear flag after 10 seconds to prevent permanent blocking
-  useEffect(() => {
-    if (localStorage.getItem("oauth_returning") === "1") {
-      const timeout = setTimeout(() => {
-        console.log("[DeepLink] Safety timeout: clearing oauth_returning flag");
-        localStorage.removeItem("oauth_returning");
-      }, 10000);
-      return () => clearTimeout(timeout);
-    }
-  }, []);
+  const isHandlingRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
+    let listenerHandle: { remove: () => Promise<void> } | null = null;
+
     const handleDeepLink = async (event: { url?: string }) => {
       const url = event?.url || "";
       if (!url) return;
 
-      console.log("[DeepLink] Received URL:", url);
+      console.log("[DeepLink] Received:", url);
 
-      // Handle share deep links: https://peipeigotravel.lovable.app/share/:code
+      // ── Share links ──
       const shareMatch = url.match(/\/share\/([^?#]+)/);
       if (shareMatch) {
         navigate(`/share/${shareMatch[1]}`);
         return;
       }
 
-      // Handle OAuth callback — extract tokens and set session
-      const isOAuthCallback =
-        url.includes("oauth-callback") ||
+      // ── OAuth callback ──
+      const isOAuth =
         url.includes("/auth/callback") ||
-        url.includes("access_token");
-      if (!isOAuthCallback) return;
+        url.includes("oauth-callback") ||
+        url.includes("access_token") ||
+        url.includes("code=");
+      if (!isOAuth) return;
 
-      // Ignore duplicate callback events with same URL in a short window
-      if (isHandlingOAuthRef.current && lastHandledOAuthUrlRef.current === url) {
-        console.log("[DeepLink] Duplicate OAuth callback ignored");
+      // Prevent duplicate handling
+      if (isHandlingRef.current) {
+        console.log("[DeepLink] Already handling, skip");
         return;
       }
-      isHandlingOAuthRef.current = true;
-      lastHandledOAuthUrlRef.current = url;
+      isHandlingRef.current = true;
 
       try {
-        console.log("[DeepLink] OAuth callback detected");
-
-        // Mark OAuth in progress — flag will be cleared by user-auth confirmation
-        localStorage.setItem("oauth_returning", "1");
-
-        // Close Chrome Custom Tabs IMMEDIATELY
+        // Close external browser immediately
         try {
           const { Browser } = await import("@capacitor/browser");
           await Browser.close();
-          console.log("[DeepLink] Browser.close() succeeded");
-        } catch (e) {
-          console.warn("[DeepLink] Browser.close() failed:", e);
+        } catch {
+          // Not available or already closed
         }
 
+        // Parse URL — normalize custom scheme to https for URL parsing
+        const normalized = url.replace(/^[^:]+:\/\//, "https://");
         let accessToken: string | null = null;
         let refreshToken: string | null = null;
+        let code: string | null = null;
 
-        // METHOD 1: Parse from query parameters (most reliable on Android)
         try {
-          const normalizedUrl = url.replace(/^[^:]+:\/\//, "https://");
-          const urlObj = new URL(normalizedUrl);
+          const urlObj = new URL(normalized);
           accessToken = urlObj.searchParams.get("access_token");
           refreshToken = urlObj.searchParams.get("refresh_token");
-          if (accessToken) {
-            console.log("[DeepLink] Tokens found in query params");
-          }
+          code = urlObj.searchParams.get("code");
         } catch {
-          console.log("[DeepLink] URL() parsing failed, trying manual parse");
-        }
-
-        // METHOD 2: Fallback — parse from fragment
-        if (!accessToken || !refreshToken) {
-          const hashIndex = url.indexOf("#");
-          if (hashIndex !== -1) {
-            const hashPart = url.substring(hashIndex + 1);
-            const tokenPart = hashPart.split("#")[0];
-            const params = new URLSearchParams(tokenPart);
-            accessToken = accessToken || params.get("access_token");
-            refreshToken = refreshToken || params.get("refresh_token");
-            if (accessToken) {
-              console.log("[DeepLink] Tokens found in fragment");
-            }
-          }
-        }
-
-        // METHOD 3: Fallback — manual regex extraction
-        if (!accessToken || !refreshToken) {
+          // Manual regex fallback
           const atMatch = url.match(/access_token=([^&#]+)/);
           const rtMatch = url.match(/refresh_token=([^&#]+)/);
+          const codeMatch = url.match(/[?&]code=([^&#]+)/);
           if (atMatch) accessToken = decodeURIComponent(atMatch[1]);
           if (rtMatch) refreshToken = decodeURIComponent(rtMatch[1]);
-          if (accessToken) {
-            console.log("[DeepLink] Tokens found via regex");
-          }
+          if (codeMatch) code = decodeURIComponent(codeMatch[1]);
         }
 
+        // METHOD 1: Direct tokens (implicit flow)
         if (accessToken && refreshToken) {
-          console.log("[DeepLink] Setting session from tokens...");
+          console.log("[DeepLink] Setting session from tokens…");
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
-
           if (error) {
             console.error("[DeepLink] setSession error:", error);
-            localStorage.removeItem("oauth_returning");
           } else {
-            console.log("[DeepLink] Session set successfully!");
+            console.log("[DeepLink] ✅ Session set successfully");
+          }
+        }
+        // METHOD 2: PKCE code exchange
+        else if (code) {
+          console.log("[DeepLink] Exchanging PKCE code…");
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error("[DeepLink] exchangeCode error:", error);
+          } else {
+            console.log("[DeepLink] ✅ Code exchanged successfully");
           }
         } else {
-          console.error("[DeepLink] No tokens found in URL:", url);
-          localStorage.removeItem("oauth_returning");
+          console.warn("[DeepLink] No tokens or code found in URL");
         }
-      } catch (e) {
-        console.error("[DeepLink] OAuth deep link error:", e);
-        localStorage.removeItem("oauth_returning");
-      } finally {
-        window.setTimeout(() => {
-          isHandlingOAuthRef.current = false;
-          lastHandledOAuthUrlRef.current = null;
-        }, 4000);
-      }
 
-      // Navigate home
-      navigate("/", { replace: true });
+        // Navigate to home
+        navigate("/", { replace: true });
+      } catch (e) {
+        console.error("[DeepLink] Error:", e);
+      } finally {
+        // Reset after a delay to allow for any intent re-delivery
+        window.setTimeout(() => {
+          isHandlingRef.current = false;
+        }, 3000);
+      }
     };
 
-    // Listen for Capacitor App URL open events
-    let cancelled = false;
-    let listenerHandle: { remove: () => Promise<void> } | null = null;
-
-    const setupListener = async () => {
+    const setup = async () => {
       try {
         const [{ App: CapApp }, { Capacitor }] = await Promise.all([
           import("@capacitor/app"),
@@ -182,32 +143,28 @@ function DeepLinkHandler() {
         if (!Capacitor.isNativePlatform()) return;
 
         const handle = await CapApp.addListener("appUrlOpen", handleDeepLink);
-
         if (cancelled) {
           await handle.remove();
           return;
         }
-
         listenerHandle = handle;
 
-        // Handle cold-start deep links (app opened from killed state)
+        // Cold-start: check if app was opened via a deep link
         const launchUrl = await CapApp.getLaunchUrl();
         if (!cancelled && launchUrl?.url) {
-          console.log("[DeepLink] Processing launch URL:", launchUrl.url);
+          console.log("[DeepLink] Launch URL:", launchUrl.url);
           await handleDeepLink({ url: launchUrl.url });
         }
       } catch {
-        // Not on native platform, skip
+        // Not native
       }
     };
 
-    setupListener();
+    setup();
 
     return () => {
       cancelled = true;
-      if (listenerHandle) {
-        void listenerHandle.remove();
-      }
+      listenerHandle?.remove();
     };
   }, [navigate]);
 
@@ -253,7 +210,6 @@ function AppContent() {
         <Route path="/" element={<Index />} />
         <Route path="/project/:id" element={<ProjectDetail />} />
         <Route path="/share/:shareCode" element={<SharePage />} />
-        <Route path="/native-oauth" element={<NativeOAuth />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
