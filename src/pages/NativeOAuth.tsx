@@ -205,7 +205,7 @@ export default function NativeOAuth() {
       )}
       <p className="text-lg text-center text-foreground">{status}</p>
 
-      {intentUrl && fallbackUrl && (
+      {intentUrl && fallbackUrl && showManualReturn && (
         <div className="flex flex-col items-center gap-4 mt-2">
           <a
             href={intentUrl}
@@ -222,7 +222,7 @@ export default function NativeOAuth() {
             若無法返回，請點這裡
           </a>
           <p className="text-sm text-muted-foreground text-center">
-            登入成功！點擊上方按鈕即可返回 PeiPeiGoTravel
+            已登入完成，請點擊上方按鈕返回 PeiPeiGoTravel
           </p>
         </div>
       )}
