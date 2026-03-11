@@ -58,16 +58,19 @@ public class MainActivity extends BridgeActivity {
 
         // No tokens found: nothing to normalize
         if (accessToken == null || refreshToken == null) return;
+        if (accessToken.isEmpty() || refreshToken.isEmpty()) return;
 
-        String scheme = originalData != null ? originalData.getScheme() : null;
-        String host = originalData != null ? originalData.getHost() : null;
-
-        if (scheme == null || scheme.isEmpty()) scheme = "com.peitravel.smartplanner";
-        if (host == null || host.isEmpty()) host = "oauth-callback";
+        // IMPORTANT:
+        // When Chrome launches an `intent://...` URL, originalData.getScheme() may be "intent".
+        // If we keep that scheme, Capacitor will NOT match our deep link intent-filter
+        // (com.peitravel.smartplanner://...) and JS will never receive the callback.
+        // Always normalize to our app scheme + host.
+        final String normalizedScheme = "com.peitravel.smartplanner";
+        final String normalizedHost = "oauth-callback";
 
         Uri reconstructedUri = new Uri.Builder()
-            .scheme(scheme)
-            .authority(host)
+            .scheme(normalizedScheme)
+            .authority(normalizedHost)
             .appendQueryParameter("access_token", accessToken)
             .appendQueryParameter("refresh_token", refreshToken)
             .build();
