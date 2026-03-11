@@ -22,7 +22,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep link for OAuth callback -->
+            <!-- Deep link for OAuth callback (primary) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -30,6 +30,17 @@
                 <data
                     android:scheme="com.peitravel.smartplanner"
                     android:host="oauth-callback" />
+            </intent-filter>
+
+            <!-- Deep link for OAuth callback (compat: /auth/callback) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="com.peitravel.smartplanner"
+                    android:host="auth"
+                    android:pathPrefix="/callback" />
             </intent-filter>
 
             <!-- Deep link for share URLs -->

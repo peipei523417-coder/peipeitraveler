@@ -6,6 +6,7 @@ import { AirplaneLoader } from "@/components/AirplaneLoader";
 
 const NATIVE_SCHEME = "com.peitravel.smartplanner";
 const NATIVE_HOST = "oauth-callback";
+const ANDROID_PACKAGE = "com.peitravel.smartplanner";
 
 /**
  * Build TWO return URLs:
@@ -15,7 +16,8 @@ const NATIVE_HOST = "oauth-callback";
 function buildIntentUrl(accessToken: string, refreshToken: string): string {
   const encodedAt = encodeURIComponent(accessToken);
   const encodedRt = encodeURIComponent(refreshToken);
-  return `intent://${NATIVE_HOST}#Intent;scheme=${NATIVE_SCHEME};S.access_token=${encodedAt};S.refresh_token=${encodedRt};end`;
+  // Include package to ensure the intent resolves directly to our app.
+  return `intent://${NATIVE_HOST}#Intent;scheme=${NATIVE_SCHEME};package=${ANDROID_PACKAGE};S.access_token=${encodedAt};S.refresh_token=${encodedRt};end`;
 }
 
 function buildFallbackUrl(accessToken: string, refreshToken: string): string {
