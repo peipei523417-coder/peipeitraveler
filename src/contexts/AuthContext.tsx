@@ -18,28 +18,17 @@ const AuthContext = createContext<AuthContextType>({
 
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Optimistic: check localStorage for existing session to avoid loading flash
-  const hasStoredSession = (() => {
-    try {
-      const key = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-      if (key) {
-        const stored = JSON.parse(localStorage.getItem(key) || '{}');
-        return !!stored?.access_token;
-      }
-    } catch {}
-    return false;
-  })();
-
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(!hasStoredSession);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     // Set up auth state listener BEFORE getting session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        // NOTE: Native OAuth bounce is handled by NativeOAuth page, not here.
-        // This prevents bounce logic from running in the wrong context.
+      (_event, currentSession) => {
+        if (!isMounted) return;
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);
@@ -47,13 +36,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session: initialSession } }) => {
+        if (!isMounted) return;
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setLoading(false);
+      });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

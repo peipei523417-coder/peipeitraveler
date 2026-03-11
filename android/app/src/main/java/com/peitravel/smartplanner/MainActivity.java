@@ -44,34 +44,34 @@ public class MainActivity extends BridgeActivity {
      * Android/Chrome strips fragments from custom scheme URIs.
      */
     private void handleOAuthIntent(Intent intent) {
-        if (intent == null || intent.getData() == null) return;
+        if (intent == null) return;
 
         Uri originalData = intent.getData();
-        String accessToken = null;
-        String refreshToken = null;
-
-        // Method 1: Try intent extras (from intent:// URLs)
-        accessToken = intent.getStringExtra("access_token");
-        refreshToken = intent.getStringExtra("refresh_token");
+        String accessToken = intent.getStringExtra("access_token");
+        String refreshToken = intent.getStringExtra("refresh_token");
 
         // Method 2: Try query parameters (from custom scheme URLs)
-        if (accessToken == null || refreshToken == null) {
+        if ((accessToken == null || refreshToken == null) && originalData != null) {
             accessToken = originalData.getQueryParameter("access_token");
             refreshToken = originalData.getQueryParameter("refresh_token");
         }
 
-        // If we found tokens, reconstruct URL with query params for Capacitor
-        if (accessToken != null && refreshToken != null) {
-            String scheme = originalData.getScheme();
-            String host = originalData.getHost();
-            if (scheme == null) scheme = "com.peitravel.smartplanner";
-            if (host == null) host = "oauth-callback";
+        // No tokens found: nothing to normalize
+        if (accessToken == null || refreshToken == null) return;
 
-            String reconstructedUrl = scheme + "://" + host
-                + "?access_token=" + Uri.encode(accessToken)
-                + "&refresh_token=" + Uri.encode(refreshToken);
+        String scheme = originalData != null ? originalData.getScheme() : null;
+        String host = originalData != null ? originalData.getHost() : null;
 
-            intent.setData(Uri.parse(reconstructedUrl));
-        }
+        if (scheme == null || scheme.isEmpty()) scheme = "com.peitravel.smartplanner";
+        if (host == null || host.isEmpty()) host = "oauth-callback";
+
+        Uri reconstructedUri = new Uri.Builder()
+            .scheme(scheme)
+            .authority(host)
+            .appendQueryParameter("access_token", accessToken)
+            .appendQueryParameter("refresh_token", refreshToken)
+            .build();
+
+        intent.setData(reconstructedUri);
     }
 }
