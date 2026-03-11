@@ -96,10 +96,11 @@ export default function NativeOAuth() {
           }
         }
 
-        // Step 1: Check if we already have a session (returning from OAuth provider)
+        // Step 1: If session already exists, never start OAuth again.
+        // This prevents re-login loops when callback page is reopened.
         const { data: { session: existingSession } } = await supabase.auth.getSession();
-        if (existingSession && localStorage.getItem("native_oauth_pending")) {
-          console.log("[NativeOAuth] Found existing session");
+        if (existingSession) {
+          console.log("[NativeOAuth] Existing session detected, returning to app");
           localStorage.removeItem("native_oauth_pending");
           localStorage.removeItem("native_oauth_provider");
           showReturnButtons(
