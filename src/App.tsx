@@ -29,6 +29,8 @@ const queryClient = new QueryClient();
 function DeepLinkHandler() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isHandlingOAuthRef = useRef(false);
+  const lastHandledOAuthUrlRef = useRef<string | null>(null);
 
   // Clear oauth_returning flag once auth is confirmed
   useEffect(() => {
@@ -50,8 +52,10 @@ function DeepLinkHandler() {
   }, []);
 
   useEffect(() => {
-    const handleDeepLink = async (event: any) => {
+    const handleDeepLink = async (event: { url?: string }) => {
       const url = event?.url || "";
+      if (!url) return;
+
       console.log("[DeepLink] Received URL:", url);
 
       // Handle share deep links: https://peipeigotravel.lovable.app/share/:code
@@ -62,11 +66,21 @@ function DeepLinkHandler() {
       }
 
       // Handle OAuth callback — extract tokens and set session
-      if (url.includes("oauth-callback") || url.includes("access_token")) {
+      const isOAuthCallback = url.includes("oauth-callback") || url.includes("access_token");
+      if (!isOAuthCallback) return;
+
+      // Ignore duplicate callback events with same URL in a short window
+      if (isHandlingOAuthRef.current && lastHandledOAuthUrlRef.current === url) {
+        console.log("[DeepLink] Duplicate OAuth callback ignored");
+        return;
+      }
+      isHandlingOAuthRef.current = true;
+      lastHandledOAuthUrlRef.current = url;
+
+      try {
         console.log("[DeepLink] OAuth callback detected");
 
-        // Mark OAuth in progress — flag will be cleared by useEffect above
-        // when auth state is confirmed, NOT here.
+        // Mark OAuth in progress — flag will be cleared by user-auth confirmation
         localStorage.setItem("oauth_returning", "1");
 
         // Close Chrome Custom Tabs IMMEDIATELY
@@ -78,89 +92,107 @@ function DeepLinkHandler() {
           console.warn("[DeepLink] Browser.close() failed:", e);
         }
 
+        let accessToken: string | null = null;
+        let refreshToken: string | null = null;
+
+        // METHOD 1: Parse from query parameters (most reliable on Android)
         try {
-          let accessToken: string | null = null;
-          let refreshToken: string | null = null;
-
-          // METHOD 1: Parse from query parameters (most reliable on Android)
-          try {
-            const normalizedUrl = url.replace(/^[^:]+:\/\//, "https://");
-            const urlObj = new URL(normalizedUrl);
-            accessToken = urlObj.searchParams.get("access_token");
-            refreshToken = urlObj.searchParams.get("refresh_token");
-            if (accessToken) {
-              console.log("[DeepLink] Tokens found in query params");
-            }
-          } catch {
-            console.log("[DeepLink] URL() parsing failed, trying manual parse");
+          const normalizedUrl = url.replace(/^[^:]+:\/\//, "https://");
+          const urlObj = new URL(normalizedUrl);
+          accessToken = urlObj.searchParams.get("access_token");
+          refreshToken = urlObj.searchParams.get("refresh_token");
+          if (accessToken) {
+            console.log("[DeepLink] Tokens found in query params");
           }
-
-          // METHOD 2: Fallback — parse from fragment
-          if (!accessToken || !refreshToken) {
-            const hashIndex = url.indexOf("#");
-            if (hashIndex !== -1) {
-              const hashPart = url.substring(hashIndex + 1);
-              const tokenPart = hashPart.split("#")[0];
-              const params = new URLSearchParams(tokenPart);
-              accessToken = accessToken || params.get("access_token");
-              refreshToken = refreshToken || params.get("refresh_token");
-              if (accessToken) {
-                console.log("[DeepLink] Tokens found in fragment");
-              }
-            }
-          }
-
-          // METHOD 3: Fallback — manual regex extraction
-          if (!accessToken || !refreshToken) {
-            const atMatch = url.match(/access_token=([^&#]+)/);
-            const rtMatch = url.match(/refresh_token=([^&#]+)/);
-            if (atMatch) accessToken = decodeURIComponent(atMatch[1]);
-            if (rtMatch) refreshToken = decodeURIComponent(rtMatch[1]);
-            if (accessToken) {
-              console.log("[DeepLink] Tokens found via regex");
-            }
-          }
-
-          if (accessToken && refreshToken) {
-            console.log("[DeepLink] Setting session from tokens...");
-            const { error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-
-            if (error) {
-              console.error("[DeepLink] setSession error:", error);
-              localStorage.removeItem("oauth_returning");
-            } else {
-              console.log("[DeepLink] Session set successfully!");
-              // Don't remove oauth_returning here — let useEffect clear it
-              // when auth state propagates to React context
-            }
-          } else {
-            console.error("[DeepLink] No tokens found in URL:", url);
-            localStorage.removeItem("oauth_returning");
-          }
-        } catch (e) {
-          console.error("[DeepLink] OAuth deep link error:", e);
-          localStorage.removeItem("oauth_returning");
+        } catch {
+          console.log("[DeepLink] URL() parsing failed, trying manual parse");
         }
 
-        // Navigate home
-        navigate("/", { replace: true });
-        return;
+        // METHOD 2: Fallback — parse from fragment
+        if (!accessToken || !refreshToken) {
+          const hashIndex = url.indexOf("#");
+          if (hashIndex !== -1) {
+            const hashPart = url.substring(hashIndex + 1);
+            const tokenPart = hashPart.split("#")[0];
+            const params = new URLSearchParams(tokenPart);
+            accessToken = accessToken || params.get("access_token");
+            refreshToken = refreshToken || params.get("refresh_token");
+            if (accessToken) {
+              console.log("[DeepLink] Tokens found in fragment");
+            }
+          }
+        }
+
+        // METHOD 3: Fallback — manual regex extraction
+        if (!accessToken || !refreshToken) {
+          const atMatch = url.match(/access_token=([^&#]+)/);
+          const rtMatch = url.match(/refresh_token=([^&#]+)/);
+          if (atMatch) accessToken = decodeURIComponent(atMatch[1]);
+          if (rtMatch) refreshToken = decodeURIComponent(rtMatch[1]);
+          if (accessToken) {
+            console.log("[DeepLink] Tokens found via regex");
+          }
+        }
+
+        if (accessToken && refreshToken) {
+          console.log("[DeepLink] Setting session from tokens...");
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            console.error("[DeepLink] setSession error:", error);
+            localStorage.removeItem("oauth_returning");
+          } else {
+            console.log("[DeepLink] Session set successfully!");
+          }
+        } else {
+          console.error("[DeepLink] No tokens found in URL:", url);
+          localStorage.removeItem("oauth_returning");
+        }
+      } catch (e) {
+        console.error("[DeepLink] OAuth deep link error:", e);
+        localStorage.removeItem("oauth_returning");
+      } finally {
+        window.setTimeout(() => {
+          isHandlingOAuthRef.current = false;
+          lastHandledOAuthUrlRef.current = null;
+        }, 1500);
       }
+
+      // Navigate home
+      navigate("/", { replace: true });
     };
 
     // Listen for Capacitor App URL open events
+    let cancelled = false;
+    let listenerHandle: { remove: () => Promise<void> } | null = null;
+
     const setupListener = async () => {
       try {
         const { App: CapApp } = await import("@capacitor/app");
-        CapApp.addListener("appUrlOpen", handleDeepLink);
+        const handle = await CapApp.addListener("appUrlOpen", handleDeepLink);
+
+        if (cancelled) {
+          await handle.remove();
+          return;
+        }
+
+        listenerHandle = handle;
       } catch {
         // Not on native platform, skip
       }
     };
+
     setupListener();
+
+    return () => {
+      cancelled = true;
+      if (listenerHandle) {
+        void listenerHandle.remove();
+      }
+    };
   }, [navigate]);
 
   return null;

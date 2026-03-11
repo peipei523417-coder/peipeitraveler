@@ -157,6 +157,26 @@ export default function NativeOAuth() {
     doAuth();
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!intentUrl || !fallbackUrl || hasError || hasAutoReturnRef.current) return;
+
+    hasAutoReturnRef.current = true;
+    setStatus("登入成功，正在返回 App⋯");
+
+    const intentTimer = window.setTimeout(() => {
+      window.location.href = intentUrl;
+    }, 250);
+
+    const fallbackTimer = window.setTimeout(() => {
+      window.location.href = fallbackUrl;
+    }, 1800);
+
+    return () => {
+      clearTimeout(intentTimer);
+      clearTimeout(fallbackTimer);
+    };
+  }, [intentUrl, fallbackUrl, hasError]);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-6 px-6">
       {!hasError && !intentUrl && (
