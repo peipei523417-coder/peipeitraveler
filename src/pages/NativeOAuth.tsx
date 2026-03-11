@@ -56,6 +56,7 @@ export default function NativeOAuth() {
   const [hasError, setHasError] = useState(false);
   const [intentUrl, setIntentUrl] = useState<string | null>(null);
   const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
+  const [showManualReturn, setShowManualReturn] = useState(false);
   const hasAutoReturnRef = useRef(false);
 
   useEffect(() => {
@@ -95,10 +96,11 @@ export default function NativeOAuth() {
           }
         }
 
-        // Step 1: Check if we already have a session (returning from OAuth provider)
+        // Step 1: If session already exists, never start OAuth again.
+        // This prevents re-login loops when callback page is reopened.
         const { data: { session: existingSession } } = await supabase.auth.getSession();
-        if (existingSession && localStorage.getItem("native_oauth_pending")) {
-          console.log("[NativeOAuth] Found existing session");
+        if (existingSession) {
+          console.log("[NativeOAuth] Existing session detected, returning to app");
           localStorage.removeItem("native_oauth_pending");
           localStorage.removeItem("native_oauth_provider");
           showReturnButtons(
@@ -161,19 +163,38 @@ export default function NativeOAuth() {
     if (!intentUrl || !fallbackUrl || hasError || hasAutoReturnRef.current) return;
 
     hasAutoReturnRef.current = true;
+    setShowManualReturn(false);
     setStatus("登入成功，正在返回 App⋯");
 
     const intentTimer = window.setTimeout(() => {
       window.location.href = intentUrl;
     }, 250);
 
-    const fallbackTimer = window.setTimeout(() => {
-      window.location.href = fallbackUrl;
-    }, 1800);
+    const manualTimer = window.setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        setShowManualReturn(true);
+        setStatus("若尚未返回 App，請點下方按鈕手動返回");
+      }
+    }, 2200);
+
+    const stopManualPrompt = () => {
+      clearTimeout(manualTimer);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        stopManualPrompt();
+      }
+    };
+
+    window.addEventListener("pagehide", stopManualPrompt);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       clearTimeout(intentTimer);
-      clearTimeout(fallbackTimer);
+      clearTimeout(manualTimer);
+      window.removeEventListener("pagehide", stopManualPrompt);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [intentUrl, fallbackUrl, hasError]);
 
@@ -184,7 +205,7 @@ export default function NativeOAuth() {
       )}
       <p className="text-lg text-center text-foreground">{status}</p>
 
-      {intentUrl && fallbackUrl && (
+      {intentUrl && fallbackUrl && showManualReturn && (
         <div className="flex flex-col items-center gap-4 mt-2">
           <a
             href={intentUrl}
@@ -201,7 +222,7 @@ export default function NativeOAuth() {
             若無法返回，請點這裡
           </a>
           <p className="text-sm text-muted-foreground text-center">
-            登入成功！點擊上方按鈕即可返回 PeiPeiGoTravel
+            已登入完成，請點擊上方按鈕返回 PeiPeiGoTravel
           </p>
         </div>
       )}

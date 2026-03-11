@@ -158,7 +158,7 @@ function DeepLinkHandler() {
         window.setTimeout(() => {
           isHandlingOAuthRef.current = false;
           lastHandledOAuthUrlRef.current = null;
-        }, 1500);
+        }, 4000);
       }
 
       // Navigate home
@@ -171,7 +171,13 @@ function DeepLinkHandler() {
 
     const setupListener = async () => {
       try {
-        const { App: CapApp } = await import("@capacitor/app");
+        const [{ App: CapApp }, { Capacitor }] = await Promise.all([
+          import("@capacitor/app"),
+          import("@capacitor/core"),
+        ]);
+
+        if (!Capacitor.isNativePlatform()) return;
+
         const handle = await CapApp.addListener("appUrlOpen", handleDeepLink);
 
         if (cancelled) {
@@ -180,6 +186,13 @@ function DeepLinkHandler() {
         }
 
         listenerHandle = handle;
+
+        // Handle cold-start deep links (app opened from killed state)
+        const launchUrl = await CapApp.getLaunchUrl();
+        if (!cancelled && launchUrl?.url) {
+          console.log("[DeepLink] Processing launch URL:", launchUrl.url);
+          await handleDeepLink({ url: launchUrl.url });
+        }
       } catch {
         // Not on native platform, skip
       }
