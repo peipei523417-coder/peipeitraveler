@@ -62,8 +62,6 @@ jobs:
           ls -laR dist/
         env:
           NODE_ENV: production
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Verify dist output (MUST be full production build)
         run: |
