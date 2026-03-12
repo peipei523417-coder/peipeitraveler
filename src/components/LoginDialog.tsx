@@ -25,12 +25,12 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const buildNativeOAuthUrl = (provider: "google" | "apple") => {
     const state =
       typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        ? `native_oauth_${crypto.randomUUID()}`
+        : `native_oauth_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
     const params = new URLSearchParams({
       provider,
-      redirect_uri: `${PRODUCTION_URL}?native_callback=1`,
+      redirect_uri: PRODUCTION_URL,
       state,
     });
 

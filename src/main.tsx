@@ -31,14 +31,20 @@ import "./i18n";
     }
 
     const params = new URLSearchParams(window.location.search);
-    const isNativeCallback = params.get("native_callback") === "1";
+    const hash = window.location.hash;
+    const hashParams = hash.startsWith("#")
+      ? new URLSearchParams(hash.substring(1))
+      : new URLSearchParams();
+
+    const callbackState = hashParams.get("state") || params.get("state");
+    const isNativeCallback =
+      params.get("native_callback") === "1" ||
+      callbackState?.startsWith("native_oauth_") === true;
     if (!isNativeCallback) return;
 
     // Extract tokens from URL hash (implicit flow)
     // Format: #access_token=XXX&refresh_token=YYY&token_type=bearer&...
-    const hash = window.location.hash;
     if (hash && hash.includes("access_token")) {
-      const hashParams = new URLSearchParams(hash.substring(1));
       const accessToken = hashParams.get("access_token");
       const refreshToken = hashParams.get("refresh_token");
 
