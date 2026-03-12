@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
-import { supabase } from "@/integrations/supabase/client";
+
 import { toast } from "sonner";
 
 /** Production URL used as OAuth redirect for native apps */
