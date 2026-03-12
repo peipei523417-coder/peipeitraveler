@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
-import { supabase } from "@/integrations/supabase/client";
+
 import { toast } from "sonner";
 
 /** Production URL used as OAuth redirect for native apps */
@@ -22,68 +22,49 @@ interface LoginDialogProps {
 export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const [loading, setLoading] = useState<"google" | "apple" | null>(null);
 
+  const buildNativeOAuthUrl = (provider: "google" | "apple") => {
+    const state =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? `native_oauth_${crypto.randomUUID()}`
+        : `native_oauth_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+    const params = new URLSearchParams({
+      provider,
+      redirect_uri: PRODUCTION_URL,
+      state,
+    });
+
+    return `${PRODUCTION_URL}/~oauth/initiate?${params.toString()}`;
+  };
+
   const handleOAuthLogin = async (provider: "google" | "apple") => {
     setLoading(provider);
     try {
       const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
 
       if (isNative) {
-        // ──────────────────────────────────────────────────────
-        // NATIVE PKCE FLOW (v1.0.37)
-        //
-        // 1. supabase.auth.signInWithOAuth with skipBrowserRedirect
-        //    → Generates OAuth URL + stores PKCE code_verifier in
-        //      this WebView's localStorage.
-        // 2. Open URL in Chrome Custom Tabs / SFSafariViewController
-        //    via @capacitor/browser.
-        // 3. User authenticates with Google/Apple.
-        // 4. Supabase redirects to:
-        //      https://peipeigotravel.lovable.app?native_callback=1&code=...
-        // 5. Production page's main.tsx interceptor detects native_callback=1,
-        //    extracts code/tokens, redirects to:
-        //      com.peitravel.smartplanner://auth/callback?code=...
-        // 6. Android/iOS intent fires → DeepLinkHandler exchanges code
-        //    for session using the stored PKCE verifier.
-        // ──────────────────────────────────────────────────────
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider,
-          options: {
-            redirectTo: `${PRODUCTION_URL}?native_callback=1`,
-            skipBrowserRedirect: true,
-          },
-        });
-
-        if (error) {
-          console.error("[NativeOAuth] signInWithOAuth error:", error);
-          toast.error(`登入失敗：${error.message}`);
-          return;
-        }
-
-        if (data?.url) {
-          console.log("[NativeOAuth] Opening OAuth URL in external browser…");
-          const { Browser } = await import("@capacitor/browser");
-          await Browser.open({ url: data.url });
-        }
-
+        const { Browser } = await import("@capacitor/browser");
+        const oauthUrl = buildNativeOAuthUrl(provider);
+        console.log("[NativeOAuth] Opening managed OAuth URL in external browser…");
+        await Browser.open({ url: oauthUrl });
         onOpenChange(false);
-      } else {
-        // ──────────────────────────────────────────────────────
-        // WEB: Use Lovable Cloud OAuth (redirects within browser)
-        // ──────────────────────────────────────────────────────
-        const { error, redirected } = await lovable.auth.signInWithOAuth(provider, {
-          redirect_uri: window.location.origin,
-        });
-
-        if (redirected) return;
-
-        if (error) {
-          toast.error(`登入失敗：${error.message}`);
-          return;
-        }
-
-        toast.success("登入成功！");
-        onOpenChange(false);
+        return;
       }
+
+      // WEB: Use Lovable Cloud OAuth (redirects within browser)
+      const { error, redirected } = await lovable.auth.signInWithOAuth(provider, {
+        redirect_uri: window.location.origin,
+      });
+
+      if (redirected) return;
+
+      if (error) {
+        toast.error(`登入失敗：${error.message}`);
+        return;
+      }
+
+      toast.success("登入成功！");
+      onOpenChange(false);
     } catch (err) {
       console.error("OAuth error:", err);
       toast.error("登入時發生錯誤");

@@ -62,8 +62,6 @@ jobs:
           ls -laR dist/
         env:
           NODE_ENV: production
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Verify dist output (MUST be full production build)
         run: |
@@ -144,8 +142,8 @@ jobs:
           grep -n "versionCode" android/app/build.gradle
           grep -n "versionName" android/app/build.gradle
           echo "App ID: com.peitravel.smartplanner"
-          echo "Version Code: 36"
-          echo "Version Name: 1.0.36"
+          echo "Version Code: 38"
+          echo "Version Name: 1.0.38"
 
       - name: Build release AAB
         working-directory: android
@@ -166,6 +164,6 @@ jobs:
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-v1.0.37-signed
+          name: app-release-v1.0.38-signed
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}
           retention-days: 7
