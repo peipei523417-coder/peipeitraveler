@@ -29,18 +29,21 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
 
       if (isNative) {
         // ──────────────────────────────────────────────────────
-        // NATIVE PKCE FLOW (v1.0.36)
+        // NATIVE PKCE FLOW (v1.0.37)
         //
-        // 1. Call supabase.auth.signInWithOAuth with skipBrowserRedirect
-        //    → Supabase generates the OAuth URL, stores PKCE code_verifier
-        //      in THIS WebView's localStorage.
-        // 2. Open the URL in Chrome Custom Tabs / SFSafariViewController.
-        // 3. After Google login, Supabase redirects to:
-        //      https://peipeigotravel.lovable.app?native_callback=1#access_token=…
-        // 4. The web page's main.tsx interceptor detects native_callback=1,
-        //    extracts tokens from hash, and redirects to:
-        //      com.peitravel.smartplanner://auth/callback?access_token=…&refresh_token=…
-        // 5. Android/iOS intent fires → DeepLinkHandler sets session.
+        // 1. supabase.auth.signInWithOAuth with skipBrowserRedirect
+        //    → Generates OAuth URL + stores PKCE code_verifier in
+        //      this WebView's localStorage.
+        // 2. Open URL in Chrome Custom Tabs / SFSafariViewController
+        //    via @capacitor/browser.
+        // 3. User authenticates with Google/Apple.
+        // 4. Supabase redirects to:
+        //      https://peipeigotravel.lovable.app?native_callback=1&code=...
+        // 5. Production page's main.tsx interceptor detects native_callback=1,
+        //    extracts code/tokens, redirects to:
+        //      com.peitravel.smartplanner://auth/callback?code=...
+        // 6. Android/iOS intent fires → DeepLinkHandler exchanges code
+        //    for session using the stored PKCE verifier.
         // ──────────────────────────────────────────────────────
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider,
@@ -51,18 +54,22 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         });
 
         if (error) {
+          console.error("[NativeOAuth] signInWithOAuth error:", error);
           toast.error(`登入失敗：${error.message}`);
           return;
         }
 
         if (data?.url) {
+          console.log("[NativeOAuth] Opening OAuth URL in external browser…");
           const { Browser } = await import("@capacitor/browser");
           await Browser.open({ url: data.url });
         }
 
         onOpenChange(false);
       } else {
-        // WEB: use Lovable Cloud OAuth (redirects within browser)
+        // ──────────────────────────────────────────────────────
+        // WEB: Use Lovable Cloud OAuth (redirects within browser)
+        // ──────────────────────────────────────────────────────
         const { error, redirected } = await lovable.auth.signInWithOAuth(provider, {
           redirect_uri: window.location.origin,
         });
