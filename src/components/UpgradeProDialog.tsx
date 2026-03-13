@@ -1,14 +1,14 @@
 import { useState } from "react";
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Crown, Sparkles, RotateCcw, Loader2, X } from "lucide-react";
+import { Crown, Sparkles, RotateCcw, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { usePro } from "@/contexts/ProContext";
 import { toast } from "sonner";
@@ -60,28 +60,21 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="rounded-2xl max-w-md relative max-h-[90vh] overflow-y-auto !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2 data-[state=open]:animate-none data-[state=closed]:animate-none">
-        <button
-          onClick={() => onOpenChange(false)}
-          className="absolute right-3 top-3 p-1 rounded-full hover:bg-muted transition-colors"
-          aria-label="Close"
-        >
-          <X className="w-5 h-5 text-muted-foreground" />
-        </button>
-        <AlertDialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
               <Crown className="w-8 h-8 text-white" />
             </div>
           </div>
-          <AlertDialogTitle className="text-xl text-center">
+          <DialogTitle className="text-xl text-center">
             {t("upgradeToPro")}
-          </AlertDialogTitle>
-          <AlertDialogDescription className="text-center text-foreground/80">
+          </DialogTitle>
+          <DialogDescription className="text-center text-foreground/80">
             {type === "project" ? t("proProjectLimit") : t("proDayLimit")}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+          </DialogDescription>
+        </DialogHeader>
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 my-4">
           <h4 className="font-bold text-foreground flex items-center gap-2 mb-3">
             <Sparkles className="w-4 h-4 text-amber-500" />
@@ -97,15 +90,14 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
               {t("unlimitedDays")}
             </li>
           </ul>
-          <p className="text-sm text-foreground/60 mt-3">
+          <p className="text-sm text-foreground/60 mt-3 whitespace-pre-line">
             {t("unlimitedDaysNew")}
           </p>
           <p className="text-sm text-foreground/60 mt-1">
             {t("luckyTravel")}
           </p>
         </div>
-        <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
-          {/* Purchase Button */}
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
           <Button
             onClick={handlePurchase}
             disabled={purchasing || restoring}
@@ -119,7 +111,6 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
             {t("upgradeToPro")}
           </Button>
 
-          {/* Restore Purchases Button — REQUIRED for iOS review */}
           <Button
             variant="ghost"
             size="sm"
@@ -134,8 +125,8 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
             )}
             {t("restorePurchases") || "Restore Purchases"}
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
