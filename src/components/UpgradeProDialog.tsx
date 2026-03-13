@@ -86,9 +86,9 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
               {t("unlimitedProjects")}
             </li>
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              {t("unlimitedDaysNew")}
+            <li className="flex items-start gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+              <span className="whitespace-pre-line">{t("unlimitedDaysNew")}</span>
             </li>
             <li className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
