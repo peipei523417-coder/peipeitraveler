@@ -719,6 +719,23 @@ export const translations = {
       readOnlyMode: "읽기 전용 모드",
       editMode: "편집 모드",
       
+      // Join & Smart Link
+      joinProject: "프로젝트 참여",
+      viewOnly: "보기만",
+      viewItinerary: "일정 보기",
+      joinSuccess: "프로젝트에 참여했습니다!",
+      alreadyJoined: "이미 이 프로젝트의 멤버입니다",
+      alreadyOwner: "본인의 프로젝트입니다",
+      loginToJoin: "로그인하여 프로젝트에 참여하고 함께 편집하세요",
+      openInApp: "앱에서 열기",
+      downloadApp: "앱 다운로드",
+      sharedWithMe: "공유된 프로젝트",
+      sharedProject: "공유됨",
+      joinAsCompanion: "여행 동반자로 참여하여 함께 일정을 편집하세요",
+      smartBannerTitle: "PeiPeiGoTravel",
+      smartBannerDesc: "앱에서 더 나은 경험",
+      joiningProject: "참여 중...",
+
       // Auth
       login: "로그인",
       logout: "로그아웃",
