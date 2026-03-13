@@ -43,6 +43,7 @@ export default function Index() {
   const { projects: cachedProjects, isLoaded, loadProjects, invalidateCache } = useProjectCache();
   
   const [projects, setProjects] = useState<TravelProject[]>([]);
+  const [joinedProjects, setJoinedProjects] = useState<TravelProject[]>([]);
   const [loading, setLoading] = useState(!isLoaded);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
