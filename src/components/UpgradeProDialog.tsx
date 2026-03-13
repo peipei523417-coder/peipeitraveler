@@ -62,9 +62,13 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="rounded-2xl max-w-md relative">
-        <AlertDialogCancel className="absolute right-3 top-3 border-0 shadow-none p-1 h-auto w-auto rounded-full hover:bg-muted">
+        <button
+          onClick={() => onOpenChange(false)}
+          className="absolute right-3 top-3 p-1 rounded-full hover:bg-muted transition-colors"
+          aria-label="Close"
+        >
           <X className="w-5 h-5 text-muted-foreground" />
-        </AlertDialogCancel>
+        </button>
         <AlertDialogHeader>
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
