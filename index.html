@@ -21,6 +21,16 @@
 
   <body>
     <div id="root"></div>
+    <script>
+      // Redirect clean /share/XXX paths to /#/share/XXX for HashRouter
+      (function() {
+        var path = window.location.pathname;
+        var match = path.match(/^\/share\/(.+)/);
+        if (match) {
+          window.location.replace(window.location.origin + '/#/share/' + match[1]);
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
