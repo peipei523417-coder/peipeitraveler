@@ -85,9 +85,9 @@ export function AuthButton() {
     }
   };
 
-  // Open privacy policy
+  // Open privacy policy — use in-app navigation instead of new tab
   const openPrivacyPolicy = () => {
-    window.open("/privacy", "_blank");
+    navigate("/privacy");
   };
 
   if (loading) {
