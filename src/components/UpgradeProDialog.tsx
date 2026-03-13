@@ -6,10 +6,10 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogFooter,
-  AlertDialogAction,
+  AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Crown, Sparkles, RotateCcw, Loader2 } from "lucide-react";
+import { Crown, Sparkles, RotateCcw, Loader2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { usePro } from "@/contexts/ProContext";
 import { toast } from "sonner";
@@ -62,7 +62,10 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="rounded-2xl max-w-md">
+      <AlertDialogContent className="rounded-2xl max-w-md relative">
+        <AlertDialogCancel className="absolute right-3 top-3 border-0 shadow-none p-1 h-auto w-auto rounded-full hover:bg-muted">
+          <X className="w-5 h-5 text-muted-foreground" />
+        </AlertDialogCancel>
         <AlertDialogHeader>
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
@@ -100,7 +103,7 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
         </div>
         <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
           {/* Purchase Button */}
-          <AlertDialogAction
+          <Button
             onClick={handlePurchase}
             disabled={purchasing || restoring}
             className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl"
@@ -111,7 +114,7 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
               <Crown className="w-4 h-4 mr-2" />
             )}
             {t("upgradeToPro")}
-          </AlertDialogAction>
+          </Button>
 
           {/* Restore Purchases Button — REQUIRED for iOS review */}
           <Button
