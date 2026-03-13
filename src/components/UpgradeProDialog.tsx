@@ -103,7 +103,7 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
         </div>
         <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
           {/* Purchase Button */}
-          <AlertDialogAction
+          <Button
             onClick={handlePurchase}
             disabled={purchasing || restoring}
             className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl"
@@ -114,7 +114,7 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
               <Crown className="w-4 h-4 mr-2" />
             )}
             {t("upgradeToPro")}
-          </AlertDialogAction>
+          </Button>
 
           {/* Restore Purchases Button — REQUIRED for iOS review */}
           <Button
