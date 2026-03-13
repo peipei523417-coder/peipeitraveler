@@ -133,7 +133,7 @@ export function ShareDialog({
   const handleCopyLink = async () => {
     if (!project) return;
 
-    const shareUrl = `${window.location.origin}/share/${project.id}`;
+    const shareUrl = `${window.location.origin}/#/share/${project.id}`;
     
     try {
       await navigator.clipboard.writeText(shareUrl);
