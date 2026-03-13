@@ -29,18 +29,22 @@ import { toast } from "sonner";
 
 export function AuthButton() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { user, loading, signOut } = useAuth();
-  const { isPro, toggleProStatus } = usePro();
+  const { isPro, toggleProStatus, restorePurchases } = usePro();
   const [loginOpen, setLoginOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Restore purchase - re-sync PRO status from server
+  // Restore purchase — queries Apple/Google store for previous purchases
   const handleRestorePurchase = async () => {
     try {
-      // This would typically call your payment provider's API
-      // For now, we just re-fetch the PRO status from database
-      toast.success(t("purchaseRestored"));
+      const restored = await restorePurchases();
+      if (restored) {
+        toast.success(t("purchaseRestored"));
+      } else {
+        toast.info(t("noRestorablePurchases") || "沒有可恢復的購買紀錄");
+      }
     } catch (error) {
       console.error("Error restoring purchase:", error);
       toast.error(t("error"));
