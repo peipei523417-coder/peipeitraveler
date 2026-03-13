@@ -72,11 +72,22 @@ export default function Index() {
         loadProjects().then(fresh => {
           setProjects(fresh);
         }).catch(() => {});
+        // Load joined projects
+        loadJoinedProjectsData();
       }
     } else if (!authLoading) {
       loadProjectsFromCache();
     }
   }, [authLoading, isLoaded]);
+
+  const loadJoinedProjectsData = async () => {
+    try {
+      const joined = await getJoinedProjects();
+      setJoinedProjects(joined as TravelProject[]);
+    } catch {
+      // Silently fail
+    }
+  };
 
   // Check for expiring projects once when projects load
   useEffect(() => {
