@@ -5,16 +5,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { TravelProject, DayItinerary, ItineraryItem } from "@/types/travel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, MapPin, Lock, AlertCircle, Home, Edit2 } from "lucide-react";
+import { Calendar, MapPin, Lock, AlertCircle, Home, Edit2, Users, Eye, UserPlus, Loader2 } from "lucide-react";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { DayTabs } from "@/components/DayTabs";
 import { ItineraryList } from "@/components/ItineraryList";
 import { ItineraryItemDialog } from "@/components/ItineraryItemDialog";
+import { SmartAppBanner } from "@/components/SmartAppBanner";
+import { LoginDialog } from "@/components/LoginDialog";
 import { differenceInDays, addDays } from "date-fns";
 import { formatDate, formatShortDate } from "@/i18n/date-utils";
 import { toast } from "sonner";
 import dogTravelNew from "@/assets/dog-travel-new.png";
 import { useSignedImageUrl } from "@/hooks/useSignedImageUrl";
+import { useAuth } from "@/contexts/AuthContext";
+import { joinProject } from "@/lib/join-project";
 
 // Helper function to convert database rows to TravelProject
 function dbRowToProject(row: any, items: any[] = []): TravelProject {
@@ -123,11 +127,9 @@ async function edgeFunctionUploadImage(
   file: File
 ): Promise<string | undefined> {
   try {
-    // Compress image first
     const { compressImage } = await import("@/lib/image-compress");
     const { file: optimizedFile } = await compressImage(file);
     
-    // Convert to base64
     const buffer = await optimizedFile.arrayBuffer();
     const bytes = new Uint8Array(buffer);
     let binary = "";
@@ -165,6 +167,7 @@ export default function SharePage() {
   const { shareCode } = useParams<{ shareCode: string }>();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +182,10 @@ export default function SharePage() {
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [verifying, setVerifying] = useState(false);
+  
+  // Join state
+  const [joining, setJoining] = useState(false);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   
   // Edit dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -207,7 +214,7 @@ export default function SharePage() {
 
     try {
       // First try: use share_code to look up via RPC function
-      const { data: sharedData, error: sharedError } = await supabase
+      const { data: sharedData } = await supabase
         .rpc("get_shared_project_by_code", { p_share_code: shareCode });
 
       let projectId: string | null = null;
@@ -218,7 +225,6 @@ export default function SharePage() {
       let requiresPassword = false;
 
       if (sharedData && sharedData.length > 0) {
-        // Found via share_links table
         const row = sharedData[0];
         projectId = row.project_id;
         projectName = row.project_name;
@@ -227,7 +233,7 @@ export default function SharePage() {
         coverImageUrl = row.cover_image_url;
         requiresPassword = row.requires_password;
       } else {
-        // Fallback: try shareCode as direct project ID (for public projects shared by ID)
+        // Fallback: try shareCode as direct project ID
         const { data: publicData } = await supabase
           .from("public_travel_projects")
           .select("id, name, start_date, end_date, cover_image_url, is_public, has_edit_password, created_at, updated_at")
@@ -256,7 +262,7 @@ export default function SharePage() {
 
       setHasEditPassword(requiresPassword);
 
-      // Fetch itinerary items from public view using the resolved project ID
+      // Fetch itinerary items from public view
       const { data: items } = await supabase
         .from("public_itinerary_items")
         .select("*")
@@ -297,7 +303,6 @@ export default function SharePage() {
     if (result.valid) {
       setCanEdit(true);
       setEditPassword(passwordInput);
-      // Store in session for persistence during browsing
       sessionStorage.setItem(`edit-password-${shareCode}`, passwordInput);
       setShowPasswordPrompt(false);
       setPasswordInput("");
@@ -306,6 +311,46 @@ export default function SharePage() {
       toast.error(t("passwordIncorrect"));
     }
   };
+
+  const handleJoinProject = async () => {
+    if (!project) return;
+    
+    if (!user) {
+      setShowLoginDialog(true);
+      return;
+    }
+
+    setJoining(true);
+    try {
+      const result = await joinProject(project.id);
+      
+      if (result.alreadyOwner) {
+        toast.info(t("alreadyOwner"));
+        navigate(`/project/${project.id}`);
+      } else if (result.alreadyJoined) {
+        toast.info(t("alreadyJoined"));
+        navigate(`/project/${project.id}`);
+      } else if (result.success) {
+        toast.success(t("joinSuccess"));
+        navigate(`/project/${project.id}`);
+      } else {
+        toast.error(result.error || t("error"));
+      }
+    } catch {
+      toast.error(t("error"));
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  // After login, auto-join
+  useEffect(() => {
+    if (user && showLoginDialog) {
+      setShowLoginDialog(false);
+      // Small delay to let auth settle
+      setTimeout(() => handleJoinProject(), 500);
+    }
+  }, [user]);
 
   const handleAddItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project || !editPassword) return;
@@ -382,7 +427,6 @@ export default function SharePage() {
             <CardTitle>{t("enterEditPassword")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Use type="text" with CSS masking to avoid Chrome password warnings */}
             <input
               id="project_pin"
               type="text"
@@ -396,7 +440,7 @@ export default function SharePage() {
               autoCapitalize="off"
               spellCheck={false}
               data-form-type="other"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               style={{ WebkitTextSecurity: 'disc' } as React.CSSProperties}
             />
             <div className="flex gap-2">
@@ -424,7 +468,7 @@ export default function SharePage() {
     );
   }
 
-  // Error state - show private project error
+  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -459,10 +503,13 @@ export default function SharePage() {
     return `${newHours.toString().padStart(2, "0")}:${newMins.toString().padStart(2, "0")}`;
   };
 
-  // Project overview page
+  // Project overview / landing page
   if (!showItinerary) {
     return (
       <div className="min-h-screen bg-background">
+        {/* Smart App Banner */}
+        <SmartAppBanner projectId={project.id} />
+
         {/* Header */}
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-lg border-b border-border/50 shadow-sm">
           <div className="container max-w-4xl py-4">
@@ -473,7 +520,7 @@ export default function SharePage() {
                   alt="" 
                   className="w-8 h-8 object-contain"
                 />
-                <span className="font-bold text-foreground">PeiPeiMap</span>
+                <span className="font-bold text-foreground">PeiPeiGoTravel</span>
               </div>
               <Button 
                 variant="ghost" 
@@ -502,13 +549,13 @@ export default function SharePage() {
                 />
               </div>
             ) : (
-              <div className="h-48 md:h-64 bg-gradient-to-br from-stone-100 to-stone-200 flex items-center justify-center">
-                <MapPin className="w-16 h-16 text-stone-400" />
+              <div className="h-48 md:h-64 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                <MapPin className="w-16 h-16 text-primary/30" />
               </div>
             )}
 
             <CardContent className="p-6">
-              <h1 className="text-2xl font-bold text-foreground mb-4">
+              <h1 className="text-2xl font-bold text-foreground mb-2">
                 {project.name}
               </h1>
 
@@ -528,13 +575,38 @@ export default function SharePage() {
                 </span>
               </div>
 
-              <Button 
-                onClick={() => setShowItinerary(true)} 
-                className="w-full"
-                size="lg"
-              >
-                {t("myProjects")}
-              </Button>
+              {/* Join description */}
+              <p className="text-sm text-muted-foreground mb-6 flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                {t("joinAsCompanion")}
+              </p>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-3">
+                <Button 
+                  onClick={handleJoinProject} 
+                  className="w-full gap-2"
+                  size="lg"
+                  disabled={joining}
+                >
+                  {joining ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="w-4 h-4" />
+                  )}
+                  {joining ? t("joiningProject") : t("joinProject")}
+                </Button>
+
+                <Button 
+                  onClick={() => setShowItinerary(true)} 
+                  variant="outline"
+                  className="w-full gap-2"
+                  size="lg"
+                >
+                  <Eye className="w-4 h-4" />
+                  {t("viewOnly")}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -547,7 +619,7 @@ export default function SharePage() {
             )}
           </p>
 
-          {/* Edit unlock button - only show if project has password and user hasn't unlocked */}
+          {/* Edit unlock button */}
           {hasEditPassword && !canEdit && (
             <div className="text-center mt-4">
               <Button
@@ -561,19 +633,32 @@ export default function SharePage() {
               </Button>
             </div>
           )}
+
+          {/* Login dialog hint */}
+          {!user && (
+            <p className="text-center text-xs text-muted-foreground mt-4">
+              {t("loginToJoin")}
+            </p>
+          )}
         </main>
 
         {/* Footer */}
         <footer className="border-t border-border py-6 mt-8">
           <div className="container max-w-4xl text-center">
             <p className="text-sm text-muted-foreground mb-3">
-              PeiPeiMap
+              PeiPeiGoTravel
             </p>
             <Button onClick={() => navigate("/")} variant="default">
               {t("newProject")}
             </Button>
           </div>
         </footer>
+
+        {/* Login Dialog */}
+        <LoginDialog 
+          open={showLoginDialog} 
+          onOpenChange={setShowLoginDialog} 
+        />
       </div>
     );
   }
@@ -581,6 +666,9 @@ export default function SharePage() {
   // Itinerary view
   return (
     <div className="min-h-screen bg-background">
+      {/* Smart App Banner */}
+      <SmartAppBanner projectId={project.id} />
+
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-lg border-b border-border/50 shadow-sm">
         <div className="container max-w-4xl py-4">
@@ -616,6 +704,18 @@ export default function SharePage() {
                 >
                   <Lock className="w-4 h-4" />
                   <span className="hidden sm:inline">{t("unlock")}</span>
+                </Button>
+              )}
+              {/* Join button in header */}
+              {!canEdit && user && (
+                <Button
+                  size="sm"
+                  onClick={handleJoinProject}
+                  disabled={joining}
+                  className="gap-1.5"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t("joinProject")}</span>
                 </Button>
               )}
               <Button 
@@ -656,7 +756,7 @@ export default function SharePage() {
       <footer className="border-t border-border py-6 mt-8">
         <div className="container max-w-4xl text-center">
           <p className="text-sm text-muted-foreground mb-3">
-            PeiPeiMap
+            PeiPeiGoTravel
           </p>
           <Button onClick={() => navigate("/")} variant="default">
             {t("newProject")}
@@ -678,6 +778,12 @@ export default function SharePage() {
         mode={editingItem ? "edit" : "create"}
         suggestedStartTime={getNextSuggestedTime()}
         existingItems={currentDay?.items || []}
+      />
+
+      {/* Login Dialog */}
+      <LoginDialog 
+        open={showLoginDialog} 
+        onOpenChange={setShowLoginDialog} 
       />
     </div>
   );
