@@ -514,6 +514,23 @@ export const translations = {
       readOnlyMode: "Modo Solo Lectura",
       editMode: "Modo Edición",
       
+      // Join & Smart Link
+      joinProject: "Unirse al Proyecto",
+      viewOnly: "Solo Ver",
+      viewItinerary: "Ver Itinerario",
+      joinSuccess: "¡Te has unido al proyecto!",
+      alreadyJoined: "Ya eres miembro de este proyecto",
+      alreadyOwner: "Este es tu propio proyecto",
+      loginToJoin: "Inicia sesión para unirte y editar juntos",
+      openInApp: "Abrir en App",
+      downloadApp: "Descargar App",
+      sharedWithMe: "Compartidos Conmigo",
+      sharedProject: "Compartido",
+      joinAsCompanion: "Únete como compañero de viaje y edita el itinerario juntos",
+      smartBannerTitle: "PeiPeiGoTravel",
+      smartBannerDesc: "Mejor experiencia en la app",
+      joiningProject: "Uniéndose...",
+
       // Auth
       login: "Iniciar Sesión",
       logout: "Cerrar Sesión",
