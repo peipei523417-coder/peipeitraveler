@@ -472,6 +472,7 @@ export type Database = {
         Args: { p_project_id: string; p_user_email: string }
         Returns: boolean
       }
+      is_project_owner: { Args: { p_project_id: string }; Returns: boolean }
       validate_share_link: {
         Args: { p_share_code: string }
         Returns: {
