@@ -104,6 +104,23 @@ export const translations = {
       readOnlyMode: "唯讀模式",
       editMode: "編輯模式",
       
+      // Join & Smart Link
+      joinProject: "加入專案",
+      viewOnly: "僅查看",
+      viewItinerary: "查看行程",
+      joinSuccess: "已成功加入專案！",
+      alreadyJoined: "你已經是這個專案的成員了",
+      alreadyOwner: "這是你自己的專案",
+      loginToJoin: "登入後即可加入專案，一起編輯行程",
+      openInApp: "在 App 中開啟",
+      downloadApp: "下載 App",
+      sharedWithMe: "共享專案",
+      sharedProject: "共享",
+      joinAsCompanion: "加入成為旅伴，一起編輯行程",
+      smartBannerTitle: "PeiPeiGoTravel",
+      smartBannerDesc: "用 App 開啟更好的體驗",
+      joiningProject: "加入中...",
+
       // Auth
       login: "登入",
       logout: "登出",
