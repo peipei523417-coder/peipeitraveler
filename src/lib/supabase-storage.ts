@@ -53,20 +53,17 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
 
 // Get only the current user's projects (like Google Drive - private by default)
 export async function getProjects(): Promise<TravelProject[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session?.user) {
+    return [];
+  }
   
   let query = supabase
     .from("travel_projects")
     .select("*")
+    .eq("user_id", session.user.id)
     .order("start_date", { ascending: true });
-  
-  // Strict isolation: only show projects owned by the current user
-  if (user) {
-    query = query.eq("user_id", user.id);
-  } else {
-    // Not authenticated - return empty
-    return [];
-  }
   
   const { data: projects, error } = await query;
   
