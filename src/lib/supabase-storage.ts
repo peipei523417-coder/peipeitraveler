@@ -132,7 +132,8 @@ export async function createProject(
   editPassword?: string
 ): Promise<TravelProject | undefined> {
   // Get current user ID for RLS policy
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   
   const insertData: any = {
     name,
