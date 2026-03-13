@@ -21,6 +21,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // Track if we've finished the initial load to prevent flash-backs to login screen
+  const [initialised, setInitialised] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -31,6 +33,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+        // Only set loading=false after first initialisation;
+        // subsequent events update user/session but don't re-trigger loading
+        if (initialised) return;
+        setInitialised(true);
         setLoading(false);
       }
     );
@@ -41,10 +47,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
+        setInitialised(true);
         setLoading(false);
       })
       .catch(() => {
         if (!isMounted) return;
+        setInitialised(true);
         setLoading(false);
       });
 
