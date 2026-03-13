@@ -21,12 +21,13 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { ProjectActionSheet } from "@/components/ProjectActionSheet";
 import { Button } from "@/components/ui/button";
-import { Plane, Plus, Crown, Zap } from "lucide-react";
+import { Plane, Plus, Crown, Zap, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePro } from "@/contexts/ProContext";
 import { LoginDialog } from "@/components/LoginDialog";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
+import { getJoinedProjects } from "@/lib/join-project";
 
 // Tier limits
 const FREE_PROJECT_LIMIT = 1;
@@ -42,6 +43,7 @@ export default function Index() {
   const { projects: cachedProjects, isLoaded, loadProjects, invalidateCache } = useProjectCache();
   
   const [projects, setProjects] = useState<TravelProject[]>([]);
+  const [joinedProjects, setJoinedProjects] = useState<TravelProject[]>([]);
   const [loading, setLoading] = useState(!isLoaded);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -70,11 +72,22 @@ export default function Index() {
         loadProjects().then(fresh => {
           setProjects(fresh);
         }).catch(() => {});
+        // Load joined projects
+        loadJoinedProjectsData();
       }
     } else if (!authLoading) {
       loadProjectsFromCache();
     }
   }, [authLoading, isLoaded]);
+
+  const loadJoinedProjectsData = async () => {
+    try {
+      const joined = await getJoinedProjects();
+      setJoinedProjects(joined as TravelProject[]);
+    } catch {
+      // Silently fail
+    }
+  };
 
   // Check for expiring projects once when projects load
   useEffect(() => {
@@ -432,6 +445,35 @@ export default function Index() {
                 </div>
               ))}
             </div>
+
+            {/* Joined Projects Section */}
+            {joinedProjects.length > 0 && (
+              <>
+                <div className="flex items-center gap-3 mt-12 mb-8">
+                  <Users className="w-5 h-5 text-primary" />
+                  <h2 className="text-xl font-semibold text-foreground">
+                    {t("sharedWithMe")}
+                  </h2>
+                  <span className="text-sm text-muted-foreground font-normal">
+                    ({joinedProjects.length})
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {joinedProjects.map((project) => (
+                    <div key={project.id}>
+                      <ProjectCard
+                        project={project}
+                        onClick={handleProjectClick}
+                        onEdit={() => {}}
+                        onDelete={() => {}}
+                        onDuplicate={() => {}}
+                        onShare={() => {}}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </main>

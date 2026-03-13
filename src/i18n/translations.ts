@@ -104,6 +104,23 @@ export const translations = {
       readOnlyMode: "唯讀模式",
       editMode: "編輯模式",
       
+      // Join & Smart Link
+      joinProject: "加入專案",
+      viewOnly: "僅查看",
+      viewItinerary: "查看行程",
+      joinSuccess: "已成功加入專案！",
+      alreadyJoined: "你已經是這個專案的成員了",
+      alreadyOwner: "這是你自己的專案",
+      loginToJoin: "登入後即可加入專案，一起編輯行程",
+      openInApp: "在 App 中開啟",
+      downloadApp: "下載 App",
+      sharedWithMe: "共享專案",
+      sharedProject: "共享",
+      joinAsCompanion: "加入成為旅伴，一起編輯行程",
+      smartBannerTitle: "PeiPeiGoTravel",
+      smartBannerDesc: "用 App 開啟更好的體驗",
+      joiningProject: "加入中...",
+
       // Auth
       login: "登入",
       logout: "登出",
@@ -292,6 +309,23 @@ export const translations = {
       readOnlyMode: "Read-only Mode",
       editMode: "Edit Mode",
       
+      // Join & Smart Link
+      joinProject: "Join Project",
+      viewOnly: "View Only",
+      viewItinerary: "View Itinerary",
+      joinSuccess: "Successfully joined the project!",
+      alreadyJoined: "You're already a member of this project",
+      alreadyOwner: "This is your own project",
+      loginToJoin: "Login to join this project and edit the itinerary together",
+      openInApp: "Open in App",
+      downloadApp: "Download App",
+      sharedWithMe: "Shared with Me",
+      sharedProject: "Shared",
+      joinAsCompanion: "Join as a travel companion and edit the itinerary together",
+      smartBannerTitle: "PeiPeiGoTravel",
+      smartBannerDesc: "Better experience in the app",
+      joiningProject: "Joining...",
+
       // Auth
       login: "Login",
       logout: "Logout",
@@ -480,6 +514,23 @@ export const translations = {
       readOnlyMode: "Modo Solo Lectura",
       editMode: "Modo Edición",
       
+      // Join & Smart Link
+      joinProject: "Unirse al Proyecto",
+      viewOnly: "Solo Ver",
+      viewItinerary: "Ver Itinerario",
+      joinSuccess: "¡Te has unido al proyecto!",
+      alreadyJoined: "Ya eres miembro de este proyecto",
+      alreadyOwner: "Este es tu propio proyecto",
+      loginToJoin: "Inicia sesión para unirte y editar juntos",
+      openInApp: "Abrir en App",
+      downloadApp: "Descargar App",
+      sharedWithMe: "Compartidos Conmigo",
+      sharedProject: "Compartido",
+      joinAsCompanion: "Únete como compañero de viaje y edita el itinerario juntos",
+      smartBannerTitle: "PeiPeiGoTravel",
+      smartBannerDesc: "Mejor experiencia en la app",
+      joiningProject: "Uniéndose...",
+
       // Auth
       login: "Iniciar Sesión",
       logout: "Cerrar Sesión",
@@ -668,6 +719,23 @@ export const translations = {
       readOnlyMode: "읽기 전용 모드",
       editMode: "편집 모드",
       
+      // Join & Smart Link
+      joinProject: "프로젝트 참여",
+      viewOnly: "보기만",
+      viewItinerary: "일정 보기",
+      joinSuccess: "프로젝트에 참여했습니다!",
+      alreadyJoined: "이미 이 프로젝트의 멤버입니다",
+      alreadyOwner: "본인의 프로젝트입니다",
+      loginToJoin: "로그인하여 프로젝트에 참여하고 함께 편집하세요",
+      openInApp: "앱에서 열기",
+      downloadApp: "앱 다운로드",
+      sharedWithMe: "공유된 프로젝트",
+      sharedProject: "공유됨",
+      joinAsCompanion: "여행 동반자로 참여하여 함께 일정을 편집하세요",
+      smartBannerTitle: "PeiPeiGoTravel",
+      smartBannerDesc: "앱에서 더 나은 경험",
+      joiningProject: "참여 중...",
+
       // Auth
       login: "로그인",
       logout: "로그아웃",
@@ -856,6 +924,23 @@ export const translations = {
       readOnlyMode: "読み取り専用モード",
       editMode: "編集モード",
       
+      // Join & Smart Link
+      joinProject: "プロジェクトに参加",
+      viewOnly: "閲覧のみ",
+      viewItinerary: "旅程を見る",
+      joinSuccess: "プロジェクトに参加しました！",
+      alreadyJoined: "すでにこのプロジェクトのメンバーです",
+      alreadyOwner: "あなた自身のプロジェクトです",
+      loginToJoin: "ログインしてプロジェクトに参加し、一緒に編集しましょう",
+      openInApp: "アプリで開く",
+      downloadApp: "アプリをダウンロード",
+      sharedWithMe: "共有されたプロジェクト",
+      sharedProject: "共有",
+      joinAsCompanion: "旅行仲間として参加し、一緒に旅程を編集しましょう",
+      smartBannerTitle: "PeiPeiGoTravel",
+      smartBannerDesc: "アプリでより良い体験",
+      joiningProject: "参加中...",
+
       // Auth
       login: "ログイン",
       logout: "ログアウト",
@@ -1038,6 +1123,23 @@ export const translations = {
       readOnlyMode: "Mode Lecture Seule",
       editMode: "Mode Édition",
       
+      // Join & Smart Link
+      joinProject: "Rejoindre le Projet",
+      viewOnly: "Voir Seulement",
+      viewItinerary: "Voir l'Itinéraire",
+      joinSuccess: "Vous avez rejoint le projet !",
+      alreadyJoined: "Vous êtes déjà membre de ce projet",
+      alreadyOwner: "C'est votre propre projet",
+      loginToJoin: "Connectez-vous pour rejoindre et modifier ensemble",
+      openInApp: "Ouvrir dans l'App",
+      downloadApp: "Télécharger l'App",
+      sharedWithMe: "Partagés avec Moi",
+      sharedProject: "Partagé",
+      joinAsCompanion: "Rejoignez en tant que compagnon de voyage et modifiez ensemble",
+      smartBannerTitle: "PeiPeiGoTravel",
+      smartBannerDesc: "Meilleure expérience dans l'app",
+      joiningProject: "En cours...",
+
       // Auth
       login: "Connexion",
       logout: "Déconnexion",
@@ -1220,6 +1322,23 @@ export const translations = {
       readOnlyMode: "Nur-Lese-Modus",
       editMode: "Bearbeitungsmodus",
       
+      // Join & Smart Link
+      joinProject: "Projekt Beitreten",
+      viewOnly: "Nur Ansehen",
+      viewItinerary: "Reiseroute Ansehen",
+      joinSuccess: "Erfolgreich dem Projekt beigetreten!",
+      alreadyJoined: "Du bist bereits Mitglied dieses Projekts",
+      alreadyOwner: "Das ist dein eigenes Projekt",
+      loginToJoin: "Melde dich an, um beizutreten und gemeinsam zu bearbeiten",
+      openInApp: "In der App Öffnen",
+      downloadApp: "App Herunterladen",
+      sharedWithMe: "Mit Mir Geteilt",
+      sharedProject: "Geteilt",
+      joinAsCompanion: "Tritt als Reisebegleiter bei und bearbeite gemeinsam",
+      smartBannerTitle: "PeiPeiGoTravel",
+      smartBannerDesc: "Bessere Erfahrung in der App",
+      joiningProject: "Beitreten...",
+
       // Auth
       login: "Anmelden",
       logout: "Abmelden",

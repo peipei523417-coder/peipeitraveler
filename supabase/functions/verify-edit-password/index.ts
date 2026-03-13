@@ -616,6 +616,106 @@ serve(async (req) => {
       );
     }
 
+    // ========== JOIN PROJECT ==========
+    if (action === "join-project") {
+      const authHeader = req.headers.get("authorization");
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ error: "Authentication required" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const projectIdResult = validateUuid(projectId, "Project ID");
+      if (!projectIdResult.valid) {
+        return new Response(
+          JSON.stringify({ error: projectIdResult.error }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const supabaseAuth = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+      if (authError || !user || !user.email) {
+        return new Response(
+          JSON.stringify({ error: "Invalid authentication" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check project exists and is public
+      const { data: project, error: projError } = await supabase
+        .from("travel_projects")
+        .select("id, is_public, user_id")
+        .eq("id", projectIdResult.value)
+        .single();
+
+      if (projError || !project) {
+        return new Response(
+          JSON.stringify({ error: "Project not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!project.is_public) {
+        return new Response(
+          JSON.stringify({ error: "Project is not public" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if user is the owner
+      if (project.user_id === user.id) {
+        return new Response(
+          JSON.stringify({ success: true, alreadyOwner: true }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if already a collaborator
+      const { data: existing } = await supabase
+        .from("project_collaborators")
+        .select("id")
+        .eq("project_id", projectIdResult.value)
+        .eq("email", user.email)
+        .maybeSingle();
+
+      if (existing) {
+        return new Response(
+          JSON.stringify({ success: true, alreadyJoined: true }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Add as collaborator with editor role
+      const { error: insertError } = await supabase
+        .from("project_collaborators")
+        .insert({
+          project_id: projectIdResult.value,
+          email: user.email,
+          role: "editor",
+          invited_by: project.user_id,
+        });
+
+      if (insertError) {
+        console.error("Error adding collaborator:", insertError);
+        return new Response(
+          JSON.stringify({ error: "Failed to join project" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, joined: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ========== SHARE LINK PASSWORD OPERATIONS ==========
     
     // Hash a share link password (requires auth)
