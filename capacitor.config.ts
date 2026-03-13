@@ -6,10 +6,12 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   ios: {
     contentInset: 'automatic',
-    scheme: 'PeiPeiGoTravel'
+    scheme: 'PeiPeiGoTravel',
+    zoomEnabled: true,
   },
   android: {
-    allowMixedContent: true
+    allowMixedContent: true,
+    zoomEnabled: true,
   }
 };
 

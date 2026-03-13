@@ -46,6 +46,9 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
 
       if (isNative) {
+        localStorage.setItem("native_oauth_pending", "1");
+        localStorage.setItem("native_oauth_provider", provider);
+
         const { Browser } = await import("@capacitor/browser");
         const oauthUrl = buildNativeOAuthUrl(provider);
         console.log("[NativeOAuth] Opening managed OAuth URL in external browser…");
