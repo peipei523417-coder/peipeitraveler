@@ -9,7 +9,7 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Crown, Sparkles, RotateCcw, Loader2 } from "lucide-react";
+import { Crown, Sparkles, RotateCcw, Loader2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { usePro } from "@/contexts/ProContext";
 import { toast } from "sonner";
