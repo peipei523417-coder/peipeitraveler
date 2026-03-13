@@ -28,9 +28,12 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         ? `native_oauth_${crypto.randomUUID()}`
         : `native_oauth_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
+    const callbackUrl = new URL(PRODUCTION_URL);
+    callbackUrl.searchParams.set("native_callback", "1");
+
     const params = new URLSearchParams({
       provider,
-      redirect_uri: PRODUCTION_URL,
+      redirect_uri: callbackUrl.toString(),
       state,
     });
 
