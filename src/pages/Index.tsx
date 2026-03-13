@@ -27,6 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePro } from "@/contexts/ProContext";
 import { LoginDialog } from "@/components/LoginDialog";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
+import { getJoinedProjects } from "@/lib/join-project";
 
 // Tier limits
 const FREE_PROJECT_LIMIT = 1;
