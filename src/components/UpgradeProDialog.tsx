@@ -6,7 +6,6 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogFooter,
-  AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Crown, Sparkles, RotateCcw, Loader2, X } from "lucide-react";
