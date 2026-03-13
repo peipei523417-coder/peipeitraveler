@@ -21,7 +21,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { ProjectActionSheet } from "@/components/ProjectActionSheet";
 import { Button } from "@/components/ui/button";
-import { Plane, Plus, Crown, Zap } from "lucide-react";
+import { Plane, Plus, Crown, Zap, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePro } from "@/contexts/ProContext";
