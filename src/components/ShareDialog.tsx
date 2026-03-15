@@ -133,7 +133,9 @@ export function ShareDialog({
   const handleCopyLink = async () => {
     if (!project) return;
 
-    const shareUrl = `${window.location.origin}/share/${project.id}`;
+    // Always use production URL so links work everywhere (native app, preview, etc.)
+    const PRODUCTION_URL = "https://peipeigotravel.lovable.app";
+    const shareUrl = `${PRODUCTION_URL}/share/${project.id}`;
     
     try {
       await navigator.clipboard.writeText(shareUrl);
