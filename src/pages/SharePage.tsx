@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TravelProject, DayItinerary, ItineraryItem } from "@/types/travel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, MapPin, Lock, AlertCircle, Home, Edit2, Users, Eye, UserPlus, Loader2 } from "lucide-react";
+import { Calendar, MapPin, Lock, AlertCircle, Home, Edit2, Users, Eye, UserPlus, Loader2, Smartphone } from "lucide-react";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { DayTabs } from "@/components/DayTabs";
 import { ItineraryList } from "@/components/ItineraryList";
@@ -312,9 +312,45 @@ export default function SharePage() {
     }
   };
 
+  const isMobileWeb = (() => {
+    const ua = navigator.userAgent;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+    const isNativeApp = /capacitor/i.test(ua) || (window as any).Capacitor;
+    return isMobile && !isNativeApp;
+  })();
+
   const handleJoinProject = async () => {
     if (!project) return;
-    
+
+    // On mobile web, try to open the native travel app first
+    if (isMobileWeb) {
+      const deepLink = `com.peitravel.smartplanner://share/${project.id}`;
+      
+      // Track if we successfully left the page (app opened)
+      let didLeave = false;
+      const onBlur = () => { didLeave = true; };
+      window.addEventListener("blur", onBlur);
+      
+      window.location.href = deepLink;
+      
+      // Wait to see if the app opened
+      setTimeout(() => {
+        window.removeEventListener("blur", onBlur);
+        if (!didLeave) {
+          // App not installed — fall back to web join flow
+          handleWebJoin();
+        }
+      }, 1500);
+      return;
+    }
+
+    // On desktop or inside native app, do web join directly
+    await handleWebJoin();
+  };
+
+  const handleWebJoin = async () => {
+    if (!project) return;
+
     if (!user) {
       setShowLoginDialog(true);
       return;
@@ -348,7 +384,7 @@ export default function SharePage() {
     if (user && showLoginDialog) {
       setShowLoginDialog(false);
       // Small delay to let auth settle
-      setTimeout(() => handleJoinProject(), 500);
+      setTimeout(() => handleWebJoin(), 500);
     }
   }, [user]);
 
@@ -591,10 +627,12 @@ export default function SharePage() {
                 >
                   {joining ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isMobileWeb ? (
+                    <Smartphone className="w-4 h-4" />
                   ) : (
                     <UserPlus className="w-4 h-4" />
                   )}
-                  {joining ? t("joiningProject") : t("joinProject")}
+                  {joining ? t("joiningProject") : isMobileWeb ? t("openInAppAndJoin") : t("joinProject")}
                 </Button>
 
                 <Button 
