@@ -113,6 +113,7 @@ export const translations = {
       alreadyOwner: "這是你自己的專案",
       loginToJoin: "登入後即可加入專案，一起編輯行程",
       openInApp: "在 App 中開啟",
+      openInAppAndJoin: "用 App 開啟並加入",
       downloadApp: "下載 App",
       sharedWithMe: "共享專案",
       sharedProject: "共享",
