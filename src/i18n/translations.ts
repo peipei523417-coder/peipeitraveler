@@ -525,6 +525,7 @@ export const translations = {
       alreadyOwner: "Este es tu propio proyecto",
       loginToJoin: "Inicia sesión para unirte y editar juntos",
       openInApp: "Abrir en App",
+      openInAppAndJoin: "Abrir en App y Unirse",
       downloadApp: "Descargar App",
       sharedWithMe: "Compartidos Conmigo",
       sharedProject: "Compartido",
