@@ -312,9 +312,45 @@ export default function SharePage() {
     }
   };
 
+  const isMobileWeb = (() => {
+    const ua = navigator.userAgent;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+    const isNativeApp = /capacitor/i.test(ua) || (window as any).Capacitor;
+    return isMobile && !isNativeApp;
+  })();
+
   const handleJoinProject = async () => {
     if (!project) return;
-    
+
+    // On mobile web, try to open the native travel app first
+    if (isMobileWeb) {
+      const deepLink = `com.peitravel.smartplanner://share/${project.id}`;
+      
+      // Track if we successfully left the page (app opened)
+      let didLeave = false;
+      const onBlur = () => { didLeave = true; };
+      window.addEventListener("blur", onBlur);
+      
+      window.location.href = deepLink;
+      
+      // Wait to see if the app opened
+      setTimeout(() => {
+        window.removeEventListener("blur", onBlur);
+        if (!didLeave) {
+          // App not installed — fall back to web join flow
+          handleWebJoin();
+        }
+      }, 1500);
+      return;
+    }
+
+    // On desktop or inside native app, do web join directly
+    await handleWebJoin();
+  };
+
+  const handleWebJoin = async () => {
+    if (!project) return;
+
     if (!user) {
       setShowLoginDialog(true);
       return;
