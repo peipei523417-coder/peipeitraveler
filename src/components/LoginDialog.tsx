@@ -60,6 +60,9 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       // WEB: Use Lovable Cloud OAuth (redirects within browser)
       const { error, redirected } = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: window.location.origin,
+        extraParams: {
+          prompt: "select_account",
+        },
       });
 
       if (redirected) return;

@@ -473,6 +473,9 @@ export type Database = {
         Returns: boolean
       }
       is_project_owner: { Args: { p_project_id: string }; Returns: boolean }
+      project_is_public: { Args: { p_project_id: string }; Returns: boolean }
+      user_is_editor: { Args: { p_project_id: string }; Returns: boolean }
+      user_owns_project: { Args: { p_project_id: string }; Returns: boolean }
       validate_share_link: {
         Args: { p_share_code: string }
         Returns: {
