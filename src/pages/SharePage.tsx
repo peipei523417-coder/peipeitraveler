@@ -627,10 +627,12 @@ export default function SharePage() {
                 >
                   {joining ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isMobileWeb ? (
+                    <Smartphone className="w-4 h-4" />
                   ) : (
                     <UserPlus className="w-4 h-4" />
                   )}
-                  {joining ? t("joiningProject") : t("joinProject")}
+                  {joining ? t("joiningProject") : isMobileWeb ? t("openInAppAndJoin") : t("joinProject")}
                 </Button>
 
                 <Button 
