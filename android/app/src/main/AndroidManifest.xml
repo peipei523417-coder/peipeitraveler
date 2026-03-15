@@ -43,6 +43,16 @@
                     android:host="oauth-callback" />
             </intent-filter>
 
+            <!-- Custom scheme deep link for share -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="com.peitravel.smartplanner"
+                    android:host="share" />
+            </intent-filter>
+
             <!-- Deep link for share URLs -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
