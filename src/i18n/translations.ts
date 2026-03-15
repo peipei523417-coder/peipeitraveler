@@ -319,6 +319,7 @@ export const translations = {
       alreadyOwner: "This is your own project",
       loginToJoin: "Login to join this project and edit the itinerary together",
       openInApp: "Open in App",
+      openInAppAndJoin: "Open in App & Join",
       downloadApp: "Download App",
       sharedWithMe: "Shared with Me",
       sharedProject: "Shared",
