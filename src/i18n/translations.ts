@@ -937,6 +937,7 @@ export const translations = {
       alreadyOwner: "あなた自身のプロジェクトです",
       loginToJoin: "ログインしてプロジェクトに参加し、一緒に編集しましょう",
       openInApp: "アプリで開く",
+      openInAppAndJoin: "アプリで開いて参加",
       downloadApp: "アプリをダウンロード",
       sharedWithMe: "共有されたプロジェクト",
       sharedProject: "共有",
