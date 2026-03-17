@@ -107,6 +107,7 @@ export const translations = {
       // Join & Smart Link
       joinProject: "加入專案",
       viewOnly: "僅查看",
+      viewAndEdit: "查看並編輯",
       viewItinerary: "查看行程",
       joinSuccess: "已成功加入專案！",
       alreadyJoined: "你已經是這個專案的成員了",
