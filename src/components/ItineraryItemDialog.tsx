@@ -144,14 +144,23 @@ export function ItineraryItemDialog({
     const personsNum = parseInt(persons, 10) || 1;
     
     // If there's a new file, pass it along; don't store base64/blob URL in imageUrl
-    const itemImageUrl = imageFile ? undefined : (imageUrl.trim() || undefined);
+    // Use null (not undefined) when image is explicitly cleared, so the DB update happens
+    let itemImageUrl: string | undefined | null;
+    if (imageFile) {
+      itemImageUrl = undefined; // will be replaced by uploaded URL
+    } else if (imageUrl.trim()) {
+      itemImageUrl = imageUrl.trim();
+    } else {
+      // Image was explicitly cleared — pass null so it gets written to DB
+      itemImageUrl = null;
+    }
     
     onSubmit({
       startTime: useTime ? startTime : "",
       endTime: useTime ? endTime : "",
       description: description.trim(),
       googleMapsUrl: googleMapsUrl.trim() || undefined,
-      imageUrl: itemImageUrl,
+      imageUrl: itemImageUrl as string | undefined,
       highlightColor: highlightColor,
       price: !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
       persons: personsNum > 0 ? personsNum : 1,
@@ -327,7 +336,7 @@ export function ItineraryItemDialog({
                     size="sm"
                     variant="secondary"
                     className="absolute top-2 right-2 rounded-lg min-h-[44px] min-w-[44px] touch-manipulation"
-                    onClick={() => setImageUrl("")}
+                    onClick={() => { setImageUrl(""); setImageFile(null); }}
                   >
                     {t("delete")}
                   </Button>

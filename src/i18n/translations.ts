@@ -107,6 +107,7 @@ export const translations = {
       // Join & Smart Link
       joinProject: "加入專案",
       viewOnly: "僅查看",
+      viewAndEdit: "查看並編輯",
       viewItinerary: "查看行程",
       joinSuccess: "已成功加入專案！",
       alreadyJoined: "你已經是這個專案的成員了",
@@ -313,6 +314,7 @@ export const translations = {
       // Join & Smart Link
       joinProject: "Join Project",
       viewOnly: "View Only",
+      viewAndEdit: "View & Edit",
       viewItinerary: "View Itinerary",
       joinSuccess: "Successfully joined the project!",
       alreadyJoined: "You're already a member of this project",
@@ -519,6 +521,7 @@ export const translations = {
       // Join & Smart Link
       joinProject: "Unirse al Proyecto",
       viewOnly: "Solo Ver",
+      viewAndEdit: "Ver y Editar",
       viewItinerary: "Ver Itinerario",
       joinSuccess: "¡Te has unido al proyecto!",
       alreadyJoined: "Ya eres miembro de este proyecto",
@@ -725,6 +728,7 @@ export const translations = {
       // Join & Smart Link
       joinProject: "프로젝트 참여",
       viewOnly: "보기만",
+      viewAndEdit: "보기 및 편집",
       viewItinerary: "일정 보기",
       joinSuccess: "프로젝트에 참여했습니다!",
       alreadyJoined: "이미 이 프로젝트의 멤버입니다",
@@ -931,6 +935,7 @@ export const translations = {
       // Join & Smart Link
       joinProject: "プロジェクトに参加",
       viewOnly: "閲覧のみ",
+      viewAndEdit: "閲覧＆編集",
       viewItinerary: "旅程を見る",
       joinSuccess: "プロジェクトに参加しました！",
       alreadyJoined: "すでにこのプロジェクトのメンバーです",
@@ -1131,6 +1136,7 @@ export const translations = {
       // Join & Smart Link
       joinProject: "Rejoindre le Projet",
       viewOnly: "Voir Seulement",
+      viewAndEdit: "Voir et Modifier",
       viewItinerary: "Voir l'Itinéraire",
       joinSuccess: "Vous avez rejoint le projet !",
       alreadyJoined: "Vous êtes déjà membre de ce projet",
@@ -1331,6 +1337,7 @@ export const translations = {
       // Join & Smart Link
       joinProject: "Projekt Beitreten",
       viewOnly: "Nur Ansehen",
+      viewAndEdit: "Ansehen & Bearbeiten",
       viewItinerary: "Reiseroute Ansehen",
       joinSuccess: "Erfolgreich dem Projekt beigetreten!",
       alreadyJoined: "Du bist bereits Mitglied dieses Projekts",
