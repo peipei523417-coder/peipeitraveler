@@ -728,6 +728,7 @@ export const translations = {
       // Join & Smart Link
       joinProject: "프로젝트 참여",
       viewOnly: "보기만",
+      viewAndEdit: "보기 및 편집",
       viewItinerary: "일정 보기",
       joinSuccess: "프로젝트에 참여했습니다!",
       alreadyJoined: "이미 이 프로젝트의 멤버입니다",
