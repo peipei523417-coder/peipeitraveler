@@ -1136,6 +1136,7 @@ export const translations = {
       // Join & Smart Link
       joinProject: "Rejoindre le Projet",
       viewOnly: "Voir Seulement",
+      viewAndEdit: "Voir et Modifier",
       viewItinerary: "Voir l'Itinéraire",
       joinSuccess: "Vous avez rejoint le projet !",
       alreadyJoined: "Vous êtes déjà membre de ce projet",
