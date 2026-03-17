@@ -177,6 +177,10 @@ export default function ProjectDetail() {
       if (storagePath) {
         finalItem.imageUrl = storagePath;
       }
+    } else if (!item.imageUrl && editingItem.imageUrl) {
+      // Image was explicitly removed (was present, now cleared)
+      // Pass empty string so updateItineraryItem knows to set image_url = null
+      finalItem.imageUrl = "";
     }
     
     // Optimistic UI: update item in state immediately
