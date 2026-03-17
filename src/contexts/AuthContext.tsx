@@ -18,11 +18,25 @@ const AuthContext = createContext<AuthContextType>({
 
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  // Track if we've finished the initial load to prevent flash-backs to login screen
-  const [initialised, setInitialised] = useState(false);
+  // Synchronous optimistic init from localStorage to avoid loading flash
+  const getInitialSession = (): { user: User | null; session: Session | null } => {
+    try {
+      const stored = localStorage.getItem(`sb-${import.meta.env.VITE_SUPABASE_PROJECT_ID}-auth-token`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.access_token && parsed?.user) {
+          return { user: parsed.user as User, session: parsed as unknown as Session };
+        }
+      }
+    } catch { /* ignore */ }
+    return { user: null, session: null };
+  };
+
+  const initial = getInitialSession();
+  const [user, setUser] = useState<User | null>(initial.user);
+  const [session, setSession] = useState<Session | null>(initial.session);
+  const [loading, setLoading] = useState(!initial.session); // no loading if we have cached session
+  const [initialised, setInitialised] = useState(!!initial.session);
 
   useEffect(() => {
     let isMounted = true;
@@ -33,15 +47,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
-        // Only set loading=false after first initialisation;
-        // subsequent events update user/session but don't re-trigger loading
         if (initialised) return;
         setInitialised(true);
         setLoading(false);
       }
     );
 
-    // Get initial session
+    // Get initial session (validates the cached one)
     supabase.auth.getSession()
       .then(({ data: { session: initialSession } }) => {
         if (!isMounted) return;
