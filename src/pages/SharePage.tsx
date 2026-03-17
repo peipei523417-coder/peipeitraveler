@@ -642,7 +642,7 @@ export default function SharePage() {
                   size="lg"
                 >
                   <Eye className="w-4 h-4" />
-                  {t("viewOnly")}
+                  {canEdit ? t("viewAndEdit") : t("viewOnly")}
                 </Button>
               </div>
             </CardContent>

@@ -336,7 +336,7 @@ export function ItineraryItemDialog({
                     size="sm"
                     variant="secondary"
                     className="absolute top-2 right-2 rounded-lg min-h-[44px] min-w-[44px] touch-manipulation"
-                    onClick={() => setImageUrl("")}
+                    onClick={() => { setImageUrl(""); setImageFile(null); }}
                   >
                     {t("delete")}
                   </Button>
