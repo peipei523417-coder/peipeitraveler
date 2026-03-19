@@ -450,6 +450,36 @@ export default function SharePage() {
     }
   };
 
+  const handleUpdateItemIcon = async (itemId: string, iconType: string) => {
+    if (!project || !editPassword) return;
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-edit-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            action: "update-icon",
+            projectId: project.id,
+            password: editPassword,
+            itemId,
+            iconType,
+          }),
+        }
+      );
+      const result = await response.json();
+      if (result.success) {
+        await loadProject();
+      }
+    } catch {
+      console.error("Failed to update icon");
+    }
+  };
+
   // Show skeleton while loading
   if (loading) {
     return <PageSkeleton variant="share" />;
