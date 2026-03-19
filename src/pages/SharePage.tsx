@@ -41,6 +41,8 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
       imageUrl: item.image_url || undefined,
       highlightColor: item.highlight_color || undefined,
       iconType: item.icon_type || 'default',
+      price: item.price || undefined,
+      persons: item.persons || 1,
     });
   });
   
