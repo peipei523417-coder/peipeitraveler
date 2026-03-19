@@ -383,6 +383,8 @@ export type Database = {
           icon_type: string | null
           id: string | null
           image_url: string | null
+          persons: number | null
+          price: number | null
           project_id: string | null
           start_time: string | null
           updated_at: string | null
