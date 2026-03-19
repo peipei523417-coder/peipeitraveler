@@ -817,6 +817,7 @@ export default function SharePage() {
             onAddItem={() => canEdit && setDialogOpen(true)}
             onEditItem={(item) => canEdit && setEditingItem(item)}
             onDeleteItem={canEdit ? handleDeleteItem : () => {}}
+            onUpdateItemIcon={canEdit ? handleUpdateItemIcon : undefined}
             readOnly={!canEdit}
           />
         )}

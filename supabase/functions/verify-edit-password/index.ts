@@ -616,6 +616,73 @@ serve(async (req) => {
       );
     }
 
+    // Update icon type with password
+    if (action === "update-icon") {
+      const projectIdResult = validateUuid(projectId, "Project ID");
+      if (!projectIdResult.valid) {
+        return new Response(
+          JSON.stringify({ error: projectIdResult.error }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const itemIdResult = validateUuid(itemId, "Item ID");
+      if (!itemIdResult.valid) {
+        return new Response(
+          JSON.stringify({ error: itemIdResult.error }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!password || typeof password !== "string") {
+        return new Response(
+          JSON.stringify({ error: "Password is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const validIcons = ['default', 'heart', 'utensils', 'house', 'star', 'alert', 'question', 'car'];
+      if (!iconType || !validIcons.includes(iconType)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid icon type" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { valid, isPublic } = await verifyProjectPassword(projectIdResult.value!, password);
+      if (!isPublic) {
+        return new Response(
+          JSON.stringify({ error: "Project not found or not public" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!valid) {
+        return new Response(
+          JSON.stringify({ error: "Invalid password" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { error } = await supabase
+        .from("itinerary_items")
+        .update({ icon_type: iconType })
+        .eq("id", itemIdResult.value)
+        .eq("project_id", projectIdResult.value);
+
+      if (error) {
+        console.error("Error updating icon:", error);
+        return new Response(
+          JSON.stringify({ error: "Failed to update icon" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ========== JOIN PROJECT ==========
     if (action === "join-project") {
       const authHeader = req.headers.get("authorization");
