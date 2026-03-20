@@ -116,6 +116,6 @@ jobs:
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-v1.0.48-signed
+          name: app-release-v1.0.49-signed
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}
           retention-days: 7

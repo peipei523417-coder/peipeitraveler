@@ -1,14 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { TravelProject, DayItinerary, ItineraryItem } from "@/types/travel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, MapPin, Lock, AlertCircle, Home, Edit2, Users, Eye, UserPlus, Loader2, Smartphone } from "lucide-react";
+import { Calendar, MapPin, Lock, AlertCircle, Home, Edit2, Users, Eye, UserPlus, Loader2, Smartphone, BookOpen } from "lucide-react";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { DayTabs } from "@/components/DayTabs";
-import { ItineraryList } from "@/components/ItineraryList";
+import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
+import { TripOverviewDialog } from "@/components/TripOverviewDialog";
 import { ItineraryItemDialog } from "@/components/ItineraryItemDialog";
 import { SmartAppBanner } from "@/components/SmartAppBanner";
 import { LoginDialog } from "@/components/LoginDialog";
@@ -192,6 +193,15 @@ export default function SharePage() {
   // Edit dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
+  const [overviewOpen, setOverviewOpen] = useState(false);
+
+  // Calculate total budget for all days
+  const totalBudget = useMemo(() => {
+    if (!project) return 0;
+    return project.itinerary.reduce((total, day) => {
+      return total + calculateDayTotal(day.items);
+    }, 0);
+  }, [project]);
 
   // Signed URL for cover image
   const signedCoverImage = useSignedImageUrl(project?.coverImageUrl);
@@ -716,7 +726,7 @@ export default function SharePage() {
               >
                 ← {t("back")}
               </Button>
-              <div>
+              <div className="flex flex-col text-left">
                 <h1 className="text-lg font-bold text-foreground line-clamp-1">
                   {project.name}
                 </h1>
@@ -726,9 +736,23 @@ export default function SharePage() {
                     • {canEdit ? t("editMode") : t("readOnlyMode")}
                   </span>
                 </p>
+                {totalBudget > 0 && (
+                  <p className="text-sm font-bold text-primary">
+                    ({t("totalBudget")}: ${totalBudget.toLocaleString()})
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOverviewOpen(prev => !prev)}
+                className="rounded-xl gap-1.5 text-xs flex-shrink-0"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                {t("tripOverview")}
+              </Button>
               {hasEditPassword && !canEdit && (
                 <Button
                   variant="outline"
@@ -802,6 +826,13 @@ export default function SharePage() {
         mode={editingItem ? "edit" : "create"}
         suggestedStartTime={getNextSuggestedTime()}
         existingItems={currentDay?.items || []}
+      />
+
+      {/* Trip Overview */}
+      <TripOverviewDialog
+        open={overviewOpen}
+        onOpenChange={setOverviewOpen}
+        project={project}
       />
 
       {/* Login Dialog */}
