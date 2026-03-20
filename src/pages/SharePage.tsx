@@ -787,17 +787,6 @@ export default function SharePage() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border py-6 mt-8">
-        <div className="container max-w-4xl text-center">
-          <p className="text-sm text-muted-foreground mb-3">
-            PeiPeiGoTravel
-          </p>
-          <Button onClick={() => navigate("/")} variant="default">
-            {t("newProject")}
-          </Button>
-        </div>
-      </footer>
 
       {/* Add/Edit Dialog */}
       <ItineraryItemDialog
