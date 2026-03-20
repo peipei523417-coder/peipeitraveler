@@ -828,6 +828,13 @@ export default function SharePage() {
         existingItems={currentDay?.items || []}
       />
 
+      {/* Trip Overview */}
+      <TripOverviewDialog
+        open={overviewOpen}
+        onOpenChange={setOverviewOpen}
+        project={project}
+      />
+
       {/* Login Dialog */}
       <LoginDialog 
         open={showLoginDialog} 
