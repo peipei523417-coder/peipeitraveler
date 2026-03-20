@@ -309,6 +309,8 @@ export default function SharePage() {
       setShowPasswordPrompt(false);
       setPasswordInput("");
       toast.success(t("editUnlocked"));
+      // Jump directly into editable itinerary
+      setShowItinerary(true);
     } else {
       toast.error(t("passwordIncorrect"));
     }
@@ -586,24 +588,13 @@ export default function SharePage() {
         {/* Header */}
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-lg border-b border-border/50 shadow-sm">
           <div className="container max-w-4xl py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img 
-                  src={dogTravelNew} 
-                  alt="" 
-                  className="w-8 h-8 object-contain"
-                />
-                <span className="font-bold text-foreground">PeiPeiGoTravel</span>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => navigate("/")}
-                className="gap-2"
-              >
-                <Home className="w-4 h-4" />
-                {t("myProjects")}
-              </Button>
+            <div className="flex items-center gap-3">
+              <img 
+                src={dogTravelNew} 
+                alt="" 
+                className="w-8 h-8 object-contain"
+              />
+              <span className="font-bold text-foreground">PeiPeiGoTravel</span>
             </div>
           </div>
         </header>
@@ -648,11 +639,6 @@ export default function SharePage() {
                 </span>
               </div>
 
-              {/* Join description */}
-              <p className="text-sm text-muted-foreground mb-6 flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />
-                {t("joinAsCompanion")}
-              </p>
 
               {/* Action Buttons — all in one block */}
               <div className="flex flex-col gap-3">
@@ -698,36 +684,9 @@ export default function SharePage() {
                 )}
               </div>
 
-              {/* Mode badge */}
-              <p className="text-xs text-muted-foreground mt-4 text-center">
-                {canEdit ? (
-                  <span className="text-primary">✏️ {t("editMode")}</span>
-                ) : (
-                  t("readOnlyMode")
-                )}
-              </p>
             </CardContent>
           </Card>
-
-          {/* Login dialog hint */}
-          {!user && (
-            <p className="text-center text-xs text-muted-foreground mt-4">
-              {t("loginToJoin")}
-            </p>
-          )}
         </main>
-
-        {/* Footer */}
-        <footer className="border-t border-border py-6 mt-8">
-          <div className="container max-w-4xl text-center">
-            <p className="text-sm text-muted-foreground mb-3">
-              PeiPeiGoTravel
-            </p>
-            <Button onClick={() => navigate("/")} variant="default">
-              {t("newProject")}
-            </Button>
-          </div>
-        </footer>
 
         {/* Login Dialog */}
         <LoginDialog 
@@ -828,17 +787,6 @@ export default function SharePage() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border py-6 mt-8">
-        <div className="container max-w-4xl text-center">
-          <p className="text-sm text-muted-foreground mb-3">
-            PeiPeiGoTravel
-          </p>
-          <Button onClick={() => navigate("/")} variant="default">
-            {t("newProject")}
-          </Button>
-        </div>
-      </footer>
 
       {/* Add/Edit Dialog */}
       <ItineraryItemDialog
