@@ -649,8 +649,9 @@ export default function SharePage() {
                 {t("joinAsCompanion")}
               </p>
 
-              {/* Action Buttons */}
+              {/* Action Buttons — all in one block */}
               <div className="flex flex-col gap-3">
+                {/* Join project — deep links to native app on mobile */}
                 <Button 
                   onClick={handleJoinProject} 
                   className="w-full gap-2"
@@ -667,6 +668,7 @@ export default function SharePage() {
                   {joining ? t("joiningProject") : isMobileWeb ? t("openInAppAndJoin") : t("joinProject")}
                 </Button>
 
+                {/* View / Edit button */}
                 <Button 
                   onClick={() => setShowItinerary(true)} 
                   variant="outline"
@@ -676,33 +678,31 @@ export default function SharePage() {
                   <Eye className="w-4 h-4" />
                   {canEdit ? t("viewAndEdit") : t("viewOnly")}
                 </Button>
+
+                {/* Unlock edit — only when password exists and not yet unlocked */}
+                {hasEditPassword && !canEdit && (
+                  <Button
+                    variant="secondary"
+                    className="w-full gap-2"
+                    size="lg"
+                    onClick={() => setShowPasswordPrompt(true)}
+                  >
+                    <Lock className="w-4 h-4" />
+                    {t("wantToEdit")}
+                  </Button>
+                )}
               </div>
+
+              {/* Mode badge */}
+              <p className="text-xs text-muted-foreground mt-4 text-center">
+                {canEdit ? (
+                  <span className="text-primary">✏️ {t("editMode")}</span>
+                ) : (
+                  t("readOnlyMode")
+                )}
+              </p>
             </CardContent>
           </Card>
-
-          {/* Mode badge */}
-          <p className="text-center text-xs text-muted-foreground mt-4">
-            {canEdit ? (
-              <span className="text-primary">✏️ {t("editMode")}</span>
-            ) : (
-              t("readOnlyMode")
-            )}
-          </p>
-
-          {/* Edit unlock button */}
-          {hasEditPassword && !canEdit && (
-            <div className="text-center mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPasswordPrompt(true)}
-                className="gap-2"
-              >
-                <Lock className="w-4 h-4" />
-                {t("wantToEdit")}
-              </Button>
-            </div>
-          )}
 
           {/* Login dialog hint */}
           {!user && (
