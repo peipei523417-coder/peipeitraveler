@@ -684,36 +684,9 @@ export default function SharePage() {
                 )}
               </div>
 
-              {/* Mode badge */}
-              <p className="text-xs text-muted-foreground mt-4 text-center">
-                {canEdit ? (
-                  <span className="text-primary">✏️ {t("editMode")}</span>
-                ) : (
-                  t("readOnlyMode")
-                )}
-              </p>
             </CardContent>
           </Card>
-
-          {/* Login dialog hint */}
-          {!user && (
-            <p className="text-center text-xs text-muted-foreground mt-4">
-              {t("loginToJoin")}
-            </p>
-          )}
         </main>
-
-        {/* Footer */}
-        <footer className="border-t border-border py-6 mt-8">
-          <div className="container max-w-4xl text-center">
-            <p className="text-sm text-muted-foreground mb-3">
-              PeiPeiGoTravel
-            </p>
-            <Button onClick={() => navigate("/")} variant="default">
-              {t("newProject")}
-            </Button>
-          </div>
-        </footer>
 
         {/* Login Dialog */}
         <LoginDialog 
