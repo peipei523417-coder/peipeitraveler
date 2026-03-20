@@ -22,12 +22,33 @@
   <body>
     <div id="root"></div>
     <script>
-      // Redirect clean /share/XXX paths to /#/share/XXX for HashRouter
+      // Redirect clean /share/XXX paths — on mobile, try native app first
       (function() {
         var path = window.location.pathname;
         var match = path.match(/^\/share\/(.+)/);
-        if (match) {
-          window.location.replace(window.location.origin + '/#/share/' + match[1]);
+        if (!match) return;
+
+        var projectId = match[1];
+        var ua = navigator.userAgent;
+        var isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+        var isNative = /capacitor/i.test(ua) || window.Capacitor;
+
+        if (isMobile && !isNative) {
+          // Mobile web: try to open the travel app via deep link
+          var deepLink = 'com.peitravel.smartplanner://share/' + projectId;
+          var didLeave = false;
+          window.addEventListener('blur', function() { didLeave = true; });
+          window.location.href = deepLink;
+
+          // If app didn't open after 1.5s, fall back to web share page
+          setTimeout(function() {
+            if (!didLeave) {
+              window.location.replace(window.location.origin + '/#/share/' + projectId);
+            }
+          }, 1500);
+        } else {
+          // Desktop or native app: just redirect to hash route
+          window.location.replace(window.location.origin + '/#/share/' + projectId);
         }
       })();
     </script>
