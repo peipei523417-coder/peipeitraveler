@@ -639,11 +639,6 @@ export default function SharePage() {
                 </span>
               </div>
 
-              {/* Join description */}
-              <p className="text-sm text-muted-foreground mb-6 flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />
-                {t("joinAsCompanion")}
-              </p>
 
               {/* Action Buttons — all in one block */}
               <div className="flex flex-col gap-3">
