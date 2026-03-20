@@ -726,7 +726,7 @@ export default function SharePage() {
               >
                 ← {t("back")}
               </Button>
-              <div>
+              <div className="flex flex-col text-left">
                 <h1 className="text-lg font-bold text-foreground line-clamp-1">
                   {project.name}
                 </h1>
@@ -736,6 +736,11 @@ export default function SharePage() {
                     • {canEdit ? t("editMode") : t("readOnlyMode")}
                   </span>
                 </p>
+                {totalBudget > 0 && (
+                  <p className="text-sm font-bold text-primary">
+                    ({t("totalBudget")}: ${totalBudget.toLocaleString()})
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
