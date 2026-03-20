@@ -193,6 +193,15 @@ export default function SharePage() {
   // Edit dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
+  const [overviewOpen, setOverviewOpen] = useState(false);
+
+  // Calculate total budget for all days
+  const totalBudget = useMemo(() => {
+    if (!project) return 0;
+    return project.itinerary.reduce((total, day) => {
+      return total + calculateDayTotal(day.items);
+    }, 0);
+  }, [project]);
 
   // Signed URL for cover image
   const signedCoverImage = useSignedImageUrl(project?.coverImageUrl);
