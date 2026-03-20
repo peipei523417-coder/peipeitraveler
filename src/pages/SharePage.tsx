@@ -588,24 +588,13 @@ export default function SharePage() {
         {/* Header */}
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-lg border-b border-border/50 shadow-sm">
           <div className="container max-w-4xl py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img 
-                  src={dogTravelNew} 
-                  alt="" 
-                  className="w-8 h-8 object-contain"
-                />
-                <span className="font-bold text-foreground">PeiPeiGoTravel</span>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => navigate("/")}
-                className="gap-2"
-              >
-                <Home className="w-4 h-4" />
-                {t("myProjects")}
-              </Button>
+            <div className="flex items-center gap-3">
+              <img 
+                src={dogTravelNew} 
+                alt="" 
+                className="w-8 h-8 object-contain"
+              />
+              <span className="font-bold text-foreground">PeiPeiGoTravel</span>
             </div>
           </div>
         </header>
