@@ -324,7 +324,7 @@ export default function SharePage() {
   const handleJoinProject = async () => {
     if (!project) return;
 
-    // On mobile web, try to open the native travel app first
+    // On mobile web, ALWAYS try to open the native travel app via deep link
     if (isMobileWeb) {
       const deepLink = `com.peitravel.smartplanner://share/${project.id}`;
       
@@ -339,14 +339,19 @@ export default function SharePage() {
       setTimeout(() => {
         window.removeEventListener("blur", onBlur);
         if (!didLeave) {
-          // App not installed — fall back to web join flow
-          handleWebJoin();
+          // App not installed — redirect to store
+          const ua = navigator.userAgent;
+          if (/iPhone|iPad|iPod/i.test(ua)) {
+            window.location.href = "https://apps.apple.com/app/peipeigotravel";
+          } else {
+            window.location.href = "https://play.google.com/store/apps/details?id=com.peitravel.smartplanner";
+          }
         }
       }, 1500);
       return;
     }
 
-    // On desktop or inside native app, do web join directly
+    // Inside native app or desktop — do web join
     await handleWebJoin();
   };
 
