@@ -309,6 +309,8 @@ export default function SharePage() {
       setShowPasswordPrompt(false);
       setPasswordInput("");
       toast.success(t("editUnlocked"));
+      // Jump directly into editable itinerary
+      setShowItinerary(true);
     } else {
       toast.error(t("passwordIncorrect"));
     }
