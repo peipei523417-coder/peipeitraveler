@@ -176,6 +176,7 @@ function AppContent() {
   const { hasInitiallyLoaded, markAsLoaded } = useLoading();
   const [showInitialLoader, setShowInitialLoader] = useState(!hasInitiallyLoaded);
   const [isReady, setIsReady] = useState(false);
+  const isOnline = useOnlineStatus();
 
   useEffect(() => {
     if (hasInitiallyLoaded) {
@@ -203,8 +204,6 @@ function AppContent() {
       </div>
     );
   }
-
-  const isOnline = useOnlineStatus();
 
   return (
     <HashRouter>
