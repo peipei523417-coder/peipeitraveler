@@ -1,0 +1,137 @@
+workflows:
+  ios-release:
+    name: iOS Release (TestFlight)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    
+    environment:
+      groups:
+        - app_store_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.peitravel.smartplanner
+      node: 22
+      xcode: latest
+    
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 'release/ios*'
+          include: true
+      cancel_previous_builds: true
+    
+    scripts:
+      - name: Install Bun
+        script: |
+          curl -fsSL https://bun.sh/install | bash
+          export PATH="$HOME/.bun/bin:$PATH"
+      
+      - name: Install dependencies
+        script: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun install
+      
+      - name: Build web assets
+        script: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          npx vite build
+      
+      - name: Verify dist
+        script: |
+          test -f dist/index.html || (echo "❌ dist/index.html missing!" && exit 1)
+          echo "✅ dist/ verified"
+      
+      - name: Sync Capacitor iOS
+        script: |
+          npx cap sync ios
+      
+      - name: Set version
+        script: |
+          cd ios/App
+          agvtool new-marketing-version $VERSION_NAME
+          agvtool new-version -all $BUILD_NUMBER
+      
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+      
+      - name: Build IPA
+        script: |
+          cd ios/App
+          xcode-project build-ipa \
+            --workspace App.xcworkspace \
+            --scheme App
+    
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    
+    publishing:
+      app_store_connect:
+        # Codemagic auto-manages this with the credentials you set in dashboard
+        auth: integration
+        submit_to_testflight: true
+        expire_build_submitted_for_review: true
+
+  # Optional: manual trigger workflow (no branch pattern needed)
+  ios-manual:
+    name: iOS Manual Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    
+    environment:
+      groups:
+        - app_store_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.peitravel.smartplanner
+      node: 22
+      xcode: latest
+      vars:
+        VERSION_NAME: "1.0.50"
+    
+    scripts:
+      - name: Install Bun
+        script: |
+          curl -fsSL https://bun.sh/install | bash
+          export PATH="$HOME/.bun/bin:$PATH"
+      
+      - name: Install dependencies
+        script: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun install
+      
+      - name: Build web assets
+        script: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          npx vite build
+      
+      - name: Sync Capacitor iOS
+        script: |
+          npx cap sync ios
+      
+      - name: Set version
+        script: |
+          cd ios/App
+          agvtool new-marketing-version ${VERSION_NAME:-1.0.50}
+          agvtool new-version -all ${BUILD_NUMBER}
+      
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+      
+      - name: Build IPA
+        script: |
+          cd ios/App
+          xcode-project build-ipa \
+            --workspace App.xcworkspace \
+            --scheme App
+    
+    artifacts:
+      - build/ios/ipa/*.ipa
+    
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
