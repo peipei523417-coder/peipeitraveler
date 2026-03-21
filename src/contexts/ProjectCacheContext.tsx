@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import { TravelProject } from "@/types/travel";
 import { getAllProjectsSorted, getProject as fetchProject } from "@/lib/supabase-storage";
+import { cacheProjectsOffline, getCachedProjects } from "@/lib/offline-cache";
 
 interface ProjectCacheContextType {
   projects: TravelProject[];
