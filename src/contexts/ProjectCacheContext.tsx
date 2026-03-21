@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import { TravelProject } from "@/types/travel";
 import { getAllProjectsSorted, getProject as fetchProject } from "@/lib/supabase-storage";
+import { cacheProjectsOffline, getCachedProjects } from "@/lib/offline-cache";
 
 interface ProjectCacheContextType {
   projects: TravelProject[];
@@ -25,16 +26,30 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
       return projects;
     }
     
-    const all = await getAllProjectsSorted();
-    setProjects(all);
-    setIsLoaded(true);
-    
-    // Update individual cache
-    const newCache = new Map<string, TravelProject>();
-    all.forEach(p => newCache.set(p.id, p));
-    setProjectCache(newCache);
-    
-    return all;
+    try {
+      const all = await getAllProjectsSorted();
+      setProjects(all);
+      setIsLoaded(true);
+      
+      // Save to offline cache
+      cacheProjectsOffline(all);
+      
+      // Update individual cache
+      const newCache = new Map<string, TravelProject>();
+      all.forEach(p => newCache.set(p.id, p));
+      setProjectCache(newCache);
+      
+      return all;
+    } catch {
+      // Offline fallback: use cached data
+      if (!navigator.onLine) {
+        const cached = getCachedProjects();
+        setProjects(cached);
+        setIsLoaded(true);
+        return cached;
+      }
+      throw new Error("Failed to load projects");
+    }
   }, [isLoaded, projects]);
 
   const getProject = useCallback(async (id: string): Promise<TravelProject | undefined> => {
