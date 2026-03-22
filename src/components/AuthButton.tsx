@@ -51,29 +51,31 @@ export function AuthButton() {
     }
   };
 
-  // Delete account
+  // Delete account — calls Edge Function to fully delete auth user (App Store / Google Play compliant)
   const handleDeleteAccount = async () => {
     if (!user) return;
     
     setDeleting(true);
     try {
-      // Delete all user's projects first
-      const { error: projectsError } = await supabase
-        .from("travel_projects")
-        .delete()
-        .eq("user_id", user.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session");
 
-      if (projectsError) throw projectsError;
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
 
-      // Delete user profile
-      const { error: profileError } = await supabase
-        .from("user_profiles")
-        .delete()
-        .eq("user_id", user.id);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Delete failed");
 
-      if (profileError) throw profileError;
-
-      // Sign out and show success message
+      // Clear local state
       await signOut();
       toast.success(t("accountDeleted"));
     } catch (error) {
