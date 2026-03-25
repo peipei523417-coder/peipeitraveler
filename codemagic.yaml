@@ -6,6 +6,8 @@ workflows:
     environment:
       xcode: 16.2
       node: 22
+      groups:
+        - app_store_credentials
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.peipeigo.travel
@@ -22,7 +24,7 @@ workflows:
       - name: Install CocoaPods
         script: |
           cd ios/App
-          pod install --repo-update
+          pod install
 
       - name: Set version numbers
         script: |
