@@ -1,0 +1,77 @@
+workflows:
+  ios-build:
+    name: iOS Capacitor Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: 16.2
+      node: 22
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.peipeigo.travel
+    scripts:
+      - name: Install dependencies
+        script: npm install
+
+      - name: Build web assets
+        script: npm run build
+
+      - name: Sync Capacitor iOS
+        script: npx cap sync ios
+
+      - name: Install CocoaPods
+        script: |
+          cd ios/App
+          pod install --repo-update
+
+      - name: Set version numbers
+        script: |
+          cd ios/App
+          agvtool new-marketing-version 1.0.52
+          agvtool new-version -all 52
+
+      - name: Build iOS archive
+        script: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath $CM_BUILD_DIR/build/App.xcarchive \
+            archive \
+            CODE_SIGN_STYLE=Automatic
+
+      - name: Generate ExportOptions and export IPA
+        script: |
+          cat > $CM_BUILD_DIR/ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>uploadBitcode</key>
+              <false/>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath $CM_BUILD_DIR/build/App.xcarchive \
+            -exportOptionsPlist $CM_BUILD_DIR/ExportOptions.plist \
+            -exportPath $CM_BUILD_DIR/build/ipa
+
+    artifacts:
+      - build/ipa/*.ipa
+
+    publishing:
+      email:
+        recipients:
+          - peitravel.dev@gmail.com
+        notify:
+          success: true
+          failure: true
