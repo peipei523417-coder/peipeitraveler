@@ -10,7 +10,7 @@ workflows:
         - app_store_credentials
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.peipeigo.travel
+        bundle_identifier: com.peitravel.smartplanner
     scripts:
       - name: Install dependencies
         script: npm install
