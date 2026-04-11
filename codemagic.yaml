@@ -5,7 +5,7 @@ workflows:
     instance_type: mac_mini_m2
 
     integrations:
-      app_store_connect: codemagic-ios   # ⭐️關鍵補這行
+      app_store_connect: codemagic-ios
 
     environment:
       xcode: 16.2
