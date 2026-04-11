@@ -15,7 +15,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.peipeigo.travel
-        automatic_code_signing: true
 
     scripts:
       - name: Install dependencies
