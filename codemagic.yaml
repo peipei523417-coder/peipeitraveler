@@ -3,6 +3,10 @@ workflows:
     name: iOS Capacitor Build
     max_build_duration: 60
     instance_type: mac_mini_m2
+
+    integrations:
+      app_store_connect: codemagic-ios   # ⭐️關鍵補這行
+
     environment:
       xcode: 16.2
       node: 22
@@ -49,17 +53,12 @@ workflows:
         script: |
           cat > $CM_BUILD_DIR/ExportOptions.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>method</key>
               <string>app-store</string>
               <key>signingStyle</key>
               <string>automatic</string>
-              <key>uploadBitcode</key>
-              <false/>
-              <key>uploadSymbols</key>
-              <true/>
           </dict>
           </plist>
           EOF
