@@ -1,3 +1,4 @@
+# 完整的 codemagic.yaml 內容，請直接覆蓋
 workflows:
   ios-build:
     name: iOS Capacitor Build
@@ -34,22 +35,23 @@ workflows:
       - name: Set version numbers
         script: |
           cd ios/App
-          # 使用 $BUILD_NUMBER 自動跳號，解決上傳重複版本問題
+          # 自動遞增版本號，避免上傳重複版本
           agvtool new-marketing-version 1.0.$BUILD_NUMBER
           agvtool new-version -all $BUILD_NUMBER
 
       - name: Set up code signing
         script: |
-          # 強制載入 Settings 裡的 P12 證書
+          # 1. 載入你在 Settings 裡上傳的 Pei_iOS_Cert
           keychain add-certificates
           
-          # 強制手動解碼准考證，確保 Xcode 一定看得到它
+          # 2. 強制載入並解碼 peipeigo_appstore 准考證
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/peipeigo_appstore.mobileprovision
 
       - name: Build iOS archive
         script: |
           cd ios/App
+          # 使用手動簽署 (Manual Signing) 模式
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -sdk iphoneos \
