@@ -34,15 +34,18 @@ workflows:
       - name: Set version numbers
         script: |
           cd ios/App
-          # $BUILD_NUMBER 是 Codemagic 自動給的序號，保證每次上傳都不重複
+          # 使用 $BUILD_NUMBER 自動跳號，解決上傳重複版本問題
           agvtool new-marketing-version 1.0.$BUILD_NUMBER
           agvtool new-version -all $BUILD_NUMBER
 
       - name: Set up code signing
         script: |
-          # 這行指令會自動去 Settings 抓你剛上傳的 P12 和 Profile
+          # 強制載入 Settings 裡的 P12 證書
           keychain add-certificates
-          xcode-project use-profiles
+          
+          # 強制手動解碼准考證，確保 Xcode 一定看得到它
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/peipeigo_appstore.mobileprovision
 
       - name: Build iOS archive
         script: |
@@ -54,8 +57,8 @@ workflows:
             -archivePath $CM_BUILD_DIR/build/App.xcarchive \
             archive \
             CODE_SIGN_STYLE=Manual \
-            PROVISIONING_PROFILE=$CM_PROVISIONING_PROFILE_ID \
-            CODE_SIGN_IDENTITY="Apple Distribution"
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="peipeigo_appstore"
 
       - name: Generate ExportOptions and export IPA
         script: |
@@ -70,7 +73,7 @@ workflows:
               <key>provisioningProfiles</key>
               <dict>
                   <key>com.peipeigo.travel</key>
-                  <string>peipeigo_profile</string>
+                  <string>peipeigo_appstore</string>
               </dict>
           </dict>
           </plist>
