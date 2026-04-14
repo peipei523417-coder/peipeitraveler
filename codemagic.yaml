@@ -1,4 +1,4 @@
-# 針對 SPM 環境優化的版本 - 解決 Podfile 遺失問題
+# 最終修正版：解決 YAML 語法錯誤與 Podfile 遺失問題
 workflows:
   ios-build:
     name: iOS Capacitor Build
@@ -43,7 +43,7 @@ workflows:
       - name: Build iOS archive
         script: |
           cd ios/App
-          # SPM 專案通常使用 .xcodeproj 而非 .xcworkspace
+          # SPM 專案通常使用 .xcodeproj
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -sdk iphoneos \
@@ -83,7 +83,7 @@ workflows:
 
     publishing:
       app_store_connect:
-        auth: codemagic-ios
+        integration: codemagic-ios
       email:
         recipients:
           - peitravel.dev@gmail.com
