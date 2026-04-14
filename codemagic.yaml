@@ -1,4 +1,4 @@
-# 最終修正版：解決 YAML 語法錯誤與 Podfile 遺失問題
+# 2026 最終版本：自動同步並發佈至 App Store
 workflows:
   ios-build:
     name: iOS Capacitor Build
@@ -6,13 +6,16 @@ workflows:
     instance_type: mac_mini_m2
 
     integrations:
-      app_store_connect: codemagic-ios
+      app_store_connect: codemagic-ios  # 這裡要對應你 Integrations 頁面的名字
 
     environment:
       xcode: 16.2
       node: 22
       groups:
         - app_store_credentials
+      vars:
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.peipeigo.travel
@@ -24,13 +27,14 @@ workflows:
       - name: Build web assets
         script: npm run build
 
-      - name: Sync Capacitor iOS
-        script: npx cap sync ios
+      - name: Sync Capacitor iOS (代替本地 Mac 執行)
+        script: |
+          npx cap sync ios
 
       - name: Set version numbers
         script: |
           cd ios/App
-          # 設定為 Version 6，並隨 Build 次數自動遞增末碼
+          # 設定為 Version 6，並隨 Build 次數自動遞增
           agvtool new-marketing-version 6.0.$BUILD_NUMBER
           agvtool new-version -all $BUILD_NUMBER
 
@@ -43,7 +47,6 @@ workflows:
       - name: Build iOS archive
         script: |
           cd ios/App
-          # SPM 專案通常使用 .xcodeproj
           xcodebuild -project App.xcodeproj \
             -scheme App \
             -sdk iphoneos \
@@ -83,7 +86,7 @@ workflows:
 
     publishing:
       app_store_connect:
-        integration: codemagic-ios
+        integration: codemagic-ios  # 這裡必須與上方 integrations 一致
       email:
         recipients:
           - peitravel.dev@gmail.com
