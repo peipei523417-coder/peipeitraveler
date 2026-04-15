@@ -60,8 +60,9 @@ workflows:
             -archivePath $CM_BUILD_DIR/build/App.xcarchive \
             -exportOptionsPlist $CM_BUILD_DIR/ExportOptions.plist \
             -exportPath $CM_BUILD_DIR/build/ipa
-    artifacts:
+
+        artifacts:
       - build/ipa/*.ipa
     publishing:
-    app_store_connect:
+      app_store_connect:
         integration: apple-api-2026
