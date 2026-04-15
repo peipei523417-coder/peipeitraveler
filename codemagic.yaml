@@ -1,4 +1,4 @@
-# PeiTravel 2026 最終修正版 - 對齊全新 API Key
+# 2026-04-15 22:30 更新：對齊新金鑰 apple-api-2026
 workflows:
   ios-build:
     name: iOS Capacitor Build
