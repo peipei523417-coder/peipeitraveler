@@ -3,10 +3,8 @@ workflows:
     name: iOS Capacitor Build
     max_build_duration: 60
     instance_type: mac_mini_m2
-
     integrations:
       app_store_connect: codemagic-ios
-
     environment:
       xcode: 16.2
       node: 22
@@ -15,7 +13,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.peipeigo.travel
-
     scripts:
       - name: Install dependencies
         script: npm install
@@ -23,16 +20,12 @@ workflows:
         script: npm run build
       - name: Sync Capacitor iOS
         script: npx cap sync ios
-      - name: Set version numbers
-        script: |
-          cd ios/App
-          agvtool new-marketing-version 6.0.$BUILD_NUMBER
-          agvtool new-version -all $BUILD_NUMBER
       - name: Set up code signing
         script: |
           keychain add-certificates
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/peipeigo_appstore.mobileprovision
+          # 這裡會讀取你上傳的 Base64 證書
+          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/PeiGo_Store_Final.mobileprovision
       - name: Build iOS archive
         script: |
           cd ios/App
@@ -44,8 +37,8 @@ workflows:
             archive \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="peipeigo_appstore"
-      - name: Generate ExportOptions and export IPA
+            PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final"
+      - name: Export IPA
         script: |
           cat > $CM_BUILD_DIR/ExportOptions.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -58,7 +51,7 @@ workflows:
               <key>provisioningProfiles</key>
               <dict>
                   <key>com.peipeigo.travel</key>
-                  <string>peipeigo_appstore</string>
+                  <string>PeiGo_Store_Final</string>
               </dict>
           </dict>
           </plist>
@@ -67,10 +60,8 @@ workflows:
             -archivePath $CM_BUILD_DIR/build/App.xcarchive \
             -exportOptionsPlist $CM_BUILD_DIR/ExportOptions.plist \
             -exportPath $CM_BUILD_DIR/build/ipa
-
     artifacts:
       - build/ipa/*.ipa
-
     publishing:
       app_store_connect:
         integration: codemagic-ios
