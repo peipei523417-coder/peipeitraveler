@@ -1,10 +1,11 @@
+# PeiTravel 2026 最終修正版 - 對齊全新 API Key
 workflows:
   ios-build:
     name: iOS Capacitor Build
     max_build_duration: 60
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: codemagic-ios
+      app_store_connect: apple-api-2026
     environment:
       xcode: 16.2
       node: 22
@@ -24,7 +25,6 @@ workflows:
         script: |
           keychain add-certificates
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          # 這裡會讀取你上傳的 Base64 證書
           echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/PeiGo_Store_Final.mobileprovision
       - name: Build iOS archive
         script: |
@@ -64,4 +64,4 @@ workflows:
       - build/ipa/*.ipa
     publishing:
       app_store_connect:
-        integration: codemagic-ios
+        integration: apple-api-2026
