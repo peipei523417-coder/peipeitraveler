@@ -15,7 +15,9 @@ workflows:
         bundle_identifier: com.peipeigo.travel
     scripts:
       - name: Install dependencies
-        script: npm install
+        script: |
+          npm install
+          cd ios/App && pod install
       - name: Build web assets
         script: npm run build
       - name: Sync Capacitor iOS
