@@ -59,8 +59,8 @@ workflows:
             -archivePath $CM_BUILD_DIR/build/App.xcarchive \
             -exportOptionsPlist $CM_BUILD_DIR/ExportOptions.plist \
             -exportPath $CM_BUILD_DIR/build/ipa
-    artifacts:
-      - build/ipa/*.ipa
-    publishing:
-      app_store_connect:
-        integration: codemagic-new
+        artifacts:
+          - build/ipa/*.ipa
+        publishing:
+          app_store_connect:
+            integration: codemagic-new
