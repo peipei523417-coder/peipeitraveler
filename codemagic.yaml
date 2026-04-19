@@ -10,6 +10,9 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.peipeigo.travel
 
+      groups:
+        - app_store_credentials   # ← 這行很關鍵（API key）
+
     scripts:
       - name: Install dependencies
         script: |
