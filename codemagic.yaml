@@ -12,27 +12,23 @@ workflows:
 
     scripts:
       - name: Install dependencies
-        script: |
-          npm install
+        script: npm install
 
       - name: Build web assets
-        script: |
-          npm run build
+        script: npm run build
 
-      - name: Add iOS platform (如果沒有)
-        script: |
-          npx cap add ios || echo "ios exists"
+      - name: Ensure iOS platform exists
+        script: npx cap add ios || echo "iOS exists"
 
       - name: Sync Capacitor
-        script: |
-          npx cap sync ios
+        script: npx cap sync ios
 
       - name: Install CocoaPods
         script: |
           cd ios/App
           pod install
 
-      - name: Set up provisioning profile
+      - name: Install provisioning profile
         script: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
@@ -45,14 +41,26 @@ workflows:
             -sdk iphoneos \
             -configuration Release \
             -archivePath $CM_BUILD_DIR/build/App.xcarchive \
+            -destination 'generic/platform=iOS' \
             archive \
-            CODE_SIGN_STYLE=Automatic
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution"
 
       - name: Export IPA
         script: |
+          cat > $CM_BUILD_DIR/ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+          </dict>
+          </plist>
+          EOF
+
           xcodebuild -exportArchive \
             -archivePath $CM_BUILD_DIR/build/App.xcarchive \
-            -exportOptionsPlist ExportOptions.plist \
+            -exportOptionsPlist $CM_BUILD_DIR/ExportOptions.plist \
             -exportPath $CM_BUILD_DIR/build/ipa
 
     artifacts:
