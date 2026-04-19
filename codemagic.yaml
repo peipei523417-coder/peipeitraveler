@@ -17,15 +17,17 @@ workflows:
       - name: Build web assets
         script: npm run build
 
-      - name: Ensure iOS platform exists
-        script: npx cap add ios || echo "iOS exists"
+      - name: Recreate iOS platform
+        script: |
+          rm -rf ios
+          npx cap add ios
 
       - name: Sync Capacitor
         script: npx cap sync ios
 
       - name: Install CocoaPods
         script: |
-          cd ios/App
+          cd ios
           pod install
 
       - name: Install provisioning profile
@@ -35,7 +37,7 @@ workflows:
 
       - name: Build iOS archive
         script: |
-          cd ios/App
+          cd ios
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -sdk iphoneos \
