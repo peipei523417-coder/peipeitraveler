@@ -12,13 +12,16 @@ workflows:
 
     scripts:
       - name: Install dependencies
-        script: npm install
+        script: |
+          npm install
 
       - name: Build web
-        script: npm run build
+        script: |
+          npm run build
 
       - name: Sync Capacitor
-        script: npx cap sync ios
+        script: |
+          npx cap sync ios
 
       - name: Build IPA
         script: |
@@ -29,7 +32,9 @@ workflows:
             -sdk iphoneos \
             -configuration Release \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
+            DEVELOPMENT_TEAM=K3D34578Q7 \
+            CODE_SIGN_STYLE=Automatic \
             archive
 
     artifacts:
-      - build/ios/ipa/*.ipa
+      - $CM_BUILD_DIR/**/*.ipa
