@@ -6,13 +6,6 @@ workflows:
       xcode: 16.2
       node: 22
 
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.peipeigo.travel
-
-      groups:
-        - app_store_credentials   # ← 這行很關鍵（API key）
-
     scripts:
       - name: Install dependencies
         script: |
@@ -26,7 +19,7 @@ workflows:
         script: |
           npx cap sync ios
 
-      - name: Build IPA
+      - name: Build IPA (AUTO SIGNING)
         script: |
           cd ios/App
           xcodebuild \
@@ -36,8 +29,9 @@ workflows:
             -configuration Release \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
             DEVELOPMENT_TEAM=K3D34578Q7 \
-            CODE_SIGN_STYLE=Automatic \
+            PRODUCT_BUNDLE_IDENTIFIER=com.peipeigo.travel \
+            -allowProvisioningUpdates \
             archive
 
     artifacts:
-      - $CM_BUILD_DIR/**/*.ipa
+      - build/**/*.ipa
