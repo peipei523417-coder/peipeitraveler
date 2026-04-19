@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Capacitor Build
+    name: iOS Capacitor Build (Manual Sign FINAL)
 
     environment:
       xcode: 16.2
@@ -19,9 +19,10 @@ workflows:
         script: |
           npx cap sync ios
 
-      - name: Build IPA (AUTO SIGNING)
+      - name: Build IPA (MANUAL SIGN FINAL)
         script: |
           cd ios/App
+
           xcodebuild \
             -project App.xcodeproj \
             -scheme App \
@@ -29,9 +30,16 @@ workflows:
             -configuration Release \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
             DEVELOPMENT_TEAM=K3D34578Q7 \
-            PRODUCT_BUNDLE_IDENTIFIER=com.peipeigo.travel \
-            -allowProvisioningUpdates \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             archive
 
+      - name: Export IPA
+        script: |
+          xcodebuild -exportArchive \
+            -archivePath $CM_BUILD_DIR/App.xcarchive \
+            -exportOptionsPlist ios/App/ExportOptions.plist \
+            -exportPath $CM_BUILD_DIR/ipa
+
     artifacts:
-      - build/**/*.ipa
+      - $CM_BUILD_DIR/ipa/*.ipa
