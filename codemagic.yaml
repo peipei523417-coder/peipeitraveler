@@ -4,6 +4,9 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
 
+    integrations:
+      app_store_connect: codemagic-new
+
     environment:
       xcode: 16.2
       node: 22
@@ -15,15 +18,23 @@ workflows:
         script: npm install
 
       - name: Build web assets
-        script: npm run build
+        script: |
+          npm run build
+          ls -la dist
 
       - name: Sync Capacitor
         script: npx cap sync ios
 
+      - name: Debug iOS structure
+        script: |
+          ls -la ios
+          ls -la ios/App
+
       - name: Install provisioning profile
         script: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/PeiGo_Store_Final.mobileprovision
+          ls ~/Library/MobileDevice/Provisioning\ Profiles
 
       - name: Build iOS archive
         script: |
@@ -36,7 +47,8 @@ workflows:
             -destination 'generic/platform=iOS' \
             archive \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution"
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final"
 
       - name: Export IPA
         script: |
@@ -46,6 +58,13 @@ workflows:
           <dict>
             <key>method</key>
             <string>app-store</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.peipeigo.travel</key>
+              <string>PeiGo_Store_Final</string>
+            </dict>
           </dict>
           </plist>
           EOF
@@ -57,3 +76,8 @@ workflows:
 
     artifacts:
       - build/ipa/*.ipa
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        integration: codemagic-new
