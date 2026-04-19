@@ -23,6 +23,13 @@ workflows:
         script: |
           npx cap sync ios
 
+      # ⭐⭐⭐ 這段是關鍵 ⭐⭐⭐
+      - name: Install provisioning profile
+        script: |
+          echo $CM_PROVISIONING_PROFILE | base64 --decode > profile.mobileprovision
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
       - name: Build iOS archive
         script: |
           cd ios/App
@@ -40,8 +47,3 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
-
-    publishing:
-      email:
-        recipients:
-          - peipei523417@gmail.com
