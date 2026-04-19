@@ -5,6 +5,8 @@ workflows:
     environment:
       xcode: 16.2
       node: 22
+      groups:
+        - app_store_credentials
 
     scripts:
       - name: Install dependencies
@@ -19,7 +21,23 @@ workflows:
         script: |
           npx cap sync ios
 
-      - name: Build IPA (MANUAL SIGN FINAL)
+      # 👉 安裝 provisioning profile（關鍵）
+      - name: Install Provisioning Profile
+        script: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo $CM_PROVISIONING_PROFILE | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      # 👉 安裝 p12 憑證（關鍵）
+      - name: Install Certificate
+        script: |
+          echo $CERTIFICATES_P12 | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security import certificate.p12 -k ~/Library/Keychains/build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -s ~/Library/Keychains/build.keychain
+          security unlock-keychain -p "" ~/Library/Keychains/build.keychain
+
+      # 👉 Build（關鍵：指定 profile）
+      - name: Build IPA
         script: |
           cd ios/App
 
@@ -32,8 +50,10 @@ workflows:
             DEVELOPMENT_TEAM=K3D34578Q7 \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
             archive
 
+      # 👉 Export IPA
       - name: Export IPA
         script: |
           xcodebuild -exportArchive \
