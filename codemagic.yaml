@@ -3,41 +3,35 @@ workflows:
     name: iOS Capacitor Build
     max_build_duration: 60
     instance_type: mac_mini_m2
-
+    integrations:
+      app_store_connect: codemagic-new
     environment:
       xcode: 16.2
       node: 22
       groups:
         - app_store_credentials
-
     scripts:
       - name: Install dependencies
         script: npm install
-
       - name: Build web assets
         script: npm run build
-
       - name: Recreate iOS platform
         script: |
           rm -rf ios
           npx cap add ios
-
       - name: Sync Capacitor
         script: npx cap sync ios
-
       - name: Install CocoaPods
         script: |
-          cd ios
+          cd ios/App
           pod install
-
       - name: Install provisioning profile
         script: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
-
       - name: Build iOS archive
         script: |
-          cd ios
+          cd ios/App
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -sdk iphoneos \
@@ -47,7 +41,6 @@ workflows:
             archive \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution"
-
       - name: Export IPA
         script: |
           cat > $CM_BUILD_DIR/ExportOptions.plist << 'EOF'
@@ -56,14 +49,23 @@ workflows:
           <dict>
             <key>method</key>
             <string>app-store</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.peipeigo.travel</key>
+              <string>profile</string>
+            </dict>
           </dict>
           </plist>
           EOF
-
           xcodebuild -exportArchive \
             -archivePath $CM_BUILD_DIR/build/App.xcarchive \
             -exportOptionsPlist $CM_BUILD_DIR/ExportOptions.plist \
             -exportPath $CM_BUILD_DIR/build/ipa
-
     artifacts:
       - build/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        integration: codemagic-new
