@@ -12,18 +12,14 @@ workflows:
 
     scripts:
       - name: Install dependencies
-        script: |
-          npm install
+        script: npm install
 
       - name: Build web assets
-        script: |
-          npm run build
+        script: npm run build
 
       - name: Sync Capacitor
-        script: |
-          npx cap sync ios
+        script: npx cap sync ios
 
-      # ⭐⭐⭐ 這段是關鍵 ⭐⭐⭐
       - name: Install provisioning profile
         script: |
           echo $CM_PROVISIONING_PROFILE | base64 --decode > profile.mobileprovision
@@ -43,6 +39,7 @@ workflows:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
+            PRODUCT_BUNDLE_IDENTIFIER=com.peipeigo.travel \
             archive
 
     artifacts:
