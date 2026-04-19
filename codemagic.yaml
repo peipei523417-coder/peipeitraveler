@@ -12,64 +12,36 @@ workflows:
 
     scripts:
       - name: Install dependencies
-        script: npm install
+        script: |
+          npm install
 
       - name: Build web assets
-        script: npm run build
-
-      - name: Recreate iOS platform
         script: |
-          rm -rf ios
-          npx cap add ios
+          npm run build
 
       - name: Sync Capacitor
-        script: npx cap sync ios
-
-      # ❌ 已移除 pod install
-
-      - name: Install provisioning profile
         script: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/PeiGo_Store_Final.mobileprovision
+          npx cap sync ios
 
       - name: Build iOS archive
         script: |
           cd ios/App
-          xcodebuild -workspace App.xcworkspace \
+          xcodebuild \
+            -project App.xcodeproj \
             -scheme App \
             -sdk iphoneos \
             -configuration Release \
-            -archivePath $CM_BUILD_DIR/build/App.xcarchive \
-            -destination 'generic/platform=iOS' \
-            archive \
+            -archivePath $CM_BUILD_DIR/App.xcarchive \
+            DEVELOPMENT_TEAM=K3D34578Q7 \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
-            DEVELOPMENT_TEAM=K3D34578Q7
-
-      - name: Export IPA
-        script: |
-          cat > $CM_BUILD_DIR/ExportOptions.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>com.peipeigo.travel</key>
-              <string>PeiGo_Store_Final</string>
-            </dict>
-          </dict>
-          </plist>
-          EOF
-
-          xcodebuild -exportArchive \
-            -archivePath $CM_BUILD_DIR/build/App.xcarchive \
-            -exportOptionsPlist $CM_BUILD_DIR/ExportOptions.plist \
-            -exportPath $CM_BUILD_DIR/build/ipa
+            archive
 
     artifacts:
-      - build/ipa/*.ipa
+      - build/ios/ipa/*.ipa
+
+    publishing:
+      email:
+        recipients:
+          - peipei523417@gmail.com
