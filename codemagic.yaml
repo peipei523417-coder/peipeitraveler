@@ -17,8 +17,18 @@ workflows:
       - name: Build web assets
         script: npm run build
 
+      - name: Recreate iOS platform
+        script: |
+          rm -rf ios
+          npx cap add ios
+
       - name: Sync Capacitor
         script: npx cap sync ios
+
+      - name: Install CocoaPods
+        script: |
+          cd ios/App
+          pod install
 
       - name: Install provisioning profile
         script: |
@@ -28,7 +38,7 @@ workflows:
       - name: Build iOS archive
         script: |
           cd ios/App
-          xcodebuild -project App.xcodeproj \
+          xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -sdk iphoneos \
             -configuration Release \
@@ -37,7 +47,8 @@ workflows:
             archive \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final"
+            PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
+            DEVELOPMENT_TEAM=K3D34578Q7
 
       - name: Export IPA
         script: |
