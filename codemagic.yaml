@@ -15,24 +15,10 @@ workflows:
         script: npm install
 
       - name: Build web assets
-        script: |
-          npm run build
-          ls -la dist   # 🔥 檢查 dist 是否存在
-
-      - name: Recreate iOS platform
-        script: |
-          rm -rf ios
-          npx cap add ios
-          ls -la ios    # 🔥 確認 ios 是否真的建立
+        script: npm run build
 
       - name: Sync Capacitor
         script: npx cap sync ios
-
-      - name: Install CocoaPods
-        script: |
-          ls -la ios     # 🔥 看看裡面有沒有 Podfile
-          cd ios
-          pod install
 
       - name: Install provisioning profile
         script: |
@@ -41,8 +27,8 @@ workflows:
 
       - name: Build iOS archive
         script: |
-          cd ios
-          xcodebuild -workspace App.xcworkspace \
+          cd ios/App
+          xcodebuild -project App.xcodeproj \
             -scheme App \
             -sdk iphoneos \
             -configuration Release \
