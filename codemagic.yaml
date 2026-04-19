@@ -3,66 +3,57 @@ workflows:
     name: iOS Capacitor Build
     max_build_duration: 60
     instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: codemagic-new
+
     environment:
       xcode: 16.2
       node: 22
       groups:
         - app_store_credentials
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.peipeigo.travel
+
     scripts:
       - name: Install dependencies
         script: |
           npm install
-          cd ios/App && pod install
+
       - name: Build web assets
-        script: npm run build
-      - name: Sync Capacitor iOS
-        script: npx cap sync ios
-      - name: Set up code signing
         script: |
-          keychain add-certificates
+          npm run build
+
+      - name: Add iOS platform (如果沒有)
+        script: |
+          npx cap add ios || echo "ios exists"
+
+      - name: Sync Capacitor
+        script: |
+          npx cap sync ios
+
+      - name: Install CocoaPods
+        script: |
+          cd ios/App
+          pod install
+
+      - name: Set up provisioning profile
+        script: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/PeiGo_Store_Final.mobileprovision
+          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
       - name: Build iOS archive
         script: |
           cd ios/App
-          xcodebuild -project App.xcodeproj \
+          xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -sdk iphoneos \
             -configuration Release \
             -archivePath $CM_BUILD_DIR/build/App.xcarchive \
             archive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final"
+            CODE_SIGN_STYLE=Automatic
+
       - name: Export IPA
         script: |
-          cat > $CM_BUILD_DIR/ExportOptions.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>app-store</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>com.peipeigo.travel</key>
-                  <string>PeiGo_Store_Final</string>
-              </dict>
-          </dict>
-          </plist>
-          EOF
           xcodebuild -exportArchive \
             -archivePath $CM_BUILD_DIR/build/App.xcarchive \
-            -exportOptionsPlist $CM_BUILD_DIR/ExportOptions.plist \
+            -exportOptionsPlist ExportOptions.plist \
             -exportPath $CM_BUILD_DIR/build/ipa
+
     artifacts:
       - build/ipa/*.ipa
-    publishing:
-      app_store_connect:
-        integration: codemagic-new
