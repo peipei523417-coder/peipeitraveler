@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.peitravel.smartplanner',
+  appId: 'com.peipeigo.travel',
   appName: 'PeiPeiGoTravel',
   webDir: 'dist',
   ios: {
