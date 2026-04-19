@@ -25,10 +25,7 @@ workflows:
       - name: Sync Capacitor
         script: npx cap sync ios
 
-      - name: Install CocoaPods
-        script: |
-          cd ios/App
-          pod install
+      # ❌ 已移除 pod install
 
       - name: Install provisioning profile
         script: |
