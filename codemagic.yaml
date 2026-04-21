@@ -25,25 +25,26 @@ workflows:
         script: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision || cp "$CM_PROVISIONING_PROFILE" ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
-
           echo "=== Installed profiles ==="
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles
           file ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision || true
 
       - name: Install Certificate
         script: |
-          echo "$CERTIFICATES_P12" | base64 --decode > certificate.p12
+          echo "$CERTIFICATES_P12" | base64 --decode > certificate.p12 || cp "$CERTIFICATES_P12" certificate.p12
+          echo "=== Certificate file info ==="
+          ls -l certificate.p12
+          file certificate.p12 || true
+
           security create-keychain -p "" build.keychain
-          security import certificate.p12 -k ~/Library/Keychains/build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security list-keychains -s ~/Library/Keychains/build.keychain
           security default-keychain -s ~/Library/Keychains/build.keychain
           security unlock-keychain -p "" ~/Library/Keychains/build.keychain
+          security import certificate.p12 -k ~/Library/Keychains/build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" ~/Library/Keychains/build.keychain
 
       - name: Build IPA
         script: |
           cd ios/App
-
           xcodebuild \
             -project App.xcodeproj \
             -scheme App \
