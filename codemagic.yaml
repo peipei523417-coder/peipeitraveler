@@ -1,12 +1,15 @@
 workflows:
   ios-build:
-    name: iOS Capacitor Build (Manual Sign FINAL)
+    name: iOS Capacitor Build (Codemagic Signing)
 
     environment:
       xcode: 16.2
       node: 22
-      groups:
-        - app_store_credentials
+      ios_signing:
+        certificates:
+          - Pei_iOS_Cert
+        provisioning_profiles:
+          - PeiGo_Store_Final
 
     scripts:
       - name: Install dependencies
@@ -21,48 +24,26 @@ workflows:
         script: |
           npx cap sync ios
 
-      - name: Install Provisioning Profile
+      - name: Apply provisioning profiles
         script: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision || cp "$CM_PROVISIONING_PROFILE" ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
-          echo "=== Installed profiles ==="
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles
-          file ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision || true
+          xcode-project use-profiles
 
-      - name: Install Certificate
-        script: |
-          echo "$CERTIFICATES_P12" | base64 --decode > certificate.p12 || cp "$CERTIFICATES_P12" certificate.p12
-          echo "=== Certificate file info ==="
-          ls -l certificate.p12
-          file certificate.p12 || true
-
-          security create-keychain -p "" build.keychain
-          security default-keychain -s ~/Library/Keychains/build.keychain
-          security unlock-keychain -p "" ~/Library/Keychains/build.keychain
-          security import certificate.p12 -k ~/Library/Keychains/build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" ~/Library/Keychains/build.keychain
-
-      - name: Build IPA
+      - name: Build archive
         script: |
           cd ios/App
           xcodebuild \
             -project App.xcodeproj \
             -scheme App \
-            -sdk iphoneos \
             -configuration Release \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
-            DEVELOPMENT_TEAM=K3D34578Q7 \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
             archive
 
       - name: Export IPA
         script: |
           xcodebuild -exportArchive \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
-            -exportOptionsPlist $CM_BUILD_DIR/ios/App/ExportOptions.plist \
-            -exportPath $CM_BUILD_DIR/ipa
+            -exportPath $CM_BUILD_DIR/ipa \
+            -allowProvisioningUpdates
 
     artifacts:
       - $CM_BUILD_DIR/ipa/*.ipa
