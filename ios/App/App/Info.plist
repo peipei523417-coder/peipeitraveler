@@ -61,10 +61,10 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.peitravel.smartplanner</string>
+			<string>com.peipeigo.travel</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.peitravel.smartplanner</string>
+				<string>com.peipeigo.travel</string>
 			</array>
 		</dict>
 	</array>
