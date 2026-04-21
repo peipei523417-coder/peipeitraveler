@@ -21,22 +21,32 @@ workflows:
         script: |
           npx cap sync ios
 
-      # 👉 安裝 provisioning profile（關鍵）
       - name: Install Provisioning Profile
         script: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo $CM_PROVISIONING_PROFILE | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
-      # 👉 安裝 p12 憑證（關鍵）
+          echo "=== Installed profiles ==="
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles
+
+          echo "=== Profile details ==="
+          security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision > profile.plist
+          /usr/libexec/PlistBuddy -c "Print :Name" profile.plist
+          /usr/libexec/PlistBuddy -c "Print :UUID" profile.plist
+          /usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" profile.plist
+          /usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" profile.plist
+          /usr/libexec/PlistBuddy -c "Print :ExpirationDate" profile.plist
+
       - name: Install Certificate
         script: |
-          echo $CERTIFICATES_P12 | base64 --decode > certificate.p12
+          echo "$CERTIFICATES_P12" | base64 --decode > certificate.p12
           security create-keychain -p "" build.keychain
           security import certificate.p12 -k ~/Library/Keychains/build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
           security list-keychains -s ~/Library/Keychains/build.keychain
+          security default-keychain -s ~/Library/Keychains/build.keychain
           security unlock-keychain -p "" ~/Library/Keychains/build.keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" ~/Library/Keychains/build.keychain
 
-      # 👉 Build（關鍵：指定 profile）
       - name: Build IPA
         script: |
           cd ios/App
@@ -53,12 +63,11 @@ workflows:
             PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
             archive
 
-      # 👉 Export IPA
       - name: Export IPA
         script: |
           xcodebuild -exportArchive \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
-            -exportOptionsPlist ios/App/ExportOptions.plist \
+            -exportOptionsPlist $CM_BUILD_DIR/ios/App/ExportOptions.plist \
             -exportPath $CM_BUILD_DIR/ipa
 
     artifacts:
