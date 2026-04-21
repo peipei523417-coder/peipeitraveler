@@ -24,18 +24,11 @@ workflows:
       - name: Install Provisioning Profile
         script: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          echo "$CM_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision || cp "$CM_PROVISIONING_PROFILE" ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
           echo "=== Installed profiles ==="
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles
-
-          echo "=== Profile details ==="
-          security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision > profile.plist
-          /usr/libexec/PlistBuddy -c "Print :Name" profile.plist
-          /usr/libexec/PlistBuddy -c "Print :UUID" profile.plist
-          /usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" profile.plist
-          /usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" profile.plist
-          /usr/libexec/PlistBuddy -c "Print :ExpirationDate" profile.plist
+          file ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision || true
 
       - name: Install Certificate
         script: |
