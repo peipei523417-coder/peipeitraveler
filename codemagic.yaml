@@ -34,51 +34,20 @@ workflows:
 
       - name: Remove local Swift Package references (CapApp-SPM)
         script: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("ios/App/App.xcodeproj/project.pbxproj")
-          s = p.read_text()
+          FILE=ios/App/App.xcodeproj/project.pbxproj
 
-          # Remove known CapApp-SPM references from your current pbxproj
-          s = s.replace('''
-          \t\t4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
-          ''','''')
+          if [ -f "$FILE" ]; then
+            echo "Cleaning CapApp-SPM from pbxproj..."
 
-          s = s.replace('''
-          \t\t\t\t4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
-          ''','''')
+            sed -i '' '/CapApp-SPM/d' "$FILE"
+            sed -i '' '/XCLocalSwiftPackageReference/d' "$FILE"
+            sed -i '' '/XCSwiftPackageProductDependency/d' "$FILE"
 
-          s = s.replace('''
-          \t\t\t\t4D22ABE82AF431CB00220026 /* CapApp-SPM */,
-          ''','''')
-
-          s = s.replace('''
-          \t\t\t\tD4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
-          ''','''')
-
-          s = s.replace('''
-          /* Begin XCLocalSwiftPackageReference section */
-          \t\tD4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */ = {
-          \t\t\tisa = XCLocalSwiftPackageReference;
-          \t\t\trelativePath = "CapApp-SPM";
-          \t\t};
-          /* End XCLocalSwiftPackageReference section */
-
-          ''','''')
-
-          s = s.replace('''
-          /* Begin XCSwiftPackageProductDependency section */
-          \t\t4D22ABE82AF431CB00220026 /* CapApp-SPM */ = {
-          \t\t\tisa = XCSwiftPackageProductDependency;
-          \t\t\tpackage = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
-          \t\t\tproductName = "CapApp-SPM";
-          \t\t};
-          /* End XCSwiftPackageProductDependency section */
-          ''','''')
-
-          p.write_text(s)
-          print("Removed CapApp-SPM references from project.pbxproj")
-          PY
+            echo "=== After cleanup ==="
+            grep CapApp-SPM "$FILE" || echo "CapApp-SPM removed"
+          else
+            echo "pbxproj not found, skip"
+          fi
 
       - name: Ensure Podfile exists
         script: |
