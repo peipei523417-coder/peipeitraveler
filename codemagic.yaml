@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Capacitor Build (Manual Sign Final)
+    name: iOS Capacitor Build (Safe Final)
 
     environment:
       xcode: 16.2
@@ -31,21 +31,6 @@ workflows:
       - name: Build web
         script: |
           npm run build
-
-      - name: Remove local Swift Package references (CapApp-SPM)
-        script: |
-          FILE=ios/App/App.xcodeproj/project.pbxproj
-
-          if [ -f "$FILE" ]; then
-            echo "Cleaning CapApp-SPM from pbxproj..."
-            sed -i '' '/CapApp-SPM/d' "$FILE"
-            sed -i '' '/XCLocalSwiftPackageReference/d' "$FILE"
-            sed -i '' '/XCSwiftPackageProductDependency/d' "$FILE"
-            echo "=== After cleanup ==="
-            grep CapApp-SPM "$FILE" || echo "CapApp-SPM removed"
-          else
-            echo "pbxproj not found, skip"
-          fi
 
       - name: Ensure Podfile exists
         script: |
