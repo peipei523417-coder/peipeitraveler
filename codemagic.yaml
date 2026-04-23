@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Capacitor Build (Codemagic Signing Clean)
+    name: iOS Capacitor Build (Final Stable)
 
     environment:
       xcode: 16.2
@@ -12,21 +12,57 @@ workflows:
           - PeiGo_Store_Final
 
     scripts:
-      - name: Clean old dependencies and generated iOS packages
+      - name: Clean old dependencies and generated iOS files
         script: |
           rm -rf node_modules
           rm -f package-lock.json
-          rm -f bun.lockb
           rm -f bun.lock
+          rm -f bun.lockb
           rm -rf ios/App/CapApp-SPM
+          rm -rf ios/App/Pods
+          rm -rf ios/App/build
+          rm -rf ios/App/App.xcworkspace
+          rm -rf ~/Library/Developer/Xcode/DerivedData/*
 
       - name: Install dependencies with npm
         script: |
           npm install
+          npm ls @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser || true
 
       - name: Build web
         script: |
           npm run build
+
+      - name: Create Podfile for iOS
+        script: |
+          cat > ios/App/Podfile <<'EOF'
+          platform :ios, '15.0'
+          use_frameworks!
+
+          install! 'cocoapods', :deterministic_uuids => false
+
+          def capacitor_pods
+            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+            pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
+            pod 'CapacitorBrowser', :path => '../../node_modules/@capacitor/browser'
+          end
+
+          target 'App' do
+            capacitor_pods
+          end
+
+          post_install do |installer|
+            installer.pods_project.targets.each do |target|
+              target.build_configurations.each do |config|
+                config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+              end
+            end
+          end
+          EOF
+
+          echo "=== Podfile created ==="
+          cat ios/App/Podfile
 
       - name: Sync Capacitor iOS
         script: |
@@ -36,22 +72,50 @@ workflows:
         script: |
           xcode-project use-profiles
 
+      - name: Show iOS project files
+        script: |
+          ls -la ios/App
+          if [ -d "ios/App/App.xcworkspace" ]; then
+            echo "WORKSPACE_FOUND=true"
+          else
+            echo "WORKSPACE_FOUND=false"
+          fi
+
       - name: Build archive
         script: |
           cd ios/App
-          xcodebuild \
-            -project App.xcodeproj \
-            -scheme App \
-            -configuration Release \
-            -archivePath $CM_BUILD_DIR/App.xcarchive \
-            archive
+          if [ -d "App.xcworkspace" ]; then
+            xcodebuild \
+              -workspace App.xcworkspace \
+              -scheme App \
+              -configuration Release \
+              -archivePath $CM_BUILD_DIR/App.xcarchive \
+              archive
+          else
+            xcodebuild \
+              -project App.xcodeproj \
+              -scheme App \
+              -configuration Release \
+              -archivePath $CM_BUILD_DIR/App.xcarchive \
+              archive
+          fi
 
       - name: Export IPA
         script: |
-          xcodebuild -exportArchive \
-            -archivePath $CM_BUILD_DIR/App.xcarchive \
-            -exportPath $CM_BUILD_DIR/ipa \
-            -allowProvisioningUpdates
+          cd ios/App
+          if [ -d "App.xcworkspace" ]; then
+            xcodebuild -exportArchive \
+              -archivePath $CM_BUILD_DIR/App.xcarchive \
+              -exportOptionsPlist ExportOptions.plist \
+              -exportPath $CM_BUILD_DIR/ipa \
+              -allowProvisioningUpdates
+          else
+            xcodebuild -exportArchive \
+              -archivePath $CM_BUILD_DIR/App.xcarchive \
+              -exportOptionsPlist ExportOptions.plist \
+              -exportPath $CM_BUILD_DIR/ipa \
+              -allowProvisioningUpdates
+          fi
 
     artifacts:
       - $CM_BUILD_DIR/ipa/*.ipa
