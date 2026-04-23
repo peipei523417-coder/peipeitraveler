@@ -18,7 +18,6 @@ workflows:
           rm -f package-lock.json
           rm -f bun.lock
           rm -f bun.lockb
-          rm -rf ios/App/CapApp-SPM
           rm -rf ios/App/Pods
           rm -rf ios/App/build
           rm -rf ios/App/App.xcworkspace
@@ -33,9 +32,10 @@ workflows:
         script: |
           npm run build
 
-      - name: Create Podfile for iOS
+      - name: Ensure Podfile exists
         script: |
-          cat > ios/App/Podfile <<'EOF'
+          if [ ! -f ios/App/Podfile ]; then
+            cat > ios/App/Podfile <<'EOF'
           platform :ios, '15.0'
           use_frameworks!
 
@@ -60,8 +60,9 @@ workflows:
             end
           end
           EOF
+          fi
 
-          echo "=== Podfile created ==="
+          echo "=== Podfile ==="
           cat ios/App/Podfile
 
       - name: Sync Capacitor iOS
@@ -103,19 +104,11 @@ workflows:
       - name: Export IPA
         script: |
           cd ios/App
-          if [ -d "App.xcworkspace" ]; then
-            xcodebuild -exportArchive \
-              -archivePath $CM_BUILD_DIR/App.xcarchive \
-              -exportOptionsPlist ExportOptions.plist \
-              -exportPath $CM_BUILD_DIR/ipa \
-              -allowProvisioningUpdates
-          else
-            xcodebuild -exportArchive \
-              -archivePath $CM_BUILD_DIR/App.xcarchive \
-              -exportOptionsPlist ExportOptions.plist \
-              -exportPath $CM_BUILD_DIR/ipa \
-              -allowProvisioningUpdates
-          fi
+          xcodebuild -exportArchive \
+            -archivePath $CM_BUILD_DIR/App.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath $CM_BUILD_DIR/ipa \
+            -allowProvisioningUpdates
 
     artifacts:
       - $CM_BUILD_DIR/ipa/*.ipa
