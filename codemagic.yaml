@@ -84,20 +84,36 @@ workflows:
         script: |
           ls -la ios/App
           test -d ios/App/App.xcworkspace && echo "WORKSPACE_FOUND=true" || echo "WORKSPACE_FOUND=false"
+          test -d ios/App/Pods && echo "PODS_FOUND=true" || echo "PODS_FOUND=false"
 
       - name: Build archive
         script: |
           cd ios/App
-          xcodebuild \
-            -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -archivePath $CM_BUILD_DIR/App.xcarchive \
-            DEVELOPMENT_TEAM=K3D34578Q7 \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
-            archive
+          if [ -d "App.xcworkspace" ]; then
+            echo "Using workspace build"
+            xcodebuild \
+              -workspace App.xcworkspace \
+              -scheme App \
+              -configuration Release \
+              -archivePath $CM_BUILD_DIR/App.xcarchive \
+              DEVELOPMENT_TEAM=K3D34578Q7 \
+              CODE_SIGN_STYLE=Manual \
+              CODE_SIGN_IDENTITY="Apple Distribution" \
+              PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
+              archive
+          else
+            echo "Using project build"
+            xcodebuild \
+              -project App.xcodeproj \
+              -scheme App \
+              -configuration Release \
+              -archivePath $CM_BUILD_DIR/App.xcarchive \
+              DEVELOPMENT_TEAM=K3D34578Q7 \
+              CODE_SIGN_STYLE=Manual \
+              CODE_SIGN_IDENTITY="Apple Distribution" \
+              PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
+              archive
+          fi
 
       - name: Export IPA
         script: |
