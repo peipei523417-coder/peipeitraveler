@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Capacitor Build (Codemagic Signing)
+    name: iOS Capacitor Build (Codemagic Signing Clean)
 
     environment:
       xcode: 16.2
@@ -12,7 +12,15 @@ workflows:
           - PeiGo_Store_Final
 
     scripts:
-      - name: Install dependencies
+      - name: Clean old dependencies and generated iOS packages
+        script: |
+          rm -rf node_modules
+          rm -f package-lock.json
+          rm -f bun.lockb
+          rm -f bun.lock
+          rm -rf ios/App/CapApp-SPM
+
+      - name: Install dependencies with npm
         script: |
           npm install
 
@@ -20,7 +28,7 @@ workflows:
         script: |
           npm run build
 
-      - name: Sync Capacitor
+      - name: Sync Capacitor iOS
         script: |
           npx cap sync ios
 
