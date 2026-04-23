@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Capacitor Build (Pods Only Final)
+    name: iOS Capacitor Build (Manual Sign Final)
 
     environment:
       xcode: 16.2
@@ -38,11 +38,9 @@ workflows:
 
           if [ -f "$FILE" ]; then
             echo "Cleaning CapApp-SPM from pbxproj..."
-
             sed -i '' '/CapApp-SPM/d' "$FILE"
             sed -i '' '/XCLocalSwiftPackageReference/d' "$FILE"
             sed -i '' '/XCSwiftPackageProductDependency/d' "$FILE"
-
             echo "=== After cleanup ==="
             grep CapApp-SPM "$FILE" || echo "CapApp-SPM removed"
           else
@@ -82,10 +80,6 @@ workflows:
         script: |
           npx cap sync ios
 
-      - name: Apply provisioning profiles
-        script: |
-          xcode-project use-profiles
-
       - name: Show iOS project files
         script: |
           ls -la ios/App
@@ -99,6 +93,10 @@ workflows:
             -scheme App \
             -configuration Release \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
+            DEVELOPMENT_TEAM=K3D34578Q7 \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
             archive
 
       - name: Export IPA
