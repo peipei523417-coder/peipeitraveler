@@ -18,7 +18,7 @@
     "@capacitor/browser": "8.0.1",
     "@capacitor/cli": "8.0.1",
     "@capacitor/core": "8.0.1",
-    "@capacitor/ios": "8.0.1"
+    "@capacitor/ios": "8.0.1",
     "@fontsource/nunito": "^5.2.7",
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^3.10.0",
