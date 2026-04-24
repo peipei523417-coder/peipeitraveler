@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Capacitor Build (Safe Final)
+    name: iOS Capacitor Build (Pods Final)
 
     environment:
       xcode: 16.2
@@ -34,8 +34,7 @@ workflows:
 
       - name: Ensure Podfile exists
         script: |
-          if [ ! -f ios/App/Podfile ]; then
-            cat > ios/App/Podfile <<'EOF'
+          cat > ios/App/Podfile <<'EOF'
           platform :ios, '15.0'
           use_frameworks!
 
@@ -56,7 +55,6 @@ workflows:
             end
           end
           EOF
-          fi
 
           echo "=== Podfile ==="
           cat ios/App/Podfile
@@ -64,6 +62,54 @@ workflows:
       - name: Sync Capacitor iOS
         script: |
           npx cap sync ios
+
+      - name: Remove SwiftPM CapApp-SPM references safely
+        script: |
+          gem install xcodeproj -N || true
+
+          ruby <<'RUBY'
+          require 'xcodeproj'
+
+          project_path = 'ios/App/App.xcodeproj'
+          project = Xcodeproj::Project.open(project_path)
+
+          project.targets.each do |target|
+            if target.respond_to?(:package_product_dependencies)
+              target.package_product_dependencies.delete_if do |dep|
+                dep.display_name.to_s.include?('CapApp-SPM') ||
+                dep.product_name.to_s.include?('CapApp-SPM')
+              end
+            end
+
+            if target.respond_to?(:frameworks_build_phase) && target.frameworks_build_phase
+              target.frameworks_build_phase.files.dup.each do |build_file|
+                name = build_file.display_name.to_s
+                ref_name = build_file.file_ref ? build_file.file_ref.display_name.to_s : ''
+                if name.include?('CapApp-SPM') || ref_name.include?('CapApp-SPM')
+                  target.frameworks_build_phase.remove_build_file(build_file)
+                end
+              end
+            end
+          end
+
+          if project.root_object.respond_to?(:package_references)
+            project.root_object.package_references.delete_if do |pkg|
+              pkg.display_name.to_s.include?('CapApp-SPM') ||
+              (pkg.respond_to?(:relative_path) && pkg.relative_path.to_s.include?('CapApp-SPM'))
+            end
+          end
+
+          project.save
+          puts 'Removed CapApp-SPM SwiftPM references safely'
+          RUBY
+
+          grep -n "CapApp-SPM" ios/App/App.xcodeproj/project.pbxproj || echo "CapApp-SPM removed from pbxproj"
+
+      - name: Install CocoaPods
+        script: |
+          cd ios/App
+          pod install
+          ls -la
 
       - name: Show iOS project files
         script: |
@@ -74,31 +120,16 @@ workflows:
       - name: Build archive
         script: |
           cd ios/App
-          if [ -d "App.xcworkspace" ]; then
-            echo "Using workspace build"
-            xcodebuild \
-              -workspace App.xcworkspace \
-              -scheme App \
-              -configuration Release \
-              -archivePath $CM_BUILD_DIR/App.xcarchive \
-              DEVELOPMENT_TEAM=K3D34578Q7 \
-              CODE_SIGN_STYLE=Manual \
-              CODE_SIGN_IDENTITY="Apple Distribution" \
-              PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
-              archive
-          else
-            echo "Using project build"
-            xcodebuild \
-              -project App.xcodeproj \
-              -scheme App \
-              -configuration Release \
-              -archivePath $CM_BUILD_DIR/App.xcarchive \
-              DEVELOPMENT_TEAM=K3D34578Q7 \
-              CODE_SIGN_STYLE=Manual \
-              CODE_SIGN_IDENTITY="Apple Distribution" \
-              PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
-              archive
-          fi
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath $CM_BUILD_DIR/App.xcarchive \
+            DEVELOPMENT_TEAM=K3D34578Q7 \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="PeiGo_Store_Final" \
+            archive
 
       - name: Export IPA
         script: |
