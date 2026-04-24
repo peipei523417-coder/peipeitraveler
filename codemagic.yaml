@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Capacitor Build (Pods Final)
+    name: iOS Capacitor Build (Pods Sign Final)
 
     environment:
       xcode: 16.2
@@ -54,6 +54,8 @@ workflows:
                 config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
                 config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
                 config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
+                config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
+                config.build_settings['PROVISIONING_PROFILE'] = ''
               end
             end
           end
@@ -131,6 +133,7 @@ workflows:
             DEVELOPMENT_TEAM=K3D34578Q7 \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
+            "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]=PeiGo_Store_Final" \
             archive
 
       - name: Export IPA
