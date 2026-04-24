@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Capacitor Build (App Target Sign Final)
+    name: iOS Capacitor Build (FINAL IPA)
 
     environment:
       xcode: 16.2
@@ -64,36 +64,23 @@ workflows:
         script: |
           npx cap sync ios
 
-      - name: Remove SwiftPM CapApp-SPM and set App signing
+      - name: Fix project + set App signing
         script: |
           gem install xcodeproj -N || true
 
           ruby <<'RUBY'
           require 'xcodeproj'
 
-          project_path = 'ios/App/App.xcodeproj'
-          project = Xcodeproj::Project.open(project_path)
+          project = Xcodeproj::Project.open('ios/App/App.xcodeproj')
 
           project.targets.each do |target|
             # 移除 CapApp-SPM
             if target.respond_to?(:package_product_dependencies)
               target.package_product_dependencies.delete_if do |dep|
-                dep.display_name.to_s.include?('CapApp-SPM') ||
-                dep.product_name.to_s.include?('CapApp-SPM')
+                dep.display_name.to_s.include?('CapApp-SPM')
               end
             end
 
-            if target.respond_to?(:frameworks_build_phase) && target.frameworks_build_phase
-              target.frameworks_build_phase.files.dup.each do |build_file|
-                name = build_file.display_name.to_s
-                ref_name = build_file.file_ref ? build_file.file_ref.display_name.to_s : ''
-                if name.include?('CapApp-SPM') || ref_name.include?('CapApp-SPM')
-                  target.frameworks_build_phase.remove_build_file(build_file)
-                end
-              end
-            end
-
-            # 只設定 App target 簽名，不碰 Pods
             if target.name == 'App'
               target.build_configurations.each do |config|
                 config.build_settings['DEVELOPMENT_TEAM'] = 'K3D34578Q7'
@@ -105,30 +92,13 @@ workflows:
             end
           end
 
-          if project.root_object.respond_to?(:package_references)
-            project.root_object.package_references.delete_if do |pkg|
-              pkg.display_name.to_s.include?('CapApp-SPM') ||
-              (pkg.respond_to?(:relative_path) && pkg.relative_path.to_s.include?('CapApp-SPM'))
-            end
-          end
-
           project.save
-          puts 'Cleaned CapApp-SPM and set App target signing'
           RUBY
-
-          grep -n "CapApp-SPM" ios/App/App.xcodeproj/project.pbxproj || echo "CapApp-SPM removed"
 
       - name: Install CocoaPods
         script: |
           cd ios/App
           pod install
-          ls -la
-
-      - name: Show iOS project files
-        script: |
-          ls -la ios/App
-          test -d ios/App/App.xcworkspace && echo "WORKSPACE_FOUND=true" || echo "WORKSPACE_FOUND=false"
-          test -d ios/App/Pods && echo "PODS_FOUND=true" || echo "PODS_FOUND=false"
 
       - name: Build archive
         script: |
@@ -143,11 +113,35 @@ workflows:
       - name: Export IPA
         script: |
           cd ios/App
+
+          cat > ExportOptions.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store-connect</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>teamID</key>
+              <string>K3D34578Q7</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.peipeigo.travel</key>
+                  <string>PeiGo_Store_Final</string>
+              </dict>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+
           xcodebuild -exportArchive \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
-            -exportPath $CM_BUILD_DIR/ipa \
-            -allowProvisioningUpdates
+            -exportPath $CM_BUILD_DIR/ipa
 
     artifacts:
       - $CM_BUILD_DIR/ipa/*.ipa
