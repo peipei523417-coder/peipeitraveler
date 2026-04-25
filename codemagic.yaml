@@ -1,6 +1,6 @@
 workflows:
   ios-build:
-    name: iOS Capacitor Build (FINAL IPA)
+    name: IOS Capacitor Build (FINAL IPA)
 
     environment:
       xcode: 16.2
@@ -12,125 +12,22 @@ workflows:
           - PeiGo_Store_Final
 
     scripts:
-      - name: Clean old dependencies and iOS generated files
-        script: |
-          rm -rf node_modules
-          rm -f package-lock.json
-          rm -f bun.lock
-          rm -f bun.lockb
-          rm -rf ios/App/Pods
-          rm -rf ios/App/build
-          rm -rf ios/App/App.xcworkspace
-          rm -rf ~/Library/Developer/Xcode/DerivedData/*
-
-      - name: Install dependencies with npm
+      - name: Install dependencies
         script: |
           npm install
-          npm ls @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser || true
 
       - name: Build web
         script: |
           npm run build
 
-      - name: Ensure Podfile exists
-        script: |
-          cat > ios/App/Podfile <<'EOF'
-          platform :ios, '15.0'
-          use_frameworks!
-
-          install! 'cocoapods', :deterministic_uuids => false
-
-          target 'App' do
-            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
-            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
-            pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
-            pod 'CapacitorBrowser', :path => '../../node_modules/@capacitor/browser'
-          end
-
-          post_install do |installer|
-            installer.pods_project.targets.each do |target|
-              target.build_configurations.each do |config|
-                config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-                config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-                config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
-                config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
-                config.build_settings['PROVISIONING_PROFILE'] = ''
-              end
-            end
-          end
-          EOF
-
-      - name: Sync Capacitor iOS
+      - name: Sync Capacitor
         script: |
           npx cap sync ios
 
-      - name: Fix project remove SwiftPM set App signing
-        script: |
-          gem install xcodeproj -N || true
-
-          ruby <<'RUBY'
-          require 'xcodeproj'
-
-          project = Xcodeproj::Project.open('ios/App/App.xcodeproj')
-
-          project.targets.each do |target|
-            if target.respond_to?(:package_product_dependencies)
-              target.package_product_dependencies.clear
-            end
-
-            if target.respond_to?(:frameworks_build_phase) && target.frameworks_build_phase
-              target.frameworks_build_phase.files.dup.each do |build_file|
-                name = build_file.display_name.to_s
-                ref_name = build_file.file_ref ? build_file.file_ref.display_name.to_s : ''
-                if name.include?('CapApp-SPM') || ref_name.include?('CapApp-SPM') ||
-                   name.include?('Capacitor.framework') || ref_name.include?('Capacitor.framework') ||
-                   name.include?('Cordova.framework') || ref_name.include?('Cordova.framework')
-                  target.frameworks_build_phase.remove_build_file(build_file)
-                end
-              end
-            end
-
-            if target.name == 'App'
-              target.build_configurations.each do |config|
-                config.build_settings['DEVELOPMENT_TEAM'] = 'K3D34578Q7'
-                config.build_settings['CODE_SIGN_STYLE'] = 'Manual'
-                config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
-                config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
-                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
-              end
-            end
-          end
-
-          if project.root_object.respond_to?(:package_references)
-            project.root_object.package_references.clear
-          end
-
-          project.objects.delete_if do |obj|
-            text = obj.to_ascii_plist.to_s rescue obj.to_s
-            text.include?('CapApp-SPM') ||
-            text.include?('capacitor-swift-pm') ||
-            text.include?('XCLocalSwiftPackageReference') ||
-            text.include?('XCSwiftPackageProductDependency')
-          end
-
-          project.save
-          puts 'Removed SwiftPM references and set App target signing'
-          RUBY
-
-          echo "=== Remaining SPM/CapApp references ==="
-          grep -nE "CapApp-SPM|capacitor-swift-pm|XCLocalSwiftPackageReference|XCSwiftPackageProductDependency" ios/App/App.xcodeproj/project.pbxproj || echo "No SwiftPM references"
-
-      - name: Install CocoaPods
+      - name: Install pods
         script: |
           cd ios/App
           pod install
-          ls -la
-
-      - name: Show iOS project files
-        script: |
-          ls -la ios/App
-          test -d ios/App/App.xcworkspace && echo "WORKSPACE_FOUND=true" || echo "WORKSPACE_FOUND=false"
-          test -d ios/App/Pods && echo "PODS_FOUND=true" || echo "PODS_FOUND=false"
 
       - name: Build archive
         script: |
@@ -140,36 +37,13 @@ workflows:
             -scheme App \
             -configuration Release \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
+            DEVELOPMENT_TEAM=K3D34578Q7 \
+            CODE_SIGN_STYLE=Automatic \
             archive
 
       - name: Export IPA
         script: |
           cd ios/App
-
-          cat > ExportOptions.plist <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>app-store-connect</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>teamID</key>
-              <string>K3D34578Q7</string>
-              <key>provisioningProfiles</key>
-              <dict>
-                  <key>com.peipeigo.travel</key>
-                  <string>PeiGo_Store_Final</string>
-              </dict>
-              <key>stripSwiftSymbols</key>
-              <true/>
-              <key>compileBitcode</key>
-              <false/>
-          </dict>
-          </plist>
-          EOF
-
           xcodebuild -exportArchive \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
@@ -177,3 +51,8 @@ workflows:
 
     artifacts:
       - $CM_BUILD_DIR/ipa/*.ipa
+
+publishing:
+  app_store_connect:
+    api_key: codemagic-new
+    submit_to_testflight: true
