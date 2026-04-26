@@ -3,7 +3,7 @@ workflows:
     name: iOS Capacitor Build (FINAL IPA + TestFlight)
 
     integrations:
-      app_store_connect: codemagic-new
+      app_store_connect: codemagic-final
 
     environment:
       xcode: 16.2
@@ -26,10 +26,9 @@ workflows:
           rm -rf ios/App/App.xcworkspace
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
 
-      - name: Install dependencies with npm
+      - name: Install dependencies
         script: |
           npm install
-          npm ls @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser || true
 
       - name: Build web
         script: |
@@ -56,8 +55,6 @@ workflows:
                 config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
                 config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
                 config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
-                config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
-                config.build_settings['PROVISIONING_PROFILE'] = ''
               end
             end
           end
@@ -67,32 +64,15 @@ workflows:
         script: |
           npx cap sync ios
 
-      - name: Fix project remove SwiftPM set App signing
+      - name: Fix project & signing
         script: |
           gem install xcodeproj -N || true
 
           ruby <<'RUBY'
           require 'xcodeproj'
-
           project = Xcodeproj::Project.open('ios/App/App.xcodeproj')
 
           project.targets.each do |target|
-            if target.respond_to?(:package_product_dependencies)
-              target.package_product_dependencies.clear
-            end
-
-            if target.respond_to?(:frameworks_build_phase) && target.frameworks_build_phase
-              target.frameworks_build_phase.files.dup.each do |build_file|
-                name = build_file.display_name.to_s
-                ref_name = build_file.file_ref ? build_file.file_ref.display_name.to_s : ''
-                if name.include?('CapApp-SPM') || ref_name.include?('CapApp-SPM') ||
-                   name.include?('Capacitor.framework') || ref_name.include?('Capacitor.framework') ||
-                   name.include?('Cordova.framework') || ref_name.include?('Cordova.framework')
-                  target.frameworks_build_phase.remove_build_file(build_file)
-                end
-              end
-            end
-
             if target.name == 'App'
               target.build_configurations.each do |config|
                 config.build_settings['DEVELOPMENT_TEAM'] = 'K3D34578Q7'
@@ -104,36 +84,14 @@ workflows:
             end
           end
 
-          if project.root_object.respond_to?(:package_references)
-            project.root_object.package_references.clear
-          end
-
-          project.objects.delete_if do |obj|
-            text = obj.to_ascii_plist.to_s rescue obj.to_s
-            text.include?('CapApp-SPM') ||
-            text.include?('capacitor-swift-pm') ||
-            text.include?('XCLocalSwiftPackageReference') ||
-            text.include?('XCSwiftPackageProductDependency')
-          end
-
           project.save
-          puts 'Removed SwiftPM references and set App target signing'
+          puts "Signing fixed"
           RUBY
-
-          echo "=== Remaining SPM/CapApp references ==="
-          grep -nE "CapApp-SPM|capacitor-swift-pm|XCLocalSwiftPackageReference|XCSwiftPackageProductDependency" ios/App/App.xcodeproj/project.pbxproj || echo "No SwiftPM references"
 
       - name: Install CocoaPods
         script: |
           cd ios/App
           pod install
-          ls -la
-
-      - name: Show iOS project files
-        script: |
-          ls -la ios/App
-          test -d ios/App/App.xcworkspace && echo "WORKSPACE_FOUND=true" || echo "WORKSPACE_FOUND=false"
-          test -d ios/App/Pods && echo "PODS_FOUND=true" || echo "PODS_FOUND=false"
 
       - name: Build archive
         script: |
@@ -165,10 +123,6 @@ workflows:
                   <key>com.peipeigo.travel</key>
                   <string>PeiGo_Store_Final</string>
               </dict>
-              <key>stripSwiftSymbols</key>
-              <true/>
-              <key>compileBitcode</key>
-              <false/>
           </dict>
           </plist>
           EOF
