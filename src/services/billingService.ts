@@ -72,9 +72,8 @@ export async function initBilling(): Promise<void> {
  */
 export async function purchasePro(): Promise<boolean> {
   if (!isNativePlatform()) {
-    console.log("[Billing] Web — simulating purchase");
-    setLocalProStatus(true);
-    return true;
+    console.log("[Billing] Web — purchases only available on iOS/Android");
+    return false;
   }
 
   try {
