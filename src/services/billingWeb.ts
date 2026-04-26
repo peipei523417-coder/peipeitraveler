@@ -12,17 +12,12 @@ export class NativeBillingWeb extends WebPlugin {
   }
 
   async purchase(_options: { productId: string }) {
-    console.log("[BillingWeb] purchase (stub) — simulating success");
-    return { success: true, transactionId: "web-test-" + Date.now() };
+    console.log("[BillingWeb] purchase unavailable on web");
+    return { success: false };
   }
 
   async restorePurchases() {
-    console.log("[BillingWeb] restorePurchases (stub)");
-    const isPro = localStorage.getItem("peipeigo_is_pro") === "true";
-    return {
-      purchases: isPro
-        ? [{ productId: "pro_function", transactionId: "web-restored" }]
-        : [],
-    };
+    console.log("[BillingWeb] restorePurchases unavailable on web");
+    return { purchases: [] };
   }
 }
