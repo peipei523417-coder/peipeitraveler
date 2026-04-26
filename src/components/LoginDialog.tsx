@@ -37,6 +37,11 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       state,
     });
 
+    // Force Google account picker on native (avoid auto add-account flow)
+    if (provider === "google") {
+      params.set("prompt", "select_account");
+    }
+
     return `${PRODUCTION_URL}/~oauth/initiate?${params.toString()}`;
   };
 
