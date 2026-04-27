@@ -30,11 +30,11 @@ export function useProStatus() {
       return;
     }
 
-    try {
-      // Verified native entitlement (false on web, real receipt check on native)
-      const hasEntitlement = await checkEntitlements();
+    // Default to FREE before any check completes — never trust cached state
+    setIsPro(false);
 
-      // DB flag — only source of truth besides verified native receipts
+    try {
+      // Source of truth = DB. Verified native receipts can upgrade DB upward.
       const { data, error } = await supabase
         .from("user_profiles")
         .select("is_pro")
@@ -46,26 +46,33 @@ export function useProStatus() {
       }
 
       const dbIsPro = data?.is_pro ?? false;
-      const proStatus = hasEntitlement || dbIsPro;
 
       if (!data) {
-        // Create profile defaulting to FREE — never seed is_pro from local cache
+        // New user → create profile defaulting to FREE
         await supabase
           .from("user_profiles")
           .insert({ user_id: user.id, is_pro: false });
-      } else if (hasEntitlement && !dbIsPro) {
-        // Only sync DB upward when a verified native receipt confirms PRO
-        await supabase
-          .from("user_profiles")
-          .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
       }
 
+      // Only check native store entitlement if DB says NOT pro
+      // (avoids slowing every login with a store call)
+      let hasEntitlement = false;
+      if (!dbIsPro) {
+        hasEntitlement = await checkEntitlements();
+        if (hasEntitlement) {
+          await supabase
+            .from("user_profiles")
+            .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
+        }
+      }
+
+      const proStatus = dbIsPro || hasEntitlement;
       setIsPro(proStatus);
       setLocalProStatus(proStatus);
     } catch (error) {
       console.error("Error in fetchProStatus:", error);
-      // On error, default to FREE — do not trust localStorage for entitlement
       setIsPro(false);
+      setLocalProStatus(false);
     } finally {
       setLoading(false);
     }
