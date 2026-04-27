@@ -65,6 +65,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.peipeigo.travel</string>
+				<string>com.peitravel.smartplanner</string>
 			</array>
 		</dict>
 	</array>
