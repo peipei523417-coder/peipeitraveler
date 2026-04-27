@@ -56,6 +56,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   };
 
   const handleOAuthLogin = async (provider: "google" | "apple") => {
+    if (loading) return; // prevent double-tap
     setLoading(provider);
     try {
       const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
@@ -64,10 +65,10 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         localStorage.setItem("native_oauth_pending", "1");
         localStorage.setItem("native_oauth_provider", provider);
 
-        const { Browser } = await import("@capacitor/browser");
+        // Build URL synchronously, import Browser in parallel — fastest hand-off
         const oauthUrl = buildNativeOAuthUrl(provider);
-        console.log("[NativeOAuth] Opening managed OAuth URL in external browser…");
-        await Browser.open({ url: oauthUrl });
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: oauthUrl, presentationStyle: "fullscreen" });
         onOpenChange(false);
         return;
       }
@@ -107,7 +108,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-8">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">正在跳轉登入頁面…</p>
+            <p className="text-sm text-muted-foreground">正在開啟登入…</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-4">

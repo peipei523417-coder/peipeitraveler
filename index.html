@@ -22,6 +22,52 @@
   <body>
     <div id="root"></div>
     <script>
+      /**
+       * FAST OAuth callback relay — runs BEFORE main.tsx loads.
+       * Detects native_callback=1 and immediately deep-links to the app.
+       * No React boot, no fonts, no analytics. Target: <100ms hand-off.
+       */
+      (function() {
+        try {
+          var search = window.location.search || '';
+          var hash = window.location.hash || '';
+          var qs = new URLSearchParams(search);
+          var hp = hash.indexOf('#') === 0 ? new URLSearchParams(hash.substring(1)) : new URLSearchParams();
+          var state = hp.get('state') || qs.get('state') || '';
+          var isCb = qs.get('native_callback') === '1' || state.indexOf('native_oauth_') === 0;
+          if (!isCb) return;
+
+          var scheme = qs.get('scheme') || '';
+          if (!scheme && state.indexOf('native_oauth_') === 0) {
+            var rest = state.substring('native_oauth_'.length);
+            if (rest.indexOf('com.peipeigo.travel_') === 0) scheme = 'com.peipeigo.travel';
+            else if (rest.indexOf('com.peitravel.smartplanner_') === 0) scheme = 'com.peitravel.smartplanner';
+          }
+          if (!scheme) scheme = 'com.peitravel.smartplanner';
+
+          var suffix = '';
+          var at = hp.get('access_token');
+          var rt = hp.get('refresh_token');
+          var code = qs.get('code');
+          if (at && rt) {
+            suffix = '?access_token=' + encodeURIComponent(at) + '&refresh_token=' + encodeURIComponent(rt);
+          } else if (code) {
+            suffix = '?code=' + encodeURIComponent(code);
+          }
+
+          // Paint a tiny branded screen synchronously (no external fonts/CSS)
+          document.documentElement.style.background = '#fff';
+          document.write('<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#111;font-size:14px;">正在返回 App…</div>');
+
+          // Fire deep link immediately — no setTimeout, no waiting
+          window.location.replace(scheme + '://auth/callback' + suffix);
+          // Stop further script execution on this page
+          throw new Error('__oauth_relay_done__');
+        } catch (e) {
+          if (e && e.message === '__oauth_relay_done__') throw e;
+        }
+      })();
+
       // Redirect clean /share/XXX paths — on mobile, try native app first
       (function() {
         var path = window.location.pathname;
