@@ -108,7 +108,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-8">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">正在跳轉登入頁面…</p>
+            <p className="text-sm text-muted-foreground">正在開啟登入…</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-4">
