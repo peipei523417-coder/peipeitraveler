@@ -14,7 +14,7 @@ export type ProUpgradeSource = 'project_limit' | 'day_limit' | 'settings' | 'res
 
 export function useProStatus() {
   const { user } = useAuth();
-  const [isPro, setIsPro] = useState(() => getLocalProStatus());
+  const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Initialize billing on mount
