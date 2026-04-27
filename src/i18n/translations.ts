@@ -403,6 +403,14 @@ export const translations = {
       proEnabled: "PRO enabled",
       proDisabled: "PRO disabled",
       chooseFile: "Choose File",
+      coverPreview: "Cover Preview",
+      choosePhotoLibrary: "Choose from Photo Library",
+      takePhoto: "Take Photo",
+      noCoverYet: "No cover uploaded yet",
+      signingIn: "Signing you in securely…",
+      signingInTakingLong: "Sign-in is taking a while, please wait…",
+      signInCancelled: "Sign-in cancelled",
+      signInFailed: "Sign-in failed, please try again",
       
       // Budget
       price: "Price",
@@ -610,6 +618,14 @@ export const translations = {
       proEnabled: "PRO activado",
       proDisabled: "PRO desactivado",
       chooseFile: "Elegir archivo",
+      coverPreview: "Vista previa de portada",
+      choosePhotoLibrary: "Elegir de la galería",
+      takePhoto: "Tomar foto",
+      noCoverYet: "Aún no se ha subido portada",
+      signingIn: "Iniciando sesión de forma segura…",
+      signingInTakingLong: "El inicio de sesión está tardando, por favor espera…",
+      signInCancelled: "Inicio de sesión cancelado",
+      signInFailed: "Error al iniciar sesión, inténtalo de nuevo",
       
       // Budget
       price: "Precio",
@@ -817,6 +833,14 @@ export const translations = {
       proEnabled: "PRO 활성화됨",
       proDisabled: "PRO 비활성화됨",
       chooseFile: "파일 선택",
+      coverPreview: "커버 미리보기",
+      choosePhotoLibrary: "사진 라이브러리에서 선택",
+      takePhoto: "사진 찍기",
+      noCoverYet: "아직 커버가 업로드되지 않았습니다",
+      signingIn: "안전하게 로그인 중…",
+      signingInTakingLong: "로그인이 오래 걸립니다. 잠시 기다려 주세요…",
+      signInCancelled: "로그인이 취소되었습니다",
+      signInFailed: "로그인에 실패했습니다. 다시 시도해 주세요",
       
       // Budget
       price: "가격",
@@ -1024,6 +1048,14 @@ export const translations = {
       proEnabled: "PRO有効",
       proDisabled: "PRO無効",
       chooseFile: "ファイルを選択",
+      coverPreview: "カバープレビュー",
+      choosePhotoLibrary: "写真ライブラリから選択",
+      takePhoto: "写真を撮る",
+      noCoverYet: "カバーはまだアップロードされていません",
+      signingIn: "安全にログインしています…",
+      signingInTakingLong: "ログインに時間がかかっています。お待ちください…",
+      signInCancelled: "ログインがキャンセルされました",
+      signInFailed: "ログインに失敗しました。もう一度お試しください",
       
       // Budget
       price: "価格",
@@ -1225,6 +1257,14 @@ export const translations = {
       proEnabled: "PRO activé",
       proDisabled: "PRO désactivé",
       chooseFile: "Choisir un Fichier",
+      coverPreview: "Aperçu de la couverture",
+      choosePhotoLibrary: "Choisir dans la photothèque",
+      takePhoto: "Prendre une photo",
+      noCoverYet: "Aucune couverture téléchargée pour l'instant",
+      signingIn: "Connexion sécurisée en cours…",
+      signingInTakingLong: "La connexion prend du temps, veuillez patienter…",
+      signInCancelled: "Connexion annulée",
+      signInFailed: "Échec de la connexion, veuillez réessayer",
       
       // Budget
       price: "Prix",
@@ -1426,6 +1466,14 @@ export const translations = {
       proEnabled: "PRO aktiviert",
       proDisabled: "PRO deaktiviert",
       chooseFile: "Datei Auswählen",
+      coverPreview: "Cover-Vorschau",
+      choosePhotoLibrary: "Aus Fotomediathek wählen",
+      takePhoto: "Foto aufnehmen",
+      noCoverYet: "Noch kein Cover hochgeladen",
+      signingIn: "Sichere Anmeldung läuft…",
+      signingInTakingLong: "Die Anmeldung dauert länger, bitte warten…",
+      signInCancelled: "Anmeldung abgebrochen",
+      signInFailed: "Anmeldung fehlgeschlagen, bitte erneut versuchen",
       
       // Budget
       price: "Preis",
