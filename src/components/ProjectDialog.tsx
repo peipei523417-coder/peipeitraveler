@@ -259,21 +259,27 @@ export function ProjectDialog({
               <div className="relative">
                 <div className="h-32 rounded-xl overflow-hidden bg-secondary border-2 border-dashed border-border">
                   {coverPreview ? (
-                    <img 
-                      src={coverPreview} 
-                      alt="Cover preview"
+                    <img
+                      src={coverPreview}
+                      alt={t("coverPreview")}
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-muted">
-                      <Upload className="w-8 h-8 text-muted-foreground" />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCoverSheetOpen(true)}
+                      className="w-full h-full flex flex-col items-center justify-center bg-muted gap-2 text-muted-foreground"
+                    >
+                      <ImageIcon className="w-8 h-8" />
+                      <span className="text-xs">{t("noCoverYet")}</span>
+                    </button>
                   )}
                   {coverPreview && (
                     <button
                       type="button"
                       onClick={removeCover}
                       className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
+                      aria-label={t("delete")}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -286,12 +292,20 @@ export function ProjectDialog({
                   onChange={handleCoverUpload}
                   className="hidden"
                 />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleCoverUpload}
+                  className="hidden"
+                />
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
                   className="absolute bottom-2 right-2 rounded-lg gap-1.5"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setCoverSheetOpen(true)}
                 >
                   <Upload className="w-4 h-4" />
                   {t("uploadCover")}
