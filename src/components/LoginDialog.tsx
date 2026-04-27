@@ -23,13 +23,23 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const [loading, setLoading] = useState<"google" | "apple" | null>(null);
 
   const buildNativeOAuthUrl = (provider: "google" | "apple") => {
-    const state =
+    // Per-platform deep-link scheme (matches Info.plist / AndroidManifest)
+    const platform = (window as any).Capacitor?.getPlatform?.() ?? "web";
+    const scheme =
+      platform === "ios"
+        ? "com.peipeigo.travel"
+        : "com.peitravel.smartplanner";
+
+    const nonce =
       typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? `native_oauth_${crypto.randomUUID()}`
-        : `native_oauth_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        ? crypto.randomUUID()
+        : `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    // Embed scheme in state so the relay knows where to deep-link back
+    const state = `native_oauth_${scheme}_${nonce}`;
 
     const callbackUrl = new URL(PRODUCTION_URL);
     callbackUrl.searchParams.set("native_callback", "1");
+    callbackUrl.searchParams.set("scheme", scheme);
 
     const params = new URLSearchParams({
       provider,
