@@ -22,10 +22,30 @@ interface LoginDialogProps {
 }
 
 export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
+  const { t } = useTranslation();
+  const { user } = useAuth();
   const [loading, setLoading] = useState<"google" | "apple" | null>(null);
+  const [takingTooLong, setTakingTooLong] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-close loading overlay when user is signed in (deep link processed)
+  useEffect(() => {
+    if (user && loading) {
+      setLoading(null);
+      setTakingTooLong(false);
+      onOpenChange(false);
+    }
+  }, [user, loading, onOpenChange]);
+
+  // Cleanup timer on unmount / dialog close
+  useEffect(() => {
+    if (!open) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      setTakingTooLong(false);
+    }
+  }, [open]);
 
   const buildNativeOAuthUrl = (provider: "google" | "apple") => {
-    // Per-platform deep-link scheme (matches Info.plist / AndroidManifest)
     const platform = (window as any).Capacitor?.getPlatform?.() ?? "web";
     const scheme =
       platform === "ios"
@@ -36,7 +56,6 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    // Embed scheme in state so the relay knows where to deep-link back
     const state = `native_oauth_${scheme}_${nonce}`;
 
     const callbackUrl = new URL(PRODUCTION_URL);
@@ -48,18 +67,19 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       redirect_uri: callbackUrl.toString(),
       state,
     });
-
-    // Force Google account picker on native (avoid auto add-account flow)
-    if (provider === "google") {
-      params.set("prompt", "select_account");
-    }
+    if (provider === "google") params.set("prompt", "select_account");
 
     return `${PRODUCTION_URL}/~oauth/initiate?${params.toString()}`;
   };
 
   const handleOAuthLogin = async (provider: "google" | "apple") => {
-    if (loading) return; // prevent double-tap
+    if (loading) return;
     setLoading(provider);
+    setTakingTooLong(false);
+    // Show "taking longer than expected" hint after 10s
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setTakingTooLong(true), 10_000);
+
     try {
       const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
 
@@ -67,36 +87,35 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         localStorage.setItem("native_oauth_pending", "1");
         localStorage.setItem("native_oauth_provider", provider);
 
-        // Build URL synchronously, import Browser in parallel — fastest hand-off
         const oauthUrl = buildNativeOAuthUrl(provider);
         const { Browser } = await import("@capacitor/browser");
         await Browser.open({ url: oauthUrl, presentationStyle: "fullscreen" });
-        onOpenChange(false);
+        // Keep loading overlay visible — DeepLinkHandler closes browser & sets session,
+        // and the user-effect above will dismiss this dialog when auth completes.
         return;
       }
 
-      // WEB: Use Lovable Cloud OAuth (redirects within browser)
       const { error, redirected } = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: window.location.origin,
-        extraParams: {
-          prompt: "select_account",
-        },
+        extraParams: { prompt: "select_account" },
       });
 
       if (redirected) return;
-
       if (error) {
-        toast.error(`登入失敗：${error.message}`);
+        toast.error(t("signInFailed"));
+        setLoading(null);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
         return;
       }
 
-      toast.success("登入成功！");
       onOpenChange(false);
+      setLoading(null);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     } catch (err) {
       console.error("OAuth error:", err);
-      toast.error("登入時發生錯誤");
-    } finally {
+      toast.error(t("signInFailed"));
       setLoading(null);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     }
   };
 
@@ -110,7 +129,26 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-8">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">正在開啟登入…</p>
+            <p className="text-sm text-muted-foreground">{t("signingIn")}</p>
+            {takingTooLong && (
+              <p className="text-xs text-muted-foreground/80 text-center px-4">
+                {t("signingInTakingLong")}
+              </p>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2"
+              onClick={() => {
+                setLoading(null);
+                setTakingTooLong(false);
+                if (timeoutRef.current) clearTimeout(timeoutRef.current);
+                localStorage.removeItem("native_oauth_pending");
+                localStorage.removeItem("native_oauth_provider");
+              }}
+            >
+              {t("cancel")}
+            </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-4">
