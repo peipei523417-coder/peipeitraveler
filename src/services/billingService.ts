@@ -114,8 +114,22 @@ export async function restorePurchases(): Promise<boolean> {
 }
 
 /**
- * Check current entitlement (reads local cache; native re-validates on app launch)
+ * Check current entitlement — verified via native store only.
+ * localStorage is NOT trusted as a source of PRO entitlement.
+ * On web, always returns false (no native receipts available).
+ * On native, queries the store for an active pro_function purchase.
  */
 export async function checkEntitlements(): Promise<boolean> {
-  return getLocalProStatus();
+  if (!isNativePlatform()) {
+    return false;
+  }
+  try {
+    const result = await NativeBilling.restorePurchases();
+    const hasPro = result.purchases.some((p) => p.productId === PRODUCT_ID);
+    setLocalProStatus(hasPro);
+    return hasPro;
+  } catch (error) {
+    console.error("[Billing] checkEntitlements error:", error);
+    return false;
+  }
 }
