@@ -27,8 +27,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { CalendarIcon, Plane, Upload, X, Lock, Globe, Eye, EyeOff } from "lucide-react";
+import { CalendarIcon, Plane, Upload, X, Lock, Globe, Eye, EyeOff, Image as ImageIcon, Camera, FileImage } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import { cn } from "@/lib/utils";
