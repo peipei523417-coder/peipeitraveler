@@ -1,0 +1,1 @@
+UPDATE public.user_profiles SET is_pro = false WHERE is_pro = true;
