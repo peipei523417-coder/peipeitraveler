@@ -66,7 +66,9 @@ export function ProjectDialog({
   const [showPublicConfirm, setShowPublicConfirm] = useState(false);
   const [showDraftAlert, setShowDraftAlert] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<ProjectDraft | null>(null);
+  const [coverSheetOpen, setCoverSheetOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const hasInitialized = useRef(false);
 
   // Password validation: 4-12 alphanumeric characters
