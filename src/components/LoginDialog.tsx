@@ -56,6 +56,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   };
 
   const handleOAuthLogin = async (provider: "google" | "apple") => {
+    if (loading) return; // prevent double-tap
     setLoading(provider);
     try {
       const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
@@ -64,10 +65,10 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         localStorage.setItem("native_oauth_pending", "1");
         localStorage.setItem("native_oauth_provider", provider);
 
-        const { Browser } = await import("@capacitor/browser");
+        // Build URL synchronously, import Browser in parallel — fastest hand-off
         const oauthUrl = buildNativeOAuthUrl(provider);
-        console.log("[NativeOAuth] Opening managed OAuth URL in external browser…");
-        await Browser.open({ url: oauthUrl });
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: oauthUrl, presentationStyle: "fullscreen" });
         onOpenChange(false);
         return;
       }
