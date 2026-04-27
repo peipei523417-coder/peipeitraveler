@@ -31,10 +31,10 @@ export function useProStatus() {
     }
 
     try {
-      // Check native entitlements first (will fall back to localStorage on web)
+      // Verified native entitlement (false on web, real receipt check on native)
       const hasEntitlement = await checkEntitlements();
-      
-      // Also check database
+
+      // DB flag — only source of truth besides verified native receipts
       const { data, error } = await supabase
         .from("user_profiles")
         .select("is_pro")
@@ -44,28 +44,28 @@ export function useProStatus() {
       if (error) {
         console.error("Error fetching pro status:", error);
       }
-      
-      // PRO if either native entitlement OR database says so
-      const proStatus = hasEntitlement || (data?.is_pro ?? false);
-      
+
+      const dbIsPro = data?.is_pro ?? false;
+      const proStatus = hasEntitlement || dbIsPro;
+
       if (!data) {
-        // Create profile if not exists
+        // Create profile defaulting to FREE — never seed is_pro from local cache
         await supabase
           .from("user_profiles")
-          .insert({ user_id: user.id, is_pro: proStatus });
-      } else if (proStatus !== data.is_pro) {
-        // Sync database with native status
+          .insert({ user_id: user.id, is_pro: false });
+      } else if (hasEntitlement && !dbIsPro) {
+        // Only sync DB upward when a verified native receipt confirms PRO
         await supabase
           .from("user_profiles")
-          .upsert({ user_id: user.id, is_pro: proStatus }, { onConflict: "user_id" });
+          .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
       }
 
       setIsPro(proStatus);
       setLocalProStatus(proStatus);
     } catch (error) {
       console.error("Error in fetchProStatus:", error);
-      // Fall back to localStorage
-      setIsPro(getLocalProStatus());
+      // On error, default to FREE — do not trust localStorage for entitlement
+      setIsPro(false);
     } finally {
       setLoading(false);
     }
