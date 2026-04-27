@@ -30,7 +30,7 @@ import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 import { getJoinedProjects } from "@/lib/join-project";
 
 // Tier limits
-const FREE_PROJECT_LIMIT = 1;
+const FREE_PROJECT_LIMIT = 3;
 const FREE_DAY_LIMIT = 3;
 const PRO_PROJECT_LIMIT = 20;
 const PRO_DAY_LIMIT = 20;

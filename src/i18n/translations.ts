@@ -174,8 +174,8 @@ export const translations = {
       
       // PRO
       upgradeToPro: "升級 PRO 版",
-      proProjectLimit: "免費版僅能建立單一專案，且上限為 3 天行程",
-      proDayLimit: "免費版僅能建立單一專案，且上限為 3 天行程",
+      proProjectLimit: "免費版最多可建立 3 個專案，且每個專案上限為 3 天行程",
+      proDayLimit: "免費版最多可建立 3 個專案，且每個專案上限為 3 天行程",
       proFeatures: "PRO 版功能",
       unlimitedProjects: "最多 20 個專案",
       unlimitedDays: "最長 20 天旅程",
@@ -188,6 +188,14 @@ export const translations = {
       proEnabled: "PRO 版已啟用",
       proDisabled: "PRO 版已停用",
       chooseFile: "選擇檔案",
+      coverPreview: "封面預覽",
+      choosePhotoLibrary: "從相簿選擇",
+      takePhoto: "拍照",
+      noCoverYet: "尚未上傳封面",
+      signingIn: "正在安全登入中…",
+      signingInTakingLong: "登入時間較久，請稍候…",
+      signInCancelled: "已取消登入",
+      signInFailed: "登入失敗，請再試一次",
       
       // Budget
       price: "價錢",
@@ -381,8 +389,8 @@ export const translations = {
       
       // PRO
       upgradeToPro: "Upgrade to PRO",
-      proProjectLimit: "Free tier: 1 project with max 3 days",
-      proDayLimit: "Free tier: 1 project with max 3 days",
+      proProjectLimit: "Free users can create up to 3 projects, with a maximum of 3 travel days per project.",
+      proDayLimit: "Free users can create up to 3 projects, with a maximum of 3 travel days per project.",
       proFeatures: "PRO Features",
       unlimitedProjects: "Up to 20 projects",
       unlimitedDays: "Up to 20 trip days! Plan short trips or long overseas adventures flexibly.",
@@ -395,6 +403,14 @@ export const translations = {
       proEnabled: "PRO enabled",
       proDisabled: "PRO disabled",
       chooseFile: "Choose File",
+      coverPreview: "Cover Preview",
+      choosePhotoLibrary: "Choose from Photo Library",
+      takePhoto: "Take Photo",
+      noCoverYet: "No cover uploaded yet",
+      signingIn: "Signing you in securely…",
+      signingInTakingLong: "Sign-in is taking a while, please wait…",
+      signInCancelled: "Sign-in cancelled",
+      signInFailed: "Sign-in failed, please try again",
       
       // Budget
       price: "Price",
@@ -588,8 +604,8 @@ export const translations = {
       
       // PRO
       upgradeToPro: "Actualizar a PRO",
-      proProjectLimit: "Plan gratuito: 1 proyecto con máximo 3 días",
-      proDayLimit: "Plan gratuito: 1 proyecto con máximo 3 días",
+      proProjectLimit: "Los usuarios gratuitos pueden crear hasta 3 proyectos, con un máximo de 3 días de viaje por proyecto.",
+      proDayLimit: "Los usuarios gratuitos pueden crear hasta 3 proyectos, con un máximo de 3 días de viaje por proyecto.",
       proFeatures: "Funciones PRO",
       unlimitedProjects: "Hasta 20 proyectos",
       unlimitedDays: "¡Hasta 20 días de viaje! Planifica escapadas cortas o largas aventuras.",
@@ -602,6 +618,14 @@ export const translations = {
       proEnabled: "PRO activado",
       proDisabled: "PRO desactivado",
       chooseFile: "Elegir archivo",
+      coverPreview: "Vista previa de portada",
+      choosePhotoLibrary: "Elegir de la galería",
+      takePhoto: "Tomar foto",
+      noCoverYet: "Aún no se ha subido portada",
+      signingIn: "Iniciando sesión de forma segura…",
+      signingInTakingLong: "El inicio de sesión está tardando, por favor espera…",
+      signInCancelled: "Inicio de sesión cancelado",
+      signInFailed: "Error al iniciar sesión, inténtalo de nuevo",
       
       // Budget
       price: "Precio",
@@ -795,8 +819,8 @@ export const translations = {
       
       // PRO
       upgradeToPro: "PRO로 업그레이드",
-      proProjectLimit: "무료 버전: 1개 프로젝트, 최대 3일",
-      proDayLimit: "무료 버전: 1개 프로젝트, 최대 3일",
+      proProjectLimit: "무료 사용자는 최대 3개의 프로젝트를 만들 수 있으며, 프로젝트당 최대 3일까지 가능합니다.",
+      proDayLimit: "무료 사용자는 최대 3개의 프로젝트를 만들 수 있으며, 프로젝트당 최대 3일까지 가능합니다.",
       proFeatures: "PRO 기능",
       unlimitedProjects: "최대 20개 프로젝트",
       unlimitedDays: "최대 20일 여행! 짧은 휴가든 긴 모험이든 자유롭게 계획하세요.",
@@ -809,6 +833,14 @@ export const translations = {
       proEnabled: "PRO 활성화됨",
       proDisabled: "PRO 비활성화됨",
       chooseFile: "파일 선택",
+      coverPreview: "커버 미리보기",
+      choosePhotoLibrary: "사진 라이브러리에서 선택",
+      takePhoto: "사진 찍기",
+      noCoverYet: "아직 커버가 업로드되지 않았습니다",
+      signingIn: "안전하게 로그인 중…",
+      signingInTakingLong: "로그인이 오래 걸립니다. 잠시 기다려 주세요…",
+      signInCancelled: "로그인이 취소되었습니다",
+      signInFailed: "로그인에 실패했습니다. 다시 시도해 주세요",
       
       // Budget
       price: "가격",
@@ -1002,8 +1034,8 @@ export const translations = {
       
       // PRO
       upgradeToPro: "PROにアップグレード",
-      proProjectLimit: "無料版：1プロジェクト、最大3日",
-      proDayLimit: "無料版：1プロジェクト、最大3日",
+      proProjectLimit: "無料ユーザーは最大3つのプロジェクトを作成でき、各プロジェクトは最大3日間まで設定できます。",
+      proDayLimit: "無料ユーザーは最大3つのプロジェクトを作成でき、各プロジェクトは最大3日間まで設定できます。",
       proFeatures: "PRO機能",
       unlimitedProjects: "最大20プロジェクト",
       unlimitedDays: "最大20日間の旅程！短期旅行も長期冒険も自由に計画できます。",
@@ -1016,6 +1048,14 @@ export const translations = {
       proEnabled: "PRO有効",
       proDisabled: "PRO無効",
       chooseFile: "ファイルを選択",
+      coverPreview: "カバープレビュー",
+      choosePhotoLibrary: "写真ライブラリから選択",
+      takePhoto: "写真を撮る",
+      noCoverYet: "カバーはまだアップロードされていません",
+      signingIn: "安全にログインしています…",
+      signingInTakingLong: "ログインに時間がかかっています。お待ちください…",
+      signInCancelled: "ログインがキャンセルされました",
+      signInFailed: "ログインに失敗しました。もう一度お試しください",
       
       // Budget
       price: "価格",
@@ -1203,8 +1243,8 @@ export const translations = {
       
       // PRO
       upgradeToPro: "Passer à PRO",
-      proProjectLimit: "Version gratuite: 1 projet avec 3 jours max",
-      proDayLimit: "Version gratuite: 1 projet avec 3 jours max",
+      proProjectLimit: "Les utilisateurs gratuits peuvent créer jusqu'à 3 projets, avec un maximum de 3 jours de voyage par projet.",
+      proDayLimit: "Les utilisateurs gratuits peuvent créer jusqu'à 3 projets, avec un maximum de 3 jours de voyage par projet.",
       proFeatures: "Fonctionnalités PRO",
       unlimitedProjects: "Jusqu'à 20 projets",
       unlimitedDays: "Jusqu'à 20 jours de voyage ! Planifiez courts séjours ou longues aventures.",
@@ -1217,6 +1257,14 @@ export const translations = {
       proEnabled: "PRO activé",
       proDisabled: "PRO désactivé",
       chooseFile: "Choisir un Fichier",
+      coverPreview: "Aperçu de la couverture",
+      choosePhotoLibrary: "Choisir dans la photothèque",
+      takePhoto: "Prendre une photo",
+      noCoverYet: "Aucune couverture téléchargée pour l'instant",
+      signingIn: "Connexion sécurisée en cours…",
+      signingInTakingLong: "La connexion prend du temps, veuillez patienter…",
+      signInCancelled: "Connexion annulée",
+      signInFailed: "Échec de la connexion, veuillez réessayer",
       
       // Budget
       price: "Prix",
@@ -1404,8 +1452,8 @@ export const translations = {
       
       // PRO
       upgradeToPro: "Auf PRO Upgraden",
-      proProjectLimit: "Kostenlose Version: 1 Projekt mit max. 3 Tagen",
-      proDayLimit: "Kostenlose Version: 1 Projekt mit max. 3 Tagen",
+      proProjectLimit: "Kostenlose Nutzer können bis zu 3 Projekte erstellen, mit maximal 3 Reisetagen pro Projekt.",
+      proDayLimit: "Kostenlose Nutzer können bis zu 3 Projekte erstellen, mit maximal 3 Reisetagen pro Projekt.",
       proFeatures: "PRO Funktionen",
       unlimitedProjects: "Bis zu 20 Projekte",
       unlimitedDays: "Bis zu 20 Reisetage! Plane Kurztrips oder lange Abenteuer.",
@@ -1418,6 +1466,14 @@ export const translations = {
       proEnabled: "PRO aktiviert",
       proDisabled: "PRO deaktiviert",
       chooseFile: "Datei Auswählen",
+      coverPreview: "Cover-Vorschau",
+      choosePhotoLibrary: "Aus Fotomediathek wählen",
+      takePhoto: "Foto aufnehmen",
+      noCoverYet: "Noch kein Cover hochgeladen",
+      signingIn: "Sichere Anmeldung läuft…",
+      signingInTakingLong: "Die Anmeldung dauert länger, bitte warten…",
+      signInCancelled: "Anmeldung abgebrochen",
+      signInFailed: "Anmeldung fehlgeschlagen, bitte erneut versuchen",
       
       // Budget
       price: "Preis",
