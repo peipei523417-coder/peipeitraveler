@@ -477,8 +477,7 @@ export default function Index() {
                         onClick={handleProjectClick}
                         onEdit={() => {}}
                         onDelete={() => {}}
-                        onDuplicate={() => {}}
-                        onShare={() => {}}
+                        readOnly
                       />
                     </div>
                   ))}
