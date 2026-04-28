@@ -85,7 +85,8 @@ export default function ProjectDetail() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [id, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const loadProject = async (isInitialLoad: boolean) => {
     if (!id) return;
