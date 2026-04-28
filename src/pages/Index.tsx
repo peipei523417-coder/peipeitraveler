@@ -83,7 +83,9 @@ export default function Index() {
   const loadJoinedProjectsData = async () => {
     try {
       const joined = await getJoinedProjects();
-      setJoinedProjects(joined as TravelProject[]);
+      // Exclude any project the user already owns (avoid duplicate in lobby)
+      const ownedIds = new Set(projects.map(p => p.id));
+      setJoinedProjects((joined as TravelProject[]).filter(p => !ownedIds.has(p.id)));
     } catch {
       // Silently fail
     }
