@@ -174,13 +174,13 @@ export const translations = {
       
       // PRO
       upgradeToPro: "升級 PRO 版",
-      proProjectLimit: "免費版最多可建立 3 個專案，且每個專案上限為 3 天行程",
-      proDayLimit: "免費版最多可建立 3 個專案，且每個專案上限為 3 天行程",
+      proProjectLimit: "免費版：3 個專案、每個專案最多 3 天",
+      proDayLimit: "免費版：3 個專案、每個專案最多 3 天",
       proFeatures: "PRO 版功能",
       unlimitedProjects: "最多 20 個專案",
       unlimitedDays: "最長 20 天旅程",
       unlimitedDaysNew: "適合出國旅行，也能與旅伴輕鬆共享行程",
-      luckyTravel: "讓旅途中幸運值滿滿 ❤️",
+      luckyTravel: "讓旅途中幸運值點滿 ❤️",
       gotIt: "我知道了",
       expiryWarningTitle: "專案即將自動刪除",
       expiryWarningDesc: "此專案的旅遊已結束，系統將在 {{days}} 天後自動刪除此專案及所有圖片。如需保留，請備份重要資料。",
@@ -206,6 +206,8 @@ export const translations = {
       
       // Apple compliance
       restorePurchase: "恢復購買",
+      restorePurchases: "恢復購買",
+      noRestorablepurchases: "沒有可恢復的購買",
       privacyPolicy: "隱私權政策",
       deleteAccount: "刪除帳號",
       deleteAccountTitle: "確定要刪除帳號嗎？",
@@ -389,13 +391,13 @@ export const translations = {
       
       // PRO
       upgradeToPro: "Upgrade to PRO",
-      proProjectLimit: "Free users can create up to 3 projects, with a maximum of 3 travel days per project.",
-      proDayLimit: "Free users can create up to 3 projects, with a maximum of 3 travel days per project.",
+      proProjectLimit: "Free: 3 projects, up to 3 days each.",
+      proDayLimit: "Free: 3 projects, up to 3 days each.",
       proFeatures: "PRO Features",
       unlimitedProjects: "Up to 20 projects",
       unlimitedDays: "Up to 20 trip days! Plan short trips or long overseas adventures flexibly.",
       unlimitedDaysNew: "Up to 20 trip days (Plan long trips abroad together)",
-      luckyTravel: "Extra luck on your journeys ❤️",
+      luckyTravel: "Max out your travel luck ❤️",
       gotIt: "Got it",
       expiryWarningTitle: "Project will be deleted soon",
       expiryWarningDesc: "This trip has ended. The project and all images will be automatically deleted in {{days}} days. Please back up important data.",
@@ -421,6 +423,8 @@ export const translations = {
       
       // Apple compliance
       restorePurchase: "Restore Purchase",
+      restorePurchases: "Restore Purchases",
+      noRestorablepurchases: "No purchases to restore",
       privacyPolicy: "Privacy Policy",
       deleteAccount: "Delete Account",
       deleteAccountTitle: "Delete your account?",
@@ -604,13 +608,13 @@ export const translations = {
       
       // PRO
       upgradeToPro: "Actualizar a PRO",
-      proProjectLimit: "Los usuarios gratuitos pueden crear hasta 3 proyectos, con un máximo de 3 días de viaje por proyecto.",
-      proDayLimit: "Los usuarios gratuitos pueden crear hasta 3 proyectos, con un máximo de 3 días de viaje por proyecto.",
+      proProjectLimit: "Gratis: 3 proyectos, máx. 3 días cada uno.",
+      proDayLimit: "Gratis: 3 proyectos, máx. 3 días cada uno.",
       proFeatures: "Funciones PRO",
       unlimitedProjects: "Hasta 20 proyectos",
       unlimitedDays: "¡Hasta 20 días de viaje! Planifica escapadas cortas o largas aventuras.",
       unlimitedDaysNew: "Hasta 20 días de viaje (Planifica viajes largos juntos)",
-      luckyTravel: "Suerte extra en tus viajes ❤️",
+      luckyTravel: "Suerte al máximo en tus viajes ❤️",
       gotIt: "Entendido",
       expiryWarningTitle: "El proyecto se eliminará pronto",
       expiryWarningDesc: "Este viaje ha terminado. El proyecto y todas las imágenes se eliminarán automáticamente en {{days}} días.",
@@ -636,6 +640,8 @@ export const translations = {
       
       // Apple compliance
       restorePurchase: "Restaurar compra",
+      restorePurchases: "Restaurar compras",
+      noRestorablepurchases: "No hay compras para restaurar",
       privacyPolicy: "Política de Privacidad",
       deleteAccount: "Eliminar cuenta",
       deleteAccountTitle: "¿Eliminar tu cuenta?",
@@ -819,13 +825,13 @@ export const translations = {
       
       // PRO
       upgradeToPro: "PRO로 업그레이드",
-      proProjectLimit: "무료 사용자는 최대 3개의 프로젝트를 만들 수 있으며, 프로젝트당 최대 3일까지 가능합니다.",
-      proDayLimit: "무료 사용자는 최대 3개의 프로젝트를 만들 수 있으며, 프로젝트당 최대 3일까지 가능합니다.",
+      proProjectLimit: "무료: 프로젝트 3개, 각 최대 3일.",
+      proDayLimit: "무료: 프로젝트 3개, 각 최대 3일.",
       proFeatures: "PRO 기능",
       unlimitedProjects: "최대 20개 프로젝트",
       unlimitedDays: "최대 20일 여행! 짧은 휴가든 긴 모험이든 자유롭게 계획하세요.",
       unlimitedDaysNew: "최대 20일 여행 (해외 장기 여행도 함께 계획)",
-      luckyTravel: "여행 중 행운이 가득 ❤️",
+      luckyTravel: "여행 중 행운 만렙 ❤️",
       gotIt: "알겠습니다",
       expiryWarningTitle: "프로젝트가 곧 삭제됩니다",
       expiryWarningDesc: "이 여행이 종료되었습니다. {{days}}일 후 프로젝트와 모든 이미지가 자동 삭제됩니다.",
@@ -851,6 +857,8 @@ export const translations = {
       
       // Apple compliance
       restorePurchase: "구매 복원",
+      restorePurchases: "구매 복원",
+      noRestorablepurchases: "복원할 구매가 없습니다",
       privacyPolicy: "개인정보처리방침",
       deleteAccount: "계정 삭제",
       deleteAccountTitle: "계정을 삭제하시겠습니까?",
@@ -1034,13 +1042,13 @@ export const translations = {
       
       // PRO
       upgradeToPro: "PROにアップグレード",
-      proProjectLimit: "無料ユーザーは最大3つのプロジェクトを作成でき、各プロジェクトは最大3日間まで設定できます。",
-      proDayLimit: "無料ユーザーは最大3つのプロジェクトを作成でき、各プロジェクトは最大3日間まで設定できます。",
+      proProjectLimit: "無料：プロジェクト3個、各最大3日。",
+      proDayLimit: "無料：プロジェクト3個、各最大3日。",
       proFeatures: "PRO機能",
       unlimitedProjects: "最大20プロジェクト",
       unlimitedDays: "最大20日間の旅程！短期旅行も長期冒険も自由に計画できます。",
       unlimitedDaysNew: "最大20日間の旅程（海外長期旅行も一緒に計画）",
-      luckyTravel: "旅に幸運がいっぱい ❤️",
+      luckyTravel: "旅の幸運を最大に ❤️",
       gotIt: "了解しました",
       expiryWarningTitle: "プロジェクトがまもなく削除されます",
       expiryWarningDesc: "この旅行は終了しました。{{days}}日後にプロジェクトと全画像が自動削除されます。",
@@ -1066,6 +1074,8 @@ export const translations = {
       
       // Apple compliance
       restorePurchase: "購入を復元",
+      restorePurchases: "購入を復元",
+      noRestorablepurchases: "復元できる購入はありません",
       privacyPolicy: "プライバシーポリシー",
       deleteAccount: "アカウントを削除",
       deleteAccountTitle: "アカウントを削除しますか？",
@@ -1243,13 +1253,13 @@ export const translations = {
       
       // PRO
       upgradeToPro: "Passer à PRO",
-      proProjectLimit: "Les utilisateurs gratuits peuvent créer jusqu'à 3 projets, avec un maximum de 3 jours de voyage par projet.",
-      proDayLimit: "Les utilisateurs gratuits peuvent créer jusqu'à 3 projets, avec un maximum de 3 jours de voyage par projet.",
+      proProjectLimit: "Gratuit : 3 projets, 3 jours max chacun.",
+      proDayLimit: "Gratuit : 3 projets, 3 jours max chacun.",
       proFeatures: "Fonctionnalités PRO",
       unlimitedProjects: "Jusqu'à 20 projets",
       unlimitedDays: "Jusqu'à 20 jours de voyage ! Planifiez courts séjours ou longues aventures.",
       unlimitedDaysNew: "Jusqu'à 20 jours de voyage (Planifiez de longs voyages ensemble)",
-      luckyTravel: "Bonne chance dans vos voyages ❤️",
+      luckyTravel: "Chance maximale en voyage ❤️",
       gotIt: "Compris",
       expiryWarningTitle: "Le projet sera bientôt supprimé",
       expiryWarningDesc: "Ce voyage est terminé. Le projet et toutes les images seront supprimés dans {{days}} jours.",
@@ -1275,6 +1285,8 @@ export const translations = {
       
       // Apple compliance
       restorePurchase: "Restaurer l'achat",
+      restorePurchases: "Restaurer les achats",
+      noRestorablepurchases: "Aucun achat à restaurer",
       privacyPolicy: "Politique de confidentialité",
       deleteAccount: "Supprimer le compte",
       deleteAccountTitle: "Supprimer votre compte ?",
@@ -1452,13 +1464,13 @@ export const translations = {
       
       // PRO
       upgradeToPro: "Auf PRO Upgraden",
-      proProjectLimit: "Kostenlose Nutzer können bis zu 3 Projekte erstellen, mit maximal 3 Reisetagen pro Projekt.",
-      proDayLimit: "Kostenlose Nutzer können bis zu 3 Projekte erstellen, mit maximal 3 Reisetagen pro Projekt.",
+      proProjectLimit: "Kostenlos: 3 Projekte, je max. 3 Tage.",
+      proDayLimit: "Kostenlos: 3 Projekte, je max. 3 Tage.",
       proFeatures: "PRO Funktionen",
       unlimitedProjects: "Bis zu 20 Projekte",
       unlimitedDays: "Bis zu 20 Reisetage! Plane Kurztrips oder lange Abenteuer.",
       unlimitedDaysNew: "Bis zu 20 Reisetage (Plane lange Auslandsreisen zusammen)",
-      luckyTravel: "Viel Glück auf deinen Reisen ❤️",
+      luckyTravel: "Maximales Glück auf Reisen ❤️",
       gotIt: "Verstanden",
       expiryWarningTitle: "Projekt wird bald gelöscht",
       expiryWarningDesc: "Diese Reise ist beendet. Das Projekt und alle Bilder werden in {{days}} Tagen automatisch gelöscht.",
@@ -1484,6 +1496,8 @@ export const translations = {
       
       // Apple compliance
       restorePurchase: "Kauf wiederherstellen",
+      restorePurchases: "Käufe wiederherstellen",
+      noRestorablepurchases: "Keine Käufe wiederherstellbar",
       privacyPolicy: "Datenschutzrichtlinie",
       deleteAccount: "Konto löschen",
       deleteAccountTitle: "Konto löschen?",
