@@ -14,6 +14,7 @@ interface ProjectCardProps {
   onClick: (project: TravelProject) => void;
   onDuplicate?: (project: TravelProject) => void;
   onShare?: (project: TravelProject) => void;
+  readOnly?: boolean;
 }
 
 // Visibility icon component
