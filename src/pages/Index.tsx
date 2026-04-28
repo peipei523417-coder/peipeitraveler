@@ -89,14 +89,25 @@ export default function Index() {
     }
   };
 
-  // Check for expiring projects once when projects load
+  // Check for expiring projects once when projects load (throttled: 1/day, max 3 total)
   useEffect(() => {
     if (expiryCheckedRef.current || projects.length === 0) return;
     expiryCheckedRef.current = true;
-    
+
+    const LAST_KEY = "deleteNoticeLastShownDate";
+    const COUNT_KEY = "deleteNoticeShownCount";
+    const MAX_SHOWS = 3;
+    const today = new Date().toISOString().split("T")[0];
+
+    const shownCount = parseInt(localStorage.getItem(COUNT_KEY) || "0", 10);
+    const lastShown = localStorage.getItem(LAST_KEY);
+
+    if (shownCount >= MAX_SHOWS) return;
+    if (lastShown === today) return;
+
     const now = new Date();
     let soonestDays = Infinity;
-    
+
     for (const p of projects) {
       const endDate = new Date(p.endDate);
       const deleteDate = new Date(endDate);
@@ -106,10 +117,12 @@ export default function Index() {
         soonestDays = daysLeft;
       }
     }
-    
+
     if (soonestDays <= 7) {
       setExpiryDaysRemaining(soonestDays);
       setExpiryWarningOpen(true);
+      localStorage.setItem(LAST_KEY, today);
+      localStorage.setItem(COUNT_KEY, String(shownCount + 1));
     }
   }, [projects]);
 
