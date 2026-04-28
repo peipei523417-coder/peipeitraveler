@@ -351,18 +351,18 @@ export default function ProjectDetail() {
                       ({t("totalBudget")}: ${totalBudget.toLocaleString()})
                     </p>
                   )}
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setOverviewOpen(prev => !prev)}
-              className="rounded-xl gap-1.5 text-xs flex-shrink-0"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              {t("tripOverview")}
-            </Button>
+                </div>
               </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOverviewOpen(prev => !prev)}
+                className="rounded-xl gap-1.5 text-xs flex-shrink-0"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                {t("tripOverview")}
+              </Button>
             </div>
             
             {saved && (
