@@ -49,7 +49,8 @@ export function ProjectCard({
   onDelete, 
   onClick, 
   onDuplicate,
-  onShare 
+  onShare,
+  readOnly = false,
 }: ProjectCardProps) {
   const { t, i18n } = useTranslation();
   const days = differenceInDays(project.endDate, project.startDate) + 1;
