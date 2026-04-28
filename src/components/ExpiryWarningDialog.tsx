@@ -35,7 +35,7 @@ export function ExpiryWarningDialog({
           <AlertDialogTitle className="text-xl text-center">
             {t("expiryWarningTitle")}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-center text-foreground/80">
+          <AlertDialogDescription className="text-center text-foreground/80 whitespace-pre-line">
             {t("expiryWarningDesc", { days: daysRemaining })}
           </AlertDialogDescription>
         </AlertDialogHeader>
