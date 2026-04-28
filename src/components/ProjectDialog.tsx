@@ -229,6 +229,69 @@ export function ProjectDialog({
     reader.readAsDataURL(file);
   };
 
+  const isNative = () => !!(window as any).Capacitor?.isNativePlatform?.();
+
+  const dataUrlToFile = async (dataUrl: string, filename: string): Promise<File> => {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    return new File([blob], filename, { type: blob.type || "image/jpeg" });
+  };
+
+  const pickFromCameraNative = async () => {
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import("@capacitor/camera");
+      const photo = await Camera.getPhoto({
+        quality: 80,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+      if (photo.dataUrl) {
+        const file = await dataUrlToFile(photo.dataUrl, `cover_${Date.now()}.jpg`);
+        setCoverFile(file);
+        setCoverPreview(photo.dataUrl);
+      }
+    } catch (e) {
+      // user cancelled or error — silent
+    }
+  };
+
+  const pickFromLibraryNative = async () => {
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import("@capacitor/camera");
+      const photo = await Camera.getPhoto({
+        quality: 80,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Photos,
+      });
+      if (photo.dataUrl) {
+        const file = await dataUrlToFile(photo.dataUrl, `cover_${Date.now()}.jpg`);
+        setCoverFile(file);
+        setCoverPreview(photo.dataUrl);
+      }
+    } catch (e) {
+      // user cancelled or error — silent
+    }
+  };
+
+  const handleTakePhoto = () => {
+    setCoverSheetOpen(false);
+    if (isNative()) pickFromCameraNative();
+    else cameraInputRef.current?.click();
+  };
+
+  const handlePickLibrary = () => {
+    setCoverSheetOpen(false);
+    if (isNative()) pickFromLibraryNative();
+    else fileInputRef.current?.click();
+  };
+
+  const handlePickFile = () => {
+    setCoverSheetOpen(false);
+    fileInputRef.current?.click();
+  };
+
   const removeCover = () => {
     setCoverPreview(undefined);
     setCoverFile(undefined);
