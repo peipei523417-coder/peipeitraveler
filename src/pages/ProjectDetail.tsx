@@ -91,18 +91,33 @@ export default function ProjectDetail() {
     if (!id) return;
     
     // For initial load, try cache first for instant display
+    let hasCachedData = false;
     if (isInitialLoad) {
-      const cached = await getCachedProject(id);
-      if (cached) {
-        setProject(cached);
-        setLoading(false);
+      try {
+        const cached = await getCachedProject(id);
+        if (cached) {
+          setProject(cached);
+          setLoading(false);
+          hasCachedData = true;
+        }
+      } catch (e) {
+        console.error("[ProjectDetail] cache error:", e);
       }
     }
     
     // Fetch fresh data (but don't clear existing state during fetch)
-    const loaded = await getProject(id);
+    let loaded: TravelProject | undefined;
+    try {
+      loaded = await getProject(id);
+    } catch (e) {
+      console.error("[ProjectDetail] getProject error:", e);
+    }
+    
     if (!loaded) {
-      if (isInitialLoad && !project) {
+      // Always release the spinner so the user isn't stuck
+      setLoading(false);
+      if (isInitialLoad && !hasCachedData) {
+        toast.error(t("error"));
         navigate("/");
       }
       return;
@@ -336,18 +351,18 @@ export default function ProjectDetail() {
                       ({t("totalBudget")}: ${totalBudget.toLocaleString()})
                     </p>
                   )}
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setOverviewOpen(prev => !prev)}
-              className="rounded-xl gap-1.5 text-xs flex-shrink-0"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              {t("tripOverview")}
-            </Button>
+                </div>
               </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOverviewOpen(prev => !prev)}
+                className="rounded-xl gap-1.5 text-xs flex-shrink-0"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                {t("tripOverview")}
+              </Button>
             </div>
             
             {saved && (
