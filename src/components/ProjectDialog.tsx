@@ -542,15 +542,15 @@ export function ProjectDialog({
           </SheetHeader>
           <div className="flex flex-col gap-2 pt-2">
             <Button variant="ghost" size="lg" className="w-full justify-start gap-3 h-14 rounded-xl"
-              onClick={() => { setCoverSheetOpen(false); cameraInputRef.current?.click(); }}>
+              onClick={handleTakePhoto}>
               <Camera className="w-5 h-5" />{t("takePhoto")}
             </Button>
             <Button variant="ghost" size="lg" className="w-full justify-start gap-3 h-14 rounded-xl"
-              onClick={() => { setCoverSheetOpen(false); fileInputRef.current?.click(); }}>
+              onClick={handlePickLibrary}>
               <ImageIcon className="w-5 h-5" />{t("choosePhotoLibrary")}
             </Button>
             <Button variant="ghost" size="lg" className="w-full justify-start gap-3 h-14 rounded-xl"
-              onClick={() => { setCoverSheetOpen(false); fileInputRef.current?.click(); }}>
+              onClick={handlePickFile}>
               <FileImage className="w-5 h-5" />{t("chooseFile")}
             </Button>
             <Button variant="outline" size="lg" className="w-full h-12 rounded-xl mt-2"
