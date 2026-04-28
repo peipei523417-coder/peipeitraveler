@@ -29,7 +29,7 @@ workflows:
       - name: Install dependencies with npm
         script: |
           npm install
-          npm ls @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser || true
+          npm ls @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/camera || true
 
       - name: Build web
         script: |
