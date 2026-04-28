@@ -102,7 +102,7 @@ workflows:
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
                 config.build_settings['MARKETING_VERSION'] = '6.0.4'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '13'
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '14'
               end
             end
           end
