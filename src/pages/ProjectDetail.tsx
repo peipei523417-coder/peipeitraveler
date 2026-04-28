@@ -91,18 +91,33 @@ export default function ProjectDetail() {
     if (!id) return;
     
     // For initial load, try cache first for instant display
+    let hasCachedData = false;
     if (isInitialLoad) {
-      const cached = await getCachedProject(id);
-      if (cached) {
-        setProject(cached);
-        setLoading(false);
+      try {
+        const cached = await getCachedProject(id);
+        if (cached) {
+          setProject(cached);
+          setLoading(false);
+          hasCachedData = true;
+        }
+      } catch (e) {
+        console.error("[ProjectDetail] cache error:", e);
       }
     }
     
     // Fetch fresh data (but don't clear existing state during fetch)
-    const loaded = await getProject(id);
+    let loaded: TravelProject | undefined;
+    try {
+      loaded = await getProject(id);
+    } catch (e) {
+      console.error("[ProjectDetail] getProject error:", e);
+    }
+    
     if (!loaded) {
-      if (isInitialLoad && !project) {
+      // Always release the spinner so the user isn't stuck
+      setLoading(false);
+      if (isInitialLoad && !hasCachedData) {
+        toast.error(t("error"));
         navigate("/");
       }
       return;
