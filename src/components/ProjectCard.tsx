@@ -14,6 +14,7 @@ interface ProjectCardProps {
   onClick: (project: TravelProject) => void;
   onDuplicate?: (project: TravelProject) => void;
   onShare?: (project: TravelProject) => void;
+  readOnly?: boolean;
 }
 
 // Visibility icon component
@@ -48,7 +49,8 @@ export function ProjectCard({
   onDelete, 
   onClick, 
   onDuplicate,
-  onShare 
+  onShare,
+  readOnly = false,
 }: ProjectCardProps) {
   const { t, i18n } = useTranslation();
   const days = differenceInDays(project.endDate, project.startDate) + 1;
@@ -92,7 +94,7 @@ export function ProjectCard({
         
         {/* Action buttons overlay */}
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {onShare && (
+          {!readOnly && onShare && (
             <Button
               size="icon"
               variant="ghost"
@@ -105,7 +107,7 @@ export function ProjectCard({
               <Share2 className="w-4 h-4 text-stone-800" />
             </Button>
           )}
-          {onDuplicate && (
+          {!readOnly && onDuplicate && (
             <Button
               size="icon"
               variant="ghost"
@@ -118,28 +120,32 @@ export function ProjectCard({
               <Copy className="w-4 h-4 text-stone-800" />
             </Button>
           )}
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 rounded-lg bg-white shadow-md hover:bg-stone-100 border border-stone-200"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(project);
-            }}
-          >
-            <Pencil className="w-4 h-4 text-stone-800" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 rounded-lg bg-white shadow-md hover:bg-destructive/10 border border-stone-200"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(project);
-            }}
-          >
-            <Trash2 className="w-4 h-4 text-destructive" />
-          </Button>
+          {!readOnly && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 rounded-lg bg-white shadow-md hover:bg-stone-100 border border-stone-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(project);
+              }}
+            >
+              <Pencil className="w-4 h-4 text-stone-800" />
+            </Button>
+          )}
+          {!readOnly && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 rounded-lg bg-white shadow-md hover:bg-destructive/10 border border-stone-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(project);
+              }}
+            >
+              <Trash2 className="w-4 h-4 text-destructive" />
+            </Button>
+          )}
         </div>
       </div>
       
