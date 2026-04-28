@@ -475,9 +475,13 @@ export default function Index() {
                       <ProjectCard
                         project={project}
                         onClick={handleProjectClick}
-                        onEdit={() => {}}
-                        onDelete={() => {}}
-                        readOnly
+                        onEdit={(p) => setEditingProject(p)}
+                        onDelete={(p) => {
+                          setDeletingProject(p);
+                          setDeleteDialogOpen(true);
+                        }}
+                        onDuplicate={handleDuplicateProject}
+                        onShare={handleShareProject}
                       />
                     </div>
                   ))}
