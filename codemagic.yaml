@@ -102,7 +102,7 @@ workflows:
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
                 config.build_settings['MARKETING_VERSION'] = '6.0.4'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '13'
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '14'
               end
             end
           end
@@ -122,7 +122,7 @@ workflows:
           project.save
           puts "Removed SwiftPM references and set App signing"
           puts "Marketing Version: 6.0.4"
-          puts "Build Number: 13"
+          puts "Build Number: 14"
           RUBY
 
           echo "=== Remaining SPM/CapApp references ==="
