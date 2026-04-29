@@ -11,6 +11,7 @@ import { ProProvider } from "@/contexts/ProContext";
 import { LoadingProvider, useLoading } from "@/contexts/LoadingContext";
 import { ProjectCacheProvider } from "@/contexts/ProjectCacheContext";
 import { AirplaneLoader } from "@/components/AirplaneLoader";
+import { FirstInstallOnboarding } from "@/components/FirstInstallOnboarding";
 import Index from "./pages/Index";
 import ProjectDetail from "./pages/ProjectDetail";
 import SharePage from "./pages/SharePage";
@@ -208,6 +209,7 @@ function AppContent() {
   return (
     <HashRouter>
       <DeepLinkHandler />
+      <FirstInstallOnboarding />
       {!isOnline && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white text-center text-sm py-1.5 px-4">
           ✈️ 離線模式 — 顯示已快取的專案資料
