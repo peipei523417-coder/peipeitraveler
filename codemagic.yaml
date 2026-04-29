@@ -6,7 +6,7 @@ workflows:
       app_store_connect: codemagic-final
 
     environment:
-      xcode: 16.2
+      xcode: 26.0   # ⭐ 這行是關鍵（解 Apple SDK 限制）
       node: 22
       ios_signing:
         certificates:
@@ -102,43 +102,19 @@ workflows:
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
                 config.build_settings['MARKETING_VERSION'] = '6.0.4'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '16'
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '17'  # ⭐ +1
               end
             end
           end
 
-          if project.root_object.respond_to?(:package_references)
-            project.root_object.package_references.clear
-          end
-
-          project.objects.delete_if do |obj|
-            text = obj.to_ascii_plist.to_s rescue obj.to_s
-            text.include?('CapApp-SPM') ||
-            text.include?('capacitor-swift-pm') ||
-            text.include?('XCLocalSwiftPackageReference') ||
-            text.include?('XCSwiftPackageProductDependency')
-          end
-
           project.save
-          puts "Removed SwiftPM references and set App signing"
-          puts "Marketing Version: 6.0.4"
-          puts "Build Number: 16"
+          puts "Build Number: 17"
           RUBY
-
-          echo "=== Remaining SPM/CapApp references ==="
-          grep -nE "CapApp-SPM|capacitor-swift-pm|XCLocalSwiftPackageReference|XCSwiftPackageProductDependency" ios/App/App.xcodeproj/project.pbxproj || echo "No SwiftPM references"
 
       - name: Install CocoaPods
         script: |
           cd ios/App
           pod install
-          ls -la
-
-      - name: Show iOS project files
-        script: |
-          ls -la ios/App
-          test -d ios/App/App.xcworkspace && echo "WORKSPACE_FOUND=true" || echo "WORKSPACE_FOUND=false"
-          test -d ios/App/Pods && echo "PODS_FOUND=true" || echo "PODS_FOUND=false"
 
       - name: Build archive
         script: |
@@ -156,7 +132,6 @@ workflows:
 
           cat > ExportOptions.plist <<'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>method</key>
@@ -170,10 +145,6 @@ workflows:
                   <key>com.peipeigo.travel</key>
                   <string>PeiGo_Store_Final</string>
               </dict>
-              <key>stripSwiftSymbols</key>
-              <true/>
-              <key>compileBitcode</key>
-              <false/>
           </dict>
           </plist>
           EOF
