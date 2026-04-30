@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { TravelProject } from "@/types/travel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Pencil, Trash2, MapPin, Copy, Share2, Lock, Globe } from "lucide-react";
+import { Calendar, Pencil, Trash2, MapPin, Copy, Share2, Lock, Globe, LogOut, Users } from "lucide-react";
 import { differenceInDays } from "date-fns";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatShortDate } from "@/i18n/date-utils";
