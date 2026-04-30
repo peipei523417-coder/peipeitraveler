@@ -56,10 +56,14 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     if (!id) {
+      console.warn("[ProjectDetail] no id in route, returning to lobby");
       navigate("/");
       return;
     }
-    
+    if (import.meta.env.DEV) {
+      console.log("[ProjectDetail] mount with id:", id);
+    }
+
     loadProject(true); // Initial load
     
     // Subscribe to realtime updates (only for external changes)
