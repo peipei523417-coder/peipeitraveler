@@ -16,7 +16,7 @@ interface DeleteConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   project: TravelProject | null;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   /** When true, this dialog is for a non-owner leaving a shared project (no real delete). */
   leaveMode?: boolean;
   loading?: boolean;
@@ -52,7 +52,10 @@ export function DeleteConfirmDialog({
         <AlertDialogFooter className="gap-2 sm:gap-2">
           <AlertDialogCancel className="rounded-xl" disabled={loading}>{t("cancel")}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={(event) => {
+              event.preventDefault();
+              if (!loading) void onConfirm();
+            }}
             disabled={loading}
             className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
