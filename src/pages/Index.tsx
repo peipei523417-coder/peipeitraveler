@@ -172,9 +172,12 @@ export default function Index() {
     await loadJoinedProjectsData();
   };
 
+  // Total quota counts owned + joined projects (joined projects also occupy a slot per spec)
+  const totalProjectCount = projects.length + cachedJoined.length;
+
   const handleCreateProjectClick = () => {
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
-    if (projects.length >= limit) {
+    if (totalProjectCount >= limit) {
       setUpgradeDialogType("project");
       setUpgradeDialogOpen(true);
       return;
