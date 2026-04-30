@@ -566,6 +566,7 @@ export default function Index() {
         onOpenChange={setDeleteDialogOpen}
         project={deletingProject}
         onConfirm={handleDeleteProject}
+        leaveMode={!!deletingProject?.isJoined}
       />
 
       <ShareDialog
