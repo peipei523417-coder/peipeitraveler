@@ -24,6 +24,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 import { TripOverviewDialog } from "@/components/TripOverviewDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { ProjectErrorBoundary } from "@/components/ProjectErrorBoundary";
+
+/** Safely coerce a possibly-string/Date/undefined into a Date for formatting. */
+function safeDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+  try {
+    const d = new Date(value as string);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
+function ProjectDetailInner() {
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
