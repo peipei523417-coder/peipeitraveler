@@ -70,6 +70,8 @@ export default function Index() {
   const [actionSheetProject, setActionSheetProject] = useState<TravelProject | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggeredRef = useRef(false);
+  // Guard against rapid double-tap navigating twice
+  const navigatingRef = useRef(false);
 
   // SWR pattern: show cache instantly, revalidate in background only when stale
   useEffect(() => {
