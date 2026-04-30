@@ -248,11 +248,12 @@ export default function ProjectDetail() {
     }
     
     // Optimistic UI: update item in state immediately
+    const baseItineraryEdit = Array.isArray(project.itinerary) ? project.itinerary : [];
     const optimisticProject = {
       ...project,
-      itinerary: project.itinerary.map(day => ({
+      itinerary: baseItineraryEdit.map(day => ({
         ...day,
-        items: day.items.map(i =>
+        items: (Array.isArray(day?.items) ? day.items : []).map(i =>
           i.id === editingItem.id ? { ...i, ...finalItem } : i
         ),
       })),
