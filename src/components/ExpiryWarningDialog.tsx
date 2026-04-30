@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -16,35 +17,35 @@ interface ExpiryWarningDialogProps {
   daysRemaining: number;
 }
 
-export function ExpiryWarningDialog({
-  open,
-  onOpenChange,
-  daysRemaining,
-}: ExpiryWarningDialogProps) {
-  const { t } = useTranslation();
+// Wrapped in forwardRef so parents (e.g. Radix internals) that attach a ref
+// don't trigger the "Function components cannot be given refs" warning.
+export const ExpiryWarningDialog = forwardRef<HTMLDivElement, ExpiryWarningDialogProps>(
+  function ExpiryWarningDialog({ open, onOpenChange, daysRemaining }, _ref) {
+    const { t } = useTranslation();
 
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="rounded-2xl max-w-md">
-        <AlertDialogHeader>
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-400 to-orange-500 flex items-center justify-center">
-              <AlertTriangle className="w-8 h-8 text-white" />
+    return (
+      <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <AlertDialogContent className="rounded-2xl max-w-md">
+          <AlertDialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-400 to-orange-500 flex items-center justify-center">
+                <AlertTriangle className="w-8 h-8 text-white" />
+              </div>
             </div>
-          </div>
-          <AlertDialogTitle className="text-xl text-center">
-            {t("expiryWarningTitle")}
-          </AlertDialogTitle>
-          <AlertDialogDescription className="text-center text-foreground/80 whitespace-pre-line">
-            {t("expiryWarningDesc", { days: daysRemaining })}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogAction className="w-full rounded-xl">
-            {t("gotIt")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
+            <AlertDialogTitle className="text-xl text-center">
+              {t("expiryWarningTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-foreground/80 whitespace-pre-line">
+              {t("expiryWarningDesc", { days: daysRemaining })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction className="w-full rounded-xl">
+              {t("gotIt")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+);
