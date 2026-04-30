@@ -137,17 +137,28 @@ export default function ProjectDetail() {
     }
     
     // Fetch fresh data (but don't clear existing state during fetch)
+    // Retry once on undefined to survive transient RLS/network races on shared projects.
     let loaded: TravelProject | undefined;
-    try {
-      loaded = await getProject(id);
-    } catch (e) {
-      console.error("[ProjectDetail] project fetch fail", { id, error: e });
+    let fetchError: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        loaded = await getProject(id);
+        if (loaded) break;
+      } catch (e) {
+        fetchError = e;
+        console.error("[ProjectDetail] project fetch fail", { id, attempt, error: e });
+      }
+      if (attempt === 0 && !loaded) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
     }
-    
+
     if (!loaded) {
       // Always release the spinner so the user isn't stuck
       setLoading(false);
-      if (import.meta.env.DEV) console.warn("[ProjectDetail] permission check result", { id, allowed: false, hasCachedData });
+      if (import.meta.env.DEV) console.warn("[ProjectDetail] permission check result", { id, allowed: false, hasCachedData, fetchError });
+      // Only redirect if this is the very first load AND we have nothing to show.
+      // Transient undefined on a refresh should NOT eject the user.
       if (isInitialLoad && !hasCachedData) {
         toast.error(t("error"));
         console.warn("[ProjectDetail] redirect reason", { reason: "fetchReturnedNoProject", id });
