@@ -48,6 +48,7 @@ export default function Index() {
     joinedProjects: cachedJoined,
     isJoinedLoaded,
     setJoinedProjects,
+    removeJoinedProjectFromCache,
     isJoinedFresh,
     markJoinedFetched,
   } = useProjectCache();
@@ -64,6 +65,7 @@ export default function Index() {
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
   const [expiryDaysRemaining, setExpiryDaysRemaining] = useState(0);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
   const expiryCheckedRef = useRef(false);
   
   // Long-press state for mobile
@@ -76,6 +78,7 @@ export default function Index() {
   // Whenever Index mounts (e.g. after returning from detail), allow navigation again.
   useEffect(() => {
     navigatingRef.current = false;
+    if (import.meta.env.DEV) console.log("[Index] navigatingRef reset", { reason: "mount" });
   }, []);
 
   // SWR pattern: show cache instantly, revalidate in background only when stale
@@ -276,29 +279,42 @@ export default function Index() {
   };
 
   const handleDeleteProject = async () => {
-    if (!deletingProject) return;
+    if (!deletingProject?.id || deleteInProgress) return;
 
+    const projectId = deletingProject.id;
+    setDeleteInProgress(true);
     try {
       if (deletingProject.isJoined) {
+        if (import.meta.env.DEV) console.log("[Leave Shared] UI confirm", { projectId });
         // Non-owner: only remove the current user from collaborators.
         // The underlying project remains intact for the owner and other collaborators.
-        const result = await leaveSharedProject(deletingProject.id);
+        const result = await leaveSharedProject(projectId);
         if (!result.success) {
+          if (import.meta.env.DEV) console.warn("[Leave Shared] UI fail", { projectId, error: result.error });
           toast.error(result.error || t("saveFailed"));
           return;
         }
+        setJoinedProjects(cachedJoined.filter(project => project.id !== projectId));
+        removeJoinedProjectFromCache(projectId);
+        if (import.meta.env.DEV) console.log("[Leave Shared] UI remove projectId", { projectId });
         toast.success(t("leftSharedProject"));
       } else {
         // Owner: real delete — RLS ensures only the owner can perform this.
-        await deleteProject(deletingProject.id);
+        const deleted = await deleteProject(projectId);
+        if (!deleted) {
+          toast.error(t("saveFailed"));
+          return;
+        }
         toast.success(t("projectDeleted"));
       }
       setDeletingProject(null);
       setDeleteDialogOpen(false);
-      refreshProjects();
+      if (!deletingProject.isJoined) refreshProjects();
     } catch (error) {
       console.error("Error deleting project:", error);
       toast.error(t("saveFailed"));
+    } finally {
+      setDeleteInProgress(false);
     }
   };
 
