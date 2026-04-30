@@ -45,9 +45,9 @@ export default function ProjectDetail() {
 
   // Calculate total budget for all days (must be before early returns)
   const totalBudget = useMemo(() => {
-    if (!project) return 0;
+    if (!project || !Array.isArray(project.itinerary)) return 0;
     return project.itinerary.reduce((total, day) => {
-      return total + calculateDayTotal(day.items);
+      return total + calculateDayTotal(day?.items ?? []);
     }, 0);
   }, [project]);
 
