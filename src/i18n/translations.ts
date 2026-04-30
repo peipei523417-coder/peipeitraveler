@@ -137,6 +137,10 @@ export const translations = {
       // Delete Confirmation
       deleteConfirmTitle: "確定要刪除嗎？",
       deleteConfirmDescription: "此操作無法復原",
+      leaveSharedTitle: "退出共享專案？",
+      leaveSharedDescription: "你只會從這個共享專案移除，建立者與其他成員仍可繼續使用。",
+      leaveShared: "退出共享",
+      leftSharedProject: "已退出共享專案",
       
       // Highlight Colors
       colorNone: "無",
@@ -354,6 +358,10 @@ export const translations = {
       // Delete Confirmation
       deleteConfirmTitle: "Are you sure?",
       deleteConfirmDescription: "This action cannot be undone",
+      leaveSharedTitle: "Leave shared project?",
+      leaveSharedDescription: "You will only be removed from this shared project. The owner and other members keep access.",
+      leaveShared: "Leave",
+      leftSharedProject: "Left shared project",
       
       // Highlight Colors
       colorNone: "None",
@@ -571,6 +579,10 @@ export const translations = {
       // Delete Confirmation
       deleteConfirmTitle: "¿Estás seguro?",
       deleteConfirmDescription: "Esta acción no se puede deshacer",
+      leaveSharedTitle: "¿Salir del proyecto compartido?",
+      leaveSharedDescription: "Solo serás eliminado de este proyecto compartido. El propietario y otros miembros mantienen el acceso.",
+      leaveShared: "Salir",
+      leftSharedProject: "Has salido del proyecto compartido",
       
       // Highlight Colors
       colorNone: "Ninguno",
@@ -788,6 +800,10 @@ export const translations = {
       // Delete Confirmation
       deleteConfirmTitle: "정말 삭제하시겠습니까?",
       deleteConfirmDescription: "이 작업은 되돌릴 수 없습니다",
+      leaveSharedTitle: "공유 프로젝트에서 나가시겠습니까?",
+      leaveSharedDescription: "이 공유 프로젝트에서만 제거됩니다. 소유자와 다른 구성원은 계속 액세스할 수 있습니다.",
+      leaveShared: "나가기",
+      leftSharedProject: "공유 프로젝트에서 나갔습니다",
       
       // Highlight Colors
       colorNone: "없음",
@@ -1005,6 +1021,10 @@ export const translations = {
       // Delete Confirmation
       deleteConfirmTitle: "本当に削除しますか？",
       deleteConfirmDescription: "この操作は元に戻せません",
+      leaveSharedTitle: "共有プロジェクトから退出しますか？",
+      leaveSharedDescription: "この共有プロジェクトから削除されるだけです。オーナーと他のメンバーは引き続きアクセスできます。",
+      leaveShared: "退出",
+      leftSharedProject: "共有プロジェクトから退出しました",
       
       // Highlight Colors
       colorNone: "なし",
@@ -1216,6 +1236,10 @@ export const translations = {
       // Delete Confirmation
       deleteConfirmTitle: "Êtes-vous sûr ?",
       deleteConfirmDescription: "Cette action ne peut pas être annulée",
+      leaveSharedTitle: "Quitter le projet partagé ?",
+      leaveSharedDescription: "Vous serez uniquement retiré de ce projet partagé. Le propriétaire et les autres membres conservent l'accès.",
+      leaveShared: "Quitter",
+      leftSharedProject: "Vous avez quitté le projet partagé",
       
       // Highlight Colors
       colorNone: "Aucun",
@@ -1427,6 +1451,10 @@ export const translations = {
       // Delete Confirmation
       deleteConfirmTitle: "Sind Sie sicher?",
       deleteConfirmDescription: "Diese Aktion kann nicht rückgängig gemacht werden",
+      leaveSharedTitle: "Geteiltes Projekt verlassen?",
+      leaveSharedDescription: "Sie werden nur aus diesem geteilten Projekt entfernt. Der Eigentümer und andere Mitglieder behalten den Zugriff.",
+      leaveShared: "Verlassen",
+      leftSharedProject: "Geteiltes Projekt verlassen",
       
       // Highlight Colors
       colorNone: "Keine",

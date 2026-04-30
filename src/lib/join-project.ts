@@ -1,5 +1,28 @@
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Remove the current authenticated user from a shared project's collaborators.
+ * Does NOT delete the underlying project — the owner and other collaborators keep access.
+ */
+export async function leaveSharedProject(projectId: string): Promise<{ success: boolean; error?: string }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user?.email) {
+    return { success: false, error: "Not authenticated" };
+  }
+
+  const { error } = await supabase
+    .from("project_collaborators")
+    .delete()
+    .eq("project_id", projectId)
+    .eq("email", user.email.toLowerCase());
+
+  if (error) {
+    console.error("Error leaving shared project:", error);
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+}
+
 export async function joinProject(projectId: string): Promise<{
   success: boolean;
   alreadyJoined?: boolean;

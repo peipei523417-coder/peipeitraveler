@@ -27,7 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePro } from "@/contexts/ProContext";
 import { LoginDialog } from "@/components/LoginDialog";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
-import { getJoinedProjects } from "@/lib/join-project";
+import { getJoinedProjects, leaveSharedProject } from "@/lib/join-project";
 
 // Tier limits
 const FREE_PROJECT_LIMIT = 3;
@@ -172,9 +172,12 @@ export default function Index() {
     await loadJoinedProjectsData();
   };
 
+  // Total quota counts owned + joined projects (joined projects also occupy a slot per spec)
+  const totalProjectCount = projects.length + cachedJoined.length;
+
   const handleCreateProjectClick = () => {
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
-    if (projects.length >= limit) {
+    if (totalProjectCount >= limit) {
       setUpgradeDialogType("project");
       setUpgradeDialogOpen(true);
       return;
@@ -184,7 +187,7 @@ export default function Index() {
 
   const handleCreateProject = async (data: ProjectFormData, coverFile?: File) => {
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
-    if (projects.length >= limit) {
+    if (totalProjectCount >= limit) {
       setUpgradeDialogType("project");
       setUpgradeDialogOpen(true);
       return;
@@ -267,10 +270,22 @@ export default function Index() {
 
   const handleDeleteProject = async () => {
     if (!deletingProject) return;
-    
+
     try {
-      await deleteProject(deletingProject.id);
-      toast.success(t("projectDeleted"));
+      if (deletingProject.isJoined) {
+        // Non-owner: only remove the current user from collaborators.
+        // The underlying project remains intact for the owner and other collaborators.
+        const result = await leaveSharedProject(deletingProject.id);
+        if (!result.success) {
+          toast.error(result.error || t("saveFailed"));
+          return;
+        }
+        toast.success(t("leftSharedProject"));
+      } else {
+        // Owner: real delete — RLS ensures only the owner can perform this.
+        await deleteProject(deletingProject.id);
+        toast.success(t("projectDeleted"));
+      }
       setDeletingProject(null);
       setDeleteDialogOpen(false);
       refreshProjects();
@@ -283,7 +298,7 @@ export default function Index() {
   const handleDuplicateProject = async (project: TravelProject) => {
     // Same limit as creating a new project: free=3, pro=20
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
-    if (projects.length >= limit) {
+    if (totalProjectCount >= limit) {
       setUpgradeDialogType("project");
       setUpgradeDialogOpen(true);
       return;
@@ -488,7 +503,16 @@ export default function Index() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {cachedJoined.map((project) => (
-                    <div key={project.id}>
+                    <div
+                      key={project.id}
+                      onTouchStart={() => handleTouchStart(project)}
+                      onTouchEnd={handleTouchEnd}
+                      onTouchMove={handleTouchMove}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setActionSheetProject(project);
+                      }}
+                    >
                       <ProjectCard
                         project={project}
                         onClick={handleProjectClick}
@@ -551,6 +575,7 @@ export default function Index() {
         onOpenChange={setDeleteDialogOpen}
         project={deletingProject}
         onConfirm={handleDeleteProject}
+        leaveMode={!!deletingProject?.isJoined}
       />
 
       <ShareDialog
