@@ -73,6 +73,11 @@ export default function Index() {
   // Guard against rapid double-tap navigating twice
   const navigatingRef = useRef(false);
 
+  // Whenever Index mounts (e.g. after returning from detail), allow navigation again.
+  useEffect(() => {
+    navigatingRef.current = false;
+  }, []);
+
   // SWR pattern: show cache instantly, revalidate in background only when stale
   useEffect(() => {
     if (authLoading) return;
