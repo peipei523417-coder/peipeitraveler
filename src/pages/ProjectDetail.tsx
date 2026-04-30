@@ -309,11 +309,12 @@ export default function ProjectDetail() {
     // Optimistic UI: update icon immediately (only target item)
     setProject(prev => {
       if (!prev) return prev;
+      const baseIt = Array.isArray(prev.itinerary) ? prev.itinerary : [];
       return {
         ...prev,
-        itinerary: prev.itinerary.map(day => ({
+        itinerary: baseIt.map(day => ({
           ...day,
-          items: day.items.map(i =>
+          items: (Array.isArray(day?.items) ? day.items : []).map(i =>
             i.id === itemId ? { ...i, iconType } : i
           ),
         })),
