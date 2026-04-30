@@ -503,7 +503,16 @@ export default function Index() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {cachedJoined.map((project) => (
-                    <div key={project.id}>
+                    <div
+                      key={project.id}
+                      onTouchStart={() => handleTouchStart(project)}
+                      onTouchEnd={handleTouchEnd}
+                      onTouchMove={handleTouchMove}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setActionSheetProject(project);
+                      }}
+                    >
                       <ProjectCard
                         project={project}
                         onClick={handleProjectClick}
