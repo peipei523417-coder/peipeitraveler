@@ -270,10 +270,22 @@ export default function Index() {
 
   const handleDeleteProject = async () => {
     if (!deletingProject) return;
-    
+
     try {
-      await deleteProject(deletingProject.id);
-      toast.success(t("projectDeleted"));
+      if (deletingProject.isJoined) {
+        // Non-owner: only remove the current user from collaborators.
+        // The underlying project remains intact for the owner and other collaborators.
+        const result = await leaveSharedProject(deletingProject.id);
+        if (!result.success) {
+          toast.error(result.error || t("saveFailed"));
+          return;
+        }
+        toast.success(t("leftSharedProject"));
+      } else {
+        // Owner: real delete — RLS ensures only the owner can perform this.
+        await deleteProject(deletingProject.id);
+        toast.success(t("projectDeleted"));
+      }
       setDeletingProject(null);
       setDeleteDialogOpen(false);
       refreshProjects();
