@@ -8,6 +8,8 @@ export interface TravelProject {
   updatedAt: Date;
   itinerary: DayItinerary[];
   isPublic?: boolean;
+  /** True when this project belongs to another user and the current user joined as collaborator. */
+  isJoined?: boolean;
 }
 
 export interface DayItinerary {
