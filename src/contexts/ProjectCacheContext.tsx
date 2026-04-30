@@ -98,7 +98,14 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
         updated[idx] = project;
         return updated;
       }
-      return [...prev, project];
+      return prev;
+    });
+    setJoinedProjectsState(prev => {
+      const idx = prev.findIndex(p => p.id === project.id);
+      if (idx < 0) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...project, isJoined: true };
+      return updated;
     });
     setProjectCache(prev => new Map(prev).set(project.id, project));
   }, []);
