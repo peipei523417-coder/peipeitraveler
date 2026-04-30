@@ -380,7 +380,7 @@ export default function ProjectDetail() {
 
       {/* Day Tabs */}
       <DayTabs
-        itinerary={project.itinerary}
+        itinerary={itinerary}
         activeDay={activeDay}
         onDayChange={setActiveDay}
       />
