@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
-const STORAGE_KEY = "hasSeenFirstInstallOnboarding";
+const STORAGE_KEY = "hasSeenFirstInstallOnboarding_v2";
 const IMAGES = [
-  "/assets/onboarding/P001.jpg",
-  "/assets/onboarding/P002.jpg",
-  "/assets/onboarding/P003.jpg",
-  "/assets/onboarding/P004.jpg",
+  "/assets/onboarding/PP001.jpg",
+  "/assets/onboarding/PP002.jpg",
+  "/assets/onboarding/PP003.jpg",
+  "/assets/onboarding/PP004.jpg",
+  "/assets/onboarding/PP005.jpg",
 ];
 
 /**
