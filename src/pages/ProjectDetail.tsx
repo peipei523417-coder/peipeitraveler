@@ -411,7 +411,17 @@ function ProjectDetailInner() {
                     {project.name}
                   </h1>
                   <p className="text-xs text-muted-foreground">
-                    {formatShortDate(project.startDate, i18n.language)} - {formatShortDate(project.endDate, i18n.language)}
+                    {(() => {
+                      const sd = safeDate(project.startDate);
+                      const ed = safeDate(project.endDate);
+                      if (!sd || !ed) return "";
+                      try {
+                        return `${formatShortDate(sd, i18n.language)} - ${formatShortDate(ed, i18n.language)}`;
+                      } catch (e) {
+                        console.error("[ProjectDetail] date format error", e);
+                        return "";
+                      }
+                    })()}
                   </p>
                   {totalBudget > 0 && (
                     <p className="text-sm font-bold text-primary">
