@@ -286,7 +286,7 @@ export default function Index() {
   const handleDuplicateProject = async (project: TravelProject) => {
     // Same limit as creating a new project: free=3, pro=20
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
-    if (projects.length >= limit) {
+    if (totalProjectCount >= limit) {
       setUpgradeDialogType("project");
       setUpgradeDialogOpen(true);
       return;
