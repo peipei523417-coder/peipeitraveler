@@ -294,7 +294,9 @@ export default function ProjectDetail() {
 
   if (!project) return null;
 
-  const currentDay = project.itinerary.find((d) => d.dayNumber === activeDay);
+  // Defensive: itinerary could be empty/undefined for malformed data — never crash.
+  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
+  const currentDay = itinerary.find((d) => d?.dayNumber === activeDay);
   
   // Get suggested start time based on last item's end time
   const getNextSuggestedTime = (): string | undefined => {
