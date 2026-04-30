@@ -71,30 +71,37 @@ export default function Index() {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggeredRef = useRef(false);
 
-  // SWR pattern: show cache instantly, revalidate in background
+  // SWR pattern: show cache instantly, revalidate in background only when stale
   useEffect(() => {
+    if (authLoading) return;
+
     if (isLoaded) {
       setProjects(cachedProjects);
       setLoading(false);
-      
-      if (!authLoading) {
-        loadProjects().then(fresh => {
-          setProjects(fresh);
-        }).catch(() => {});
-        // Load joined projects
-        loadJoinedProjectsData();
-      }
-    } else if (!authLoading) {
-      loadProjectsFromCache();
     }
+
+    // loadProjects() internally skips fetch if cached & fresh (<60s)
+    loadProjects().then(fresh => {
+      setProjects(fresh);
+      setLoading(false);
+    }).catch(() => {
+      setLoading(false);
+    });
+
+    // Joined projects: only fetch if not fresh
+    if (!isJoinedFresh()) {
+      loadJoinedProjectsData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isLoaded]);
 
   const loadJoinedProjectsData = async () => {
     try {
       const joined = await getJoinedProjects();
-      // Exclude any project the user already owns (avoid duplicate in lobby)
-      const ownedIds = new Set(projects.map(p => p.id));
-      setJoinedProjects((joined as TravelProject[]).filter(p => !ownedIds.has(p.id)));
+      const ownedIds = new Set(cachedProjects.map(p => p.id));
+      const filtered = (joined as TravelProject[]).filter(p => !ownedIds.has(p.id));
+      setJoinedProjects(filtered);
+      markJoinedFetched();
     } catch {
       // Silently fail
     }
