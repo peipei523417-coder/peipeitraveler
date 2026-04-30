@@ -40,10 +40,19 @@ export default function Index() {
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { isPro, toggleProStatus } = usePro();
-  const { projects: cachedProjects, isLoaded, loadProjects, invalidateCache } = useProjectCache();
+  const {
+    projects: cachedProjects,
+    isLoaded,
+    loadProjects,
+    invalidateCache,
+    joinedProjects: cachedJoined,
+    isJoinedLoaded,
+    setJoinedProjects,
+    isJoinedFresh,
+    markJoinedFetched,
+  } = useProjectCache();
   
-  const [projects, setProjects] = useState<TravelProject[]>([]);
-  const [joinedProjects, setJoinedProjects] = useState<TravelProject[]>([]);
+  const [projects, setProjects] = useState<TravelProject[]>(cachedProjects);
   const [loading, setLoading] = useState(!isLoaded);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
