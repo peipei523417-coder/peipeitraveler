@@ -15,6 +15,7 @@ interface ProjectCacheContextType {
   joinedProjects: TravelProject[];
   isJoinedLoaded: boolean;
   setJoinedProjects: (projects: TravelProject[]) => void;
+  removeJoinedProjectFromCache: (id: string) => void;
   isJoinedFresh: () => boolean;
   markJoinedFetched: () => void;
 }
@@ -97,7 +98,14 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
         updated[idx] = project;
         return updated;
       }
-      return [...prev, project];
+      return prev;
+    });
+    setJoinedProjectsState(prev => {
+      const idx = prev.findIndex(p => p.id === project.id);
+      if (idx < 0) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...project, isJoined: true };
+      return updated;
     });
     setProjectCache(prev => new Map(prev).set(project.id, project));
   }, []);
@@ -113,7 +121,21 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
 
   const setJoinedProjects = useCallback((list: TravelProject[]) => {
     setJoinedProjectsState(list);
+    setProjectCache(prev => {
+      const next = new Map(prev);
+      list.forEach(project => next.set(project.id, project));
+      return next;
+    });
     setIsJoinedLoaded(true);
+  }, []);
+
+  const removeJoinedProjectFromCache = useCallback((id: string) => {
+    setJoinedProjectsState(prev => prev.filter(project => project.id !== id));
+    setProjectCache(prev => {
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
   }, []);
 
   const isJoinedFresh = useCallback(() => {
@@ -136,6 +158,7 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
       joinedProjects,
       isJoinedLoaded,
       setJoinedProjects,
+      removeJoinedProjectFromCache,
       isJoinedFresh,
       markJoinedFetched,
     }}>

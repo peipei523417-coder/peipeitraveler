@@ -23,12 +23,14 @@ import { useSignedImageUrl } from "@/hooks/useSignedImageUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 import { TripOverviewDialog } from "@/components/TripOverviewDialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { getProject: getCachedProject, updateProjectInCache } = useProjectCache();
+  const { user, loading: authLoading } = useAuth();
   
   const [project, setProject] = useState<TravelProject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,13 +57,22 @@ export default function ProjectDetail() {
   const signedCoverImage = useSignedImageUrl(project?.coverImageUrl);
 
   useEffect(() => {
+    if (import.meta.env.DEV) console.log("[ProjectDetail] route id", { id, authLoading, userId: user?.id ?? null });
     if (!id) {
-      console.warn("[ProjectDetail] no id in route, returning to lobby");
+      console.warn("[ProjectDetail] redirect reason", { reason: "missingRouteId" });
       navigate("/");
       return;
     }
-    if (import.meta.env.DEV) {
-      console.log("[ProjectDetail] mount with id:", id);
+    if (authLoading) {
+      setLoading(true);
+      if (import.meta.env.DEV) console.log("[ProjectDetail] authLoading", { id, authLoading: true });
+      return;
+    }
+    if (!user) {
+      setLoading(false);
+      console.warn("[ProjectDetail] redirect reason", { reason: "noAuthenticatedUser", id });
+      navigate("/");
+      return;
     }
 
     loadProject(true); // Initial load
@@ -90,10 +101,11 @@ export default function ProjectDetail() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, authLoading, user?.id]);
 
   const loadProject = async (isInitialLoad: boolean) => {
     if (!id) return;
+    if (import.meta.env.DEV) console.log("[ProjectDetail] project fetch start", { id, isInitialLoad });
     
     // For initial load, try cache first for instant display
     let hasCachedData = false;
@@ -104,6 +116,7 @@ export default function ProjectDetail() {
           setProject(cached);
           setLoading(false);
           hasCachedData = true;
+          if (import.meta.env.DEV) console.log("[ProjectDetail] cache hit", { id });
         }
       } catch (e) {
         console.error("[ProjectDetail] cache error:", e);
@@ -115,19 +128,25 @@ export default function ProjectDetail() {
     try {
       loaded = await getProject(id);
     } catch (e) {
-      console.error("[ProjectDetail] getProject error:", e);
+      console.error("[ProjectDetail] project fetch fail", { id, error: e });
     }
     
     if (!loaded) {
       // Always release the spinner so the user isn't stuck
       setLoading(false);
+      if (import.meta.env.DEV) console.warn("[ProjectDetail] permission check result", { id, allowed: false, hasCachedData });
       if (isInitialLoad && !hasCachedData) {
         toast.error(t("error"));
+        console.warn("[ProjectDetail] redirect reason", { reason: "fetchReturnedNoProject", id });
         navigate("/");
       }
       return;
     }
     
+    if (import.meta.env.DEV) {
+      console.log("[ProjectDetail] project fetch success", { id: loaded.id, joined: !!loaded.isJoined });
+      console.log("[ProjectDetail] permission check result", { id: loaded.id, allowed: true });
+    }
     setProject(loaded);
     updateProjectInCache(loaded);
     setLoading(false);

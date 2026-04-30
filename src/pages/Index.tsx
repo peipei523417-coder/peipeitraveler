@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { TravelProject, ProjectFormData } from "@/types/travel";
 import {
@@ -37,6 +37,7 @@ const PRO_DAY_LIMIT = 20;
 
 export default function Index() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { isPro, toggleProStatus } = usePro();
@@ -48,6 +49,7 @@ export default function Index() {
     joinedProjects: cachedJoined,
     isJoinedLoaded,
     setJoinedProjects,
+    removeJoinedProjectFromCache,
     isJoinedFresh,
     markJoinedFetched,
   } = useProjectCache();
@@ -64,6 +66,7 @@ export default function Index() {
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
   const [expiryDaysRemaining, setExpiryDaysRemaining] = useState(0);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
   const expiryCheckedRef = useRef(false);
   
   // Long-press state for mobile
@@ -76,7 +79,13 @@ export default function Index() {
   // Whenever Index mounts (e.g. after returning from detail), allow navigation again.
   useEffect(() => {
     navigatingRef.current = false;
+    if (import.meta.env.DEV) console.log("[Index] navigatingRef reset", { reason: "mount" });
   }, []);
+
+  useEffect(() => {
+    navigatingRef.current = false;
+    if (import.meta.env.DEV) console.log("[Index] navigatingRef reset", { reason: "route", path: location.pathname });
+  }, [location.pathname]);
 
   // SWR pattern: show cache instantly, revalidate in background only when stale
   useEffect(() => {
@@ -276,29 +285,42 @@ export default function Index() {
   };
 
   const handleDeleteProject = async () => {
-    if (!deletingProject) return;
+    if (!deletingProject?.id || deleteInProgress) return;
 
+    const projectId = deletingProject.id;
+    setDeleteInProgress(true);
     try {
       if (deletingProject.isJoined) {
+        if (import.meta.env.DEV) console.log("[Leave Shared] UI confirm", { projectId });
         // Non-owner: only remove the current user from collaborators.
         // The underlying project remains intact for the owner and other collaborators.
-        const result = await leaveSharedProject(deletingProject.id);
+        const result = await leaveSharedProject(projectId);
         if (!result.success) {
+          if (import.meta.env.DEV) console.warn("[Leave Shared] UI fail", { projectId, error: result.error });
           toast.error(result.error || t("saveFailed"));
           return;
         }
+        setJoinedProjects(cachedJoined.filter(project => project.id !== projectId));
+        removeJoinedProjectFromCache(projectId);
+        if (import.meta.env.DEV) console.log("[Leave Shared] UI remove projectId", { projectId });
         toast.success(t("leftSharedProject"));
       } else {
         // Owner: real delete — RLS ensures only the owner can perform this.
-        await deleteProject(deletingProject.id);
+        const deleted = await deleteProject(projectId);
+        if (!deleted) {
+          toast.error(t("saveFailed"));
+          return;
+        }
         toast.success(t("projectDeleted"));
       }
       setDeletingProject(null);
       setDeleteDialogOpen(false);
-      refreshProjects();
+      if (!deletingProject.isJoined) refreshProjects();
     } catch (error) {
       console.error("Error deleting project:", error);
       toast.error(t("saveFailed"));
+    } finally {
+      setDeleteInProgress(false);
     }
   };
 
@@ -330,30 +352,37 @@ export default function Index() {
   };
 
   const handleProjectClick = (project: TravelProject) => {
+    if (import.meta.env.DEV) console.log("[Index] click projectId", { projectId: project?.id, joined: !!project?.isJoined });
     // If long-press already opened the action sheet, swallow the click but RESET the flag
     // immediately so the next tap works on the first try.
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
+      if (import.meta.env.DEV) console.log("[Index] navigate ignored reason", { reason: "longPressTriggered", projectId: project?.id });
       return;
     }
     // Guard against missing id and rapid double-tap.
     if (!project?.id) {
       console.warn("[Index] click ignored: missing project id");
+      if (import.meta.env.DEV) console.log("[Index] navigate ignored reason", { reason: "missingProjectId" });
       return;
     }
     if (navigatingRef.current) {
+      if (import.meta.env.DEV) console.log("[Index] navigate ignored reason", { reason: "alreadyNavigating", projectId: project.id });
       return;
     }
     navigatingRef.current = true;
     if (import.meta.env.DEV) {
-      console.log("[Index] navigate ->", `/project/${project.id}`, {
+      console.log("[Index] navigate start", `/project/${project.id}`, {
         type: project.isJoined ? "shared" : "owned",
         userId: user?.id ?? null,
       });
     }
     navigate(`/project/${project.id}`);
     // Re-allow navigation shortly after — covers cases where navigation is cancelled.
-    setTimeout(() => { navigatingRef.current = false; }, 800);
+    setTimeout(() => {
+      navigatingRef.current = false;
+      if (import.meta.env.DEV) console.log("[Index] navigatingRef reset", { reason: "timeout", projectId: project.id });
+    }, 800);
   };
 
   // Long-press handlers for mobile
@@ -378,6 +407,14 @@ export default function Index() {
   }, []);
 
   const handleTouchMove = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressTriggeredRef.current = false;
+  }, []);
+
+  const handleTouchCancel = useCallback(() => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
@@ -497,6 +534,7 @@ export default function Index() {
                   key={project.id}
                   onTouchStart={() => handleTouchStart(project)}
                   onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchCancel}
                   onTouchMove={handleTouchMove}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -536,6 +574,7 @@ export default function Index() {
                       key={project.id}
                       onTouchStart={() => handleTouchStart(project)}
                       onTouchEnd={handleTouchEnd}
+                      onTouchCancel={handleTouchCancel}
                       onTouchMove={handleTouchMove}
                       onContextMenu={(e) => {
                         e.preventDefault();
@@ -601,10 +640,14 @@ export default function Index() {
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (deleteInProgress) return;
+          setDeleteDialogOpen(open);
+        }}
         project={deletingProject}
         onConfirm={handleDeleteProject}
         leaveMode={!!deletingProject?.isJoined}
+        loading={deleteInProgress}
       />
 
       <ShareDialog

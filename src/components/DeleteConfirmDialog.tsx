@@ -10,15 +10,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Trash2, LogOut } from "lucide-react";
+import { Loader2, Trash2, LogOut } from "lucide-react";
 
 interface DeleteConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   project: TravelProject | null;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   /** When true, this dialog is for a non-owner leaving a shared project (no real delete). */
   leaveMode?: boolean;
+  loading?: boolean;
 }
 
 export function DeleteConfirmDialog({
@@ -27,6 +28,7 @@ export function DeleteConfirmDialog({
   project,
   onConfirm,
   leaveMode = false,
+  loading = false,
 }: DeleteConfirmDialogProps) {
   const { t } = useTranslation();
 
@@ -36,7 +38,7 @@ export function DeleteConfirmDialog({
   const actionLabel = leaveMode ? t("leaveShared") : t("delete");
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={loading ? () => {} : onOpenChange}>
       <AlertDialogContent className="rounded-2xl">
         <AlertDialogHeader>
           <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
@@ -48,11 +50,16 @@ export function DeleteConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2 sm:gap-2">
-          <AlertDialogCancel className="rounded-xl">{t("cancel")}</AlertDialogCancel>
+          <AlertDialogCancel className="rounded-xl" disabled={loading}>{t("cancel")}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={(event) => {
+              event.preventDefault();
+              if (!loading) void onConfirm();
+            }}
+            disabled={loading}
             className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
+            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             {actionLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
