@@ -69,10 +69,23 @@ export default function ProjectDetail() {
       return;
     }
     if (!user) {
-      setLoading(false);
-      console.warn("[ProjectDetail] redirect reason", { reason: "noAuthenticatedUser", id });
-      navigate("/");
-      return;
+      // Don't redirect immediately — auth state may still be settling after a hot reload
+      // or navigation transition. Give it a brief grace period before bouncing.
+      if (import.meta.env.DEV) console.warn("[ProjectDetail] no user yet — waiting grace period", { id });
+      setLoading(true);
+      const t = setTimeout(() => {
+        // Re-check via supabase directly to avoid stale closure
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (!session?.user) {
+            console.warn("[ProjectDetail] redirect reason", { reason: "noAuthenticatedUserAfterGrace", id });
+            navigate("/");
+          }
+        }).catch(() => {
+          console.warn("[ProjectDetail] redirect reason", { reason: "getSessionFailed", id });
+          navigate("/");
+        });
+      }, 800);
+      return () => clearTimeout(t);
     }
 
     loadProject(true); // Initial load
