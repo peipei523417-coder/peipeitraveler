@@ -39,8 +39,6 @@ function safeDate(value: unknown): Date | null {
 }
 
 function ProjectDetailInner() {
-
-export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
