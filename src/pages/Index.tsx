@@ -474,7 +474,7 @@ export default function Index() {
             </div>
 
             {/* Joined Projects Section */}
-            {joinedProjects.length > 0 && (
+            {cachedJoined.length > 0 && (
               <>
                 <div className="flex items-center gap-3 mt-12 mb-8">
                   <Users className="w-5 h-5 text-primary" />
@@ -482,11 +482,11 @@ export default function Index() {
                     {t("sharedWithMe")}
                   </h2>
                   <span className="text-sm text-muted-foreground font-normal">
-                    ({joinedProjects.length})
+                    ({cachedJoined.length})
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {joinedProjects.map((project) => (
+                  {cachedJoined.map((project) => (
                     <div key={project.id}>
                       <ProjectCard
                         project={project}
