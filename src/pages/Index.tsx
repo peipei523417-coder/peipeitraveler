@@ -534,6 +534,7 @@ export default function Index() {
                   key={project.id}
                   onTouchStart={() => handleTouchStart(project)}
                   onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchCancel}
                   onTouchMove={handleTouchMove}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -573,6 +574,7 @@ export default function Index() {
                       key={project.id}
                       onTouchStart={() => handleTouchStart(project)}
                       onTouchEnd={handleTouchEnd}
+                      onTouchCancel={handleTouchCancel}
                       onTouchMove={handleTouchMove}
                       onContextMenu={(e) => {
                         e.preventDefault();
@@ -638,10 +640,14 @@ export default function Index() {
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (deleteInProgress) return;
+          setDeleteDialogOpen(open);
+        }}
         project={deletingProject}
         onConfirm={handleDeleteProject}
         leaveMode={!!deletingProject?.isJoined}
+        loading={deleteInProgress}
       />
 
       <ShareDialog
