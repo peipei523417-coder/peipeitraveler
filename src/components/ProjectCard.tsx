@@ -78,7 +78,12 @@ export function ProjectCard({
             alt={project.name}
             loading="lazy"
             decoding="async"
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={(e) => {
+              // Hide broken image so the fallback gradient + icon show through;
+              // never let a broken URL crash the card.
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
