@@ -24,8 +24,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 import { TripOverviewDialog } from "@/components/TripOverviewDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { ProjectErrorBoundary } from "@/components/ProjectErrorBoundary";
 
-export default function ProjectDetail() {
+/** Safely coerce a possibly-string/Date/undefined into a Date for formatting. */
+function safeDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+  try {
+    const d = new Date(value as string);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
+function ProjectDetailInner() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
@@ -69,10 +82,23 @@ export default function ProjectDetail() {
       return;
     }
     if (!user) {
-      setLoading(false);
-      console.warn("[ProjectDetail] redirect reason", { reason: "noAuthenticatedUser", id });
-      navigate("/");
-      return;
+      // Don't redirect immediately — auth state may still be settling after a hot reload
+      // or navigation transition. Give it a brief grace period before bouncing.
+      if (import.meta.env.DEV) console.warn("[ProjectDetail] no user yet — waiting grace period", { id });
+      setLoading(true);
+      const t = setTimeout(() => {
+        // Re-check via supabase directly to avoid stale closure
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (!session?.user) {
+            console.warn("[ProjectDetail] redirect reason", { reason: "noAuthenticatedUserAfterGrace", id });
+            navigate("/");
+          }
+        }).catch(() => {
+          console.warn("[ProjectDetail] redirect reason", { reason: "getSessionFailed", id });
+          navigate("/");
+        });
+      }, 800);
+      return () => clearTimeout(t);
     }
 
     loadProject(true); // Initial load
@@ -124,17 +150,28 @@ export default function ProjectDetail() {
     }
     
     // Fetch fresh data (but don't clear existing state during fetch)
+    // Retry once on undefined to survive transient RLS/network races on shared projects.
     let loaded: TravelProject | undefined;
-    try {
-      loaded = await getProject(id);
-    } catch (e) {
-      console.error("[ProjectDetail] project fetch fail", { id, error: e });
+    let fetchError: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        loaded = await getProject(id);
+        if (loaded) break;
+      } catch (e) {
+        fetchError = e;
+        console.error("[ProjectDetail] project fetch fail", { id, attempt, error: e });
+      }
+      if (attempt === 0 && !loaded) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
     }
-    
+
     if (!loaded) {
       // Always release the spinner so the user isn't stuck
       setLoading(false);
-      if (import.meta.env.DEV) console.warn("[ProjectDetail] permission check result", { id, allowed: false, hasCachedData });
+      if (import.meta.env.DEV) console.warn("[ProjectDetail] permission check result", { id, allowed: false, hasCachedData, fetchError });
+      // Only redirect if this is the very first load AND we have nothing to show.
+      // Transient undefined on a refresh should NOT eject the user.
       if (isInitialLoad && !hasCachedData) {
         toast.error(t("error"));
         console.warn("[ProjectDetail] redirect reason", { reason: "fetchReturnedNoProject", id });
@@ -183,11 +220,12 @@ export default function ProjectDetail() {
     // Optimistic UI: add item to state immediately with a temp ID
     const tempId = `temp-${Date.now()}`;
     const optimisticItem: ItineraryItem = { ...finalItem, id: tempId } as ItineraryItem;
+    const baseItinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
     const optimisticProject = {
       ...project,
-      itinerary: project.itinerary.map(day =>
-        day.dayNumber === activeDay
-          ? { ...day, items: [...day.items, optimisticItem] }
+      itinerary: baseItinerary.map(day =>
+        day?.dayNumber === activeDay
+          ? { ...day, items: [...(Array.isArray(day?.items) ? day.items : []), optimisticItem] }
           : day
       ),
     };
@@ -223,11 +261,12 @@ export default function ProjectDetail() {
     }
     
     // Optimistic UI: update item in state immediately
+    const baseItineraryEdit = Array.isArray(project.itinerary) ? project.itinerary : [];
     const optimisticProject = {
       ...project,
-      itinerary: project.itinerary.map(day => ({
+      itinerary: baseItineraryEdit.map(day => ({
         ...day,
-        items: day.items.map(i =>
+        items: (Array.isArray(day?.items) ? day.items : []).map(i =>
           i.id === editingItem.id ? { ...i, ...finalItem } : i
         ),
       })),
@@ -252,11 +291,12 @@ export default function ProjectDetail() {
     isLocalUpdateRef.current = true;
     
     // Optimistic UI: remove item from state immediately
+    const baseItineraryDel = Array.isArray(project.itinerary) ? project.itinerary : [];
     const optimisticProject = {
       ...project,
-      itinerary: project.itinerary.map(day => ({
+      itinerary: baseItineraryDel.map(day => ({
         ...day,
-        items: day.items.filter(i => i.id !== itemId),
+        items: (Array.isArray(day?.items) ? day.items : []).filter(i => i.id !== itemId),
       })),
     };
     setProject(optimisticProject);
@@ -282,11 +322,12 @@ export default function ProjectDetail() {
     // Optimistic UI: update icon immediately (only target item)
     setProject(prev => {
       if (!prev) return prev;
+      const baseIt = Array.isArray(prev.itinerary) ? prev.itinerary : [];
       return {
         ...prev,
-        itinerary: prev.itinerary.map(day => ({
+        itinerary: baseIt.map(day => ({
           ...day,
-          items: day.items.map(i =>
+          items: (Array.isArray(day?.items) ? day.items : []).map(i =>
             i.id === itemId ? { ...i, iconType } : i
           ),
         })),
@@ -323,8 +364,9 @@ export default function ProjectDetail() {
   
   // Get suggested start time based on last item's end time
   const getNextSuggestedTime = (): string | undefined => {
-    if (!currentDay || currentDay.items.length === 0) return undefined;
-    const itemsWithTime = currentDay.items.filter(item => item.endTime);
+    const items = Array.isArray(currentDay?.items) ? currentDay!.items : [];
+    if (items.length === 0) return undefined;
+    const itemsWithTime = items.filter(item => item?.endTime);
     if (itemsWithTime.length === 0) return undefined;
     
     const lastItem = itemsWithTime[itemsWithTime.length - 1];
@@ -370,7 +412,17 @@ export default function ProjectDetail() {
                     {project.name}
                   </h1>
                   <p className="text-xs text-muted-foreground">
-                    {formatShortDate(project.startDate, i18n.language)} - {formatShortDate(project.endDate, i18n.language)}
+                    {(() => {
+                      const sd = safeDate(project.startDate);
+                      const ed = safeDate(project.endDate);
+                      if (!sd || !ed) return "";
+                      try {
+                        return `${formatShortDate(sd, i18n.language)} - ${formatShortDate(ed, i18n.language)}`;
+                      } catch (e) {
+                        console.error("[ProjectDetail] date format error", e);
+                        return "";
+                      }
+                    })()}
                   </p>
                   {totalBudget > 0 && (
                     <p className="text-sm font-bold text-primary">
@@ -453,5 +505,13 @@ export default function ProjectDetail() {
         project={project}
       />
     </div>
+  );
+}
+
+export default function ProjectDetail() {
+  return (
+    <ProjectErrorBoundary>
+      <ProjectDetailInner />
+    </ProjectErrorBoundary>
   );
 }
