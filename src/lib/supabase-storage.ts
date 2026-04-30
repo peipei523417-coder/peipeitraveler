@@ -286,17 +286,117 @@ export async function updateProjectSharing(
   return getProject(id);
 }
 
+/**
+ * Owner-only cascade delete.
+ *
+ * IMPORTANT: This is the OWNER delete path. Collaborators must NOT call this —
+ * they should use `leaveSharedProject()` (which only removes their own
+ * collaborator row and never touches the project body or storage).
+ *
+ * Cleanup order (best-effort, scoped strictly to a single projectId):
+ *   1. Verify the current user is the project owner
+ *   2. Delete itinerary_items where project_id = projectId
+ *   3. Delete project_collaborators where project_id = projectId
+ *   4. Delete share_links where project_id = projectId
+ *   5. Delete password_attempts where project_id = projectId
+ *   6. Delete storage files under project-images/{projectId}/...
+ *   7. Delete travel_projects WHERE id = projectId AND user_id = currentUser.id
+ *
+ * Failures in steps 2–6 are logged but do not abort the flow — RLS keeps
+ * any orphans invisible, and the cron cleanup acts as a safety net.
+ */
 export async function deleteProject(id: string): Promise<boolean> {
-  const { error } = await supabase
-    .from("travel_projects")
-    .delete()
-    .eq("id", id);
-  
-  if (error) {
-    console.error("Error deleting project:", error);
+  if (!id) {
+    console.error("[deleteProject] missing project id");
     return false;
   }
-  
+
+  // 1. Verify ownership before any destructive action.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.error("[deleteProject] not authenticated");
+    return false;
+  }
+
+  const { data: ownerRow, error: ownerErr } = await supabase
+    .from("travel_projects")
+    .select("id, user_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (ownerErr) {
+    console.error("[deleteProject] owner check failed:", ownerErr);
+    return false;
+  }
+  if (!ownerRow) {
+    console.error("[deleteProject] project not found or not visible:", id);
+    return false;
+  }
+  if (ownerRow.user_id !== user.id) {
+    console.error("[deleteProject] refused — current user is not the owner. Use leaveSharedProject for shared projects.");
+    return false;
+  }
+
+  // 2. itinerary_items
+  const { error: itemsErr } = await supabase
+    .from("itinerary_items")
+    .delete()
+    .eq("project_id", id);
+  if (itemsErr) console.error("[deleteProject] itinerary_items cleanup failed:", itemsErr);
+
+  // 3. project_collaborators
+  const { error: collabErr } = await supabase
+    .from("project_collaborators")
+    .delete()
+    .eq("project_id", id);
+  if (collabErr) console.error("[deleteProject] project_collaborators cleanup failed:", collabErr);
+
+  // 4. share_links
+  const { error: shareErr } = await supabase
+    .from("share_links")
+    .delete()
+    .eq("project_id", id);
+  if (shareErr) console.error("[deleteProject] share_links cleanup failed:", shareErr);
+
+  // 5. password_attempts (RLS denies SELECT but owner deletes are allowed via service paths;
+  //    if RLS blocks, we just log and continue — orphaned rows are harmless and small).
+  const { error: paErr } = await supabase
+    .from("password_attempts")
+    .delete()
+    .eq("project_id", id);
+  if (paErr) console.warn("[deleteProject] password_attempts cleanup skipped:", paErr.message);
+
+  // 6. Storage — strictly scoped to project-images/{id}/ prefix.
+  try {
+    const { data: files, error: listErr } = await supabase.storage
+      .from("project-images")
+      .list(id);
+    if (listErr) {
+      console.error("[deleteProject] storage list failed:", listErr);
+    } else if (files && files.length > 0) {
+      const paths = files.map(f => `${id}/${f.name}`);
+      const { error: rmErr } = await supabase.storage
+        .from("project-images")
+        .remove(paths);
+      if (rmErr) console.error("[deleteProject] storage remove failed:", rmErr);
+    }
+  } catch (e) {
+    // Never crash the app on storage errors — DB cleanup must still finish.
+    console.error("[deleteProject] storage cleanup unexpected error:", e);
+  }
+
+  // 7. Finally delete the project itself, double-guarded by user_id.
+  const { error: projErr } = await supabase
+    .from("travel_projects")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (projErr) {
+    console.error("[deleteProject] travel_projects delete failed:", projErr);
+    return false;
+  }
+
   return true;
 }
 
