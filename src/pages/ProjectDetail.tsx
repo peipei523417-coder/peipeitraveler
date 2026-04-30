@@ -496,3 +496,11 @@ function ProjectDetailInner() {
     </div>
   );
 }
+
+export default function ProjectDetail() {
+  return (
+    <ProjectErrorBoundary>
+      <ProjectDetailInner />
+    </ProjectErrorBoundary>
+  );
+}
