@@ -40,10 +40,19 @@ export default function Index() {
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { isPro, toggleProStatus } = usePro();
-  const { projects: cachedProjects, isLoaded, loadProjects, invalidateCache } = useProjectCache();
+  const {
+    projects: cachedProjects,
+    isLoaded,
+    loadProjects,
+    invalidateCache,
+    joinedProjects: cachedJoined,
+    isJoinedLoaded,
+    setJoinedProjects,
+    isJoinedFresh,
+    markJoinedFetched,
+  } = useProjectCache();
   
-  const [projects, setProjects] = useState<TravelProject[]>([]);
-  const [joinedProjects, setJoinedProjects] = useState<TravelProject[]>([]);
+  const [projects, setProjects] = useState<TravelProject[]>(cachedProjects);
   const [loading, setLoading] = useState(!isLoaded);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -62,30 +71,37 @@ export default function Index() {
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggeredRef = useRef(false);
 
-  // SWR pattern: show cache instantly, revalidate in background
+  // SWR pattern: show cache instantly, revalidate in background only when stale
   useEffect(() => {
+    if (authLoading) return;
+
     if (isLoaded) {
       setProjects(cachedProjects);
       setLoading(false);
-      
-      if (!authLoading) {
-        loadProjects().then(fresh => {
-          setProjects(fresh);
-        }).catch(() => {});
-        // Load joined projects
-        loadJoinedProjectsData();
-      }
-    } else if (!authLoading) {
-      loadProjectsFromCache();
     }
+
+    // loadProjects() internally skips fetch if cached & fresh (<60s)
+    loadProjects().then(fresh => {
+      setProjects(fresh);
+      setLoading(false);
+    }).catch(() => {
+      setLoading(false);
+    });
+
+    // Joined projects: only fetch if not fresh
+    if (!isJoinedFresh()) {
+      loadJoinedProjectsData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isLoaded]);
 
   const loadJoinedProjectsData = async () => {
     try {
       const joined = await getJoinedProjects();
-      // Exclude any project the user already owns (avoid duplicate in lobby)
-      const ownedIds = new Set(projects.map(p => p.id));
-      setJoinedProjects((joined as TravelProject[]).filter(p => !ownedIds.has(p.id)));
+      const ownedIds = new Set(cachedProjects.map(p => p.id));
+      const filtered = (joined as TravelProject[]).filter(p => !ownedIds.has(p.id));
+      setJoinedProjects(filtered);
+      markJoinedFetched();
     } catch {
       // Silently fail
     }
@@ -153,6 +169,7 @@ export default function Index() {
   const refreshProjects = async () => {
     invalidateCache();
     await loadProjectsFromCache();
+    await loadJoinedProjectsData();
   };
 
   const handleCreateProjectClick = () => {
@@ -458,7 +475,7 @@ export default function Index() {
             </div>
 
             {/* Joined Projects Section */}
-            {joinedProjects.length > 0 && (
+            {cachedJoined.length > 0 && (
               <>
                 <div className="flex items-center gap-3 mt-12 mb-8">
                   <Users className="w-5 h-5 text-primary" />
@@ -466,11 +483,11 @@ export default function Index() {
                     {t("sharedWithMe")}
                   </h2>
                   <span className="text-sm text-muted-foreground font-normal">
-                    ({joinedProjects.length})
+                    ({cachedJoined.length})
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {joinedProjects.map((project) => (
+                  {cachedJoined.map((project) => (
                     <div key={project.id}>
                       <ProjectCard
                         project={project}

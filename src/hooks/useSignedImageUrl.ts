@@ -2,13 +2,46 @@ import { useState, useEffect } from 'react';
 import { getSignedImageUrl } from '@/lib/supabase-storage';
 
 /**
+ * Module-level cache for signed URLs.
+ * Persists across component mounts so returning to a screen doesn't
+ * re-trigger image loading flashes. Keyed by the original storage path.
+ */
+interface CacheEntry {
+  url: string;
+  expiresAt: number; // epoch ms
+}
+const signedUrlCache = new Map<string, CacheEntry>();
+// Refresh slightly before actual expiry to be safe
+const SAFETY_MARGIN_MS = 60 * 1000;
+
+function getCached(key: string): string | undefined {
+  const entry = signedUrlCache.get(key);
+  if (!entry) return undefined;
+  if (entry.expiresAt - SAFETY_MARGIN_MS < Date.now()) {
+    signedUrlCache.delete(key);
+    return undefined;
+  }
+  return entry.url;
+}
+
+function setCached(key: string, url: string, expiresIn: number) {
+  signedUrlCache.set(key, {
+    url,
+    expiresAt: Date.now() + expiresIn * 1000,
+  });
+}
+
+/**
  * Hook to convert a stored image URL to a signed URL for private bucket access
- * @param imageUrl - The original image URL stored in the database
- * @param expiresIn - Expiration time in seconds (default: 1 hour)
- * @returns The signed URL or undefined while loading
  */
 export function useSignedImageUrl(imageUrl: string | undefined, expiresIn: number = 3600): string | undefined {
-  const [signedUrl, setSignedUrl] = useState<string | undefined>(undefined);
+  const [signedUrl, setSignedUrl] = useState<string | undefined>(() => {
+    if (!imageUrl) return undefined;
+    if (!imageUrl.includes('/project-images/') || imageUrl.includes('token=')) {
+      return imageUrl;
+    }
+    return getCached(imageUrl);
+  });
 
   useEffect(() => {
     if (!imageUrl) {
@@ -16,17 +49,25 @@ export function useSignedImageUrl(imageUrl: string | undefined, expiresIn: numbe
       return;
     }
 
-    // If it's already a signed URL or not from our bucket, use as-is
     if (!imageUrl.includes('/project-images/') || imageUrl.includes('token=')) {
       setSignedUrl(imageUrl);
       return;
     }
 
+    const cached = getCached(imageUrl);
+    if (cached) {
+      setSignedUrl(cached);
+      return;
+    }
+
     let isMounted = true;
-    
     getSignedImageUrl(imageUrl, expiresIn).then((url) => {
-      if (isMounted) {
-        setSignedUrl(url || imageUrl); // Fallback to original if signing fails
+      if (!isMounted) return;
+      if (url) {
+        setCached(imageUrl, url, expiresIn);
+        setSignedUrl(url);
+      } else {
+        setSignedUrl(imageUrl);
       }
     });
 
@@ -42,7 +83,14 @@ export function useSignedImageUrl(imageUrl: string | undefined, expiresIn: numbe
  * Hook to convert multiple image URLs to signed URLs
  */
 export function useSignedImageUrls(imageUrls: (string | undefined)[], expiresIn: number = 3600): (string | undefined)[] {
-  const [signedUrls, setSignedUrls] = useState<(string | undefined)[]>(imageUrls.map(() => undefined));
+  const computeInitial = () =>
+    imageUrls.map((url) => {
+      if (!url) return undefined;
+      if (!url.includes('/project-images/') || url.includes('token=')) return url;
+      return getCached(url);
+    });
+
+  const [signedUrls, setSignedUrls] = useState<(string | undefined)[]>(computeInitial);
 
   useEffect(() => {
     let isMounted = true;
@@ -50,15 +98,18 @@ export function useSignedImageUrls(imageUrls: (string | undefined)[], expiresIn:
     Promise.all(
       imageUrls.map(async (url) => {
         if (!url) return undefined;
-        if (!url.includes('/project-images/') || url.includes('token=')) {
-          return url;
+        if (!url.includes('/project-images/') || url.includes('token=')) return url;
+        const cached = getCached(url);
+        if (cached) return cached;
+        const signed = await getSignedImageUrl(url, expiresIn);
+        if (signed) {
+          setCached(url, signed, expiresIn);
+          return signed;
         }
-        return await getSignedImageUrl(url, expiresIn) || url;
+        return url;
       })
     ).then((urls) => {
-      if (isMounted) {
-        setSignedUrls(urls);
-      }
+      if (isMounted) setSignedUrls(urls);
     });
 
     return () => {
