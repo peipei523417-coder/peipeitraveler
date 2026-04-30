@@ -187,7 +187,7 @@ export default function Index() {
 
   const handleCreateProject = async (data: ProjectFormData, coverFile?: File) => {
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
-    if (projects.length >= limit) {
+    if (totalProjectCount >= limit) {
       setUpgradeDialogType("project");
       setUpgradeDialogOpen(true);
       return;
