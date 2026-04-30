@@ -207,11 +207,12 @@ export default function ProjectDetail() {
     // Optimistic UI: add item to state immediately with a temp ID
     const tempId = `temp-${Date.now()}`;
     const optimisticItem: ItineraryItem = { ...finalItem, id: tempId } as ItineraryItem;
+    const baseItinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
     const optimisticProject = {
       ...project,
-      itinerary: project.itinerary.map(day =>
-        day.dayNumber === activeDay
-          ? { ...day, items: [...day.items, optimisticItem] }
+      itinerary: baseItinerary.map(day =>
+        day?.dayNumber === activeDay
+          ? { ...day, items: [...(Array.isArray(day?.items) ? day.items : []), optimisticItem] }
           : day
       ),
     };
