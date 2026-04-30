@@ -70,6 +70,13 @@ export default function Index() {
   const [actionSheetProject, setActionSheetProject] = useState<TravelProject | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggeredRef = useRef(false);
+  // Guard against rapid double-tap navigating twice
+  const navigatingRef = useRef(false);
+
+  // Whenever Index mounts (e.g. after returning from detail), allow navigation again.
+  useEffect(() => {
+    navigatingRef.current = false;
+  }, []);
 
   // SWR pattern: show cache instantly, revalidate in background only when stale
   useEffect(() => {
@@ -323,12 +330,30 @@ export default function Index() {
   };
 
   const handleProjectClick = (project: TravelProject) => {
-    // Prevent navigation if long-press was triggered
+    // If long-press already opened the action sheet, swallow the click but RESET the flag
+    // immediately so the next tap works on the first try.
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
       return;
     }
+    // Guard against missing id and rapid double-tap.
+    if (!project?.id) {
+      console.warn("[Index] click ignored: missing project id");
+      return;
+    }
+    if (navigatingRef.current) {
+      return;
+    }
+    navigatingRef.current = true;
+    if (import.meta.env.DEV) {
+      console.log("[Index] navigate ->", `/project/${project.id}`, {
+        type: project.isJoined ? "shared" : "owned",
+        userId: user?.id ?? null,
+      });
+    }
     navigate(`/project/${project.id}`);
+    // Re-allow navigation shortly after — covers cases where navigation is cancelled.
+    setTimeout(() => { navigatingRef.current = false; }, 800);
   };
 
   // Long-press handlers for mobile
@@ -347,6 +372,9 @@ export default function Index() {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+    // Reset shortly after so a quick tap is never blocked by a stale long-press flag.
+    // Done in microtask to let the synthetic click event read the flag first.
+    setTimeout(() => { longPressTriggeredRef.current = false; }, 50);
   }, []);
 
   const handleTouchMove = useCallback(() => {
@@ -354,6 +382,7 @@ export default function Index() {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+    longPressTriggeredRef.current = false;
   }, []);
 
   if (authLoading) {

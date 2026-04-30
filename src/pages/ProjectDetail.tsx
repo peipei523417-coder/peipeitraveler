@@ -45,9 +45,9 @@ export default function ProjectDetail() {
 
   // Calculate total budget for all days (must be before early returns)
   const totalBudget = useMemo(() => {
-    if (!project) return 0;
+    if (!project || !Array.isArray(project.itinerary)) return 0;
     return project.itinerary.reduce((total, day) => {
-      return total + calculateDayTotal(day.items);
+      return total + calculateDayTotal(day?.items ?? []);
     }, 0);
   }, [project]);
 
@@ -56,10 +56,14 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     if (!id) {
+      console.warn("[ProjectDetail] no id in route, returning to lobby");
       navigate("/");
       return;
     }
-    
+    if (import.meta.env.DEV) {
+      console.log("[ProjectDetail] mount with id:", id);
+    }
+
     loadProject(true); // Initial load
     
     // Subscribe to realtime updates (only for external changes)
@@ -294,7 +298,9 @@ export default function ProjectDetail() {
 
   if (!project) return null;
 
-  const currentDay = project.itinerary.find((d) => d.dayNumber === activeDay);
+  // Defensive: itinerary could be empty/undefined for malformed data — never crash.
+  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
+  const currentDay = itinerary.find((d) => d?.dayNumber === activeDay);
   
   // Get suggested start time based on last item's end time
   const getNextSuggestedTime = (): string | undefined => {
@@ -378,7 +384,7 @@ export default function ProjectDetail() {
 
       {/* Day Tabs */}
       <DayTabs
-        itinerary={project.itinerary}
+        itinerary={itinerary}
         activeDay={activeDay}
         onDayChange={setActiveDay}
       />
