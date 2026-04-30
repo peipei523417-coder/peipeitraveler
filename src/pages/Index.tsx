@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { TravelProject, ProjectFormData } from "@/types/travel";
 import {
@@ -37,6 +37,7 @@ const PRO_DAY_LIMIT = 20;
 
 export default function Index() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { isPro, toggleProStatus } = usePro();
@@ -80,6 +81,11 @@ export default function Index() {
     navigatingRef.current = false;
     if (import.meta.env.DEV) console.log("[Index] navigatingRef reset", { reason: "mount" });
   }, []);
+
+  useEffect(() => {
+    navigatingRef.current = false;
+    if (import.meta.env.DEV) console.log("[Index] navigatingRef reset", { reason: "route", path: location.pathname });
+  }, [location.pathname]);
 
   // SWR pattern: show cache instantly, revalidate in background only when stale
   useEffect(() => {
@@ -346,30 +352,37 @@ export default function Index() {
   };
 
   const handleProjectClick = (project: TravelProject) => {
+    if (import.meta.env.DEV) console.log("[Index] click projectId", { projectId: project?.id, joined: !!project?.isJoined });
     // If long-press already opened the action sheet, swallow the click but RESET the flag
     // immediately so the next tap works on the first try.
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
+      if (import.meta.env.DEV) console.log("[Index] navigate ignored reason", { reason: "longPressTriggered", projectId: project?.id });
       return;
     }
     // Guard against missing id and rapid double-tap.
     if (!project?.id) {
       console.warn("[Index] click ignored: missing project id");
+      if (import.meta.env.DEV) console.log("[Index] navigate ignored reason", { reason: "missingProjectId" });
       return;
     }
     if (navigatingRef.current) {
+      if (import.meta.env.DEV) console.log("[Index] navigate ignored reason", { reason: "alreadyNavigating", projectId: project.id });
       return;
     }
     navigatingRef.current = true;
     if (import.meta.env.DEV) {
-      console.log("[Index] navigate ->", `/project/${project.id}`, {
+      console.log("[Index] navigate start", `/project/${project.id}`, {
         type: project.isJoined ? "shared" : "owned",
         userId: user?.id ?? null,
       });
     }
     navigate(`/project/${project.id}`);
     // Re-allow navigation shortly after — covers cases where navigation is cancelled.
-    setTimeout(() => { navigatingRef.current = false; }, 800);
+    setTimeout(() => {
+      navigatingRef.current = false;
+      if (import.meta.env.DEV) console.log("[Index] navigatingRef reset", { reason: "timeout", projectId: project.id });
+    }, 800);
   };
 
   // Long-press handlers for mobile
@@ -394,6 +407,14 @@ export default function Index() {
   }, []);
 
   const handleTouchMove = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressTriggeredRef.current = false;
+  }, []);
+
+  const handleTouchCancel = useCallback(() => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
