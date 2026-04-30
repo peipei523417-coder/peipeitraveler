@@ -364,8 +364,9 @@ function ProjectDetailInner() {
   
   // Get suggested start time based on last item's end time
   const getNextSuggestedTime = (): string | undefined => {
-    if (!currentDay || currentDay.items.length === 0) return undefined;
-    const itemsWithTime = currentDay.items.filter(item => item.endTime);
+    const items = Array.isArray(currentDay?.items) ? currentDay!.items : [];
+    if (items.length === 0) return undefined;
+    const itemsWithTime = items.filter(item => item?.endTime);
     if (itemsWithTime.length === 0) return undefined;
     
     const lastItem = itemsWithTime[itemsWithTime.length - 1];
