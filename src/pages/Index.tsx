@@ -169,6 +169,7 @@ export default function Index() {
   const refreshProjects = async () => {
     invalidateCache();
     await loadProjectsFromCache();
+    await loadJoinedProjectsData();
   };
 
   const handleCreateProjectClick = () => {
