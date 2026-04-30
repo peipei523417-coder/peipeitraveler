@@ -87,14 +87,23 @@ export function ProjectCard({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
         
-        {/* Visibility icon - top left */}
+        {/* Visibility icon - top left (or Joined badge) */}
         <div className="absolute top-2 left-2 bg-white/90 rounded-full p-1.5 shadow-sm">
-          <VisibilityIcon isPublic={project.isPublic} />
+          {project.isJoined ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Users className="w-4 h-4 text-primary" />
+              </TooltipTrigger>
+              <TooltipContent>{t("sharedWithMe")}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <VisibilityIcon isPublic={project.isPublic} />
+          )}
         </div>
-        
+
         {/* Action buttons overlay */}
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {!readOnly && onShare && (
+          {!readOnly && !project.isJoined && onShare && (
             <Button
               size="icon"
               variant="ghost"
@@ -107,7 +116,7 @@ export function ProjectCard({
               <Share2 className="w-4 h-4 text-stone-800" />
             </Button>
           )}
-          {!readOnly && onDuplicate && (
+          {!readOnly && !project.isJoined && onDuplicate && (
             <Button
               size="icon"
               variant="ghost"
@@ -120,7 +129,7 @@ export function ProjectCard({
               <Copy className="w-4 h-4 text-stone-800" />
             </Button>
           )}
-          {!readOnly && (
+          {!readOnly && !project.isJoined && (
             <Button
               size="icon"
               variant="ghost"
@@ -142,8 +151,13 @@ export function ProjectCard({
                 e.stopPropagation();
                 onDelete(project);
               }}
+              title={project.isJoined ? t("leaveShared") : t("delete")}
             >
-              <Trash2 className="w-4 h-4 text-destructive" />
+              {project.isJoined ? (
+                <LogOut className="w-4 h-4 text-destructive" />
+              ) : (
+                <Trash2 className="w-4 h-4 text-destructive" />
+              )}
             </Button>
           )}
         </div>
