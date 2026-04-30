@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
 import { TravelProject } from "@/types/travel";
 import { getAllProjectsSorted, getProject as fetchProject } from "@/lib/supabase-storage";
 import { cacheProjectsOffline, getCachedProjects } from "@/lib/offline-cache";
@@ -6,23 +6,39 @@ import { cacheProjectsOffline, getCachedProjects } from "@/lib/offline-cache";
 interface ProjectCacheContextType {
   projects: TravelProject[];
   isLoaded: boolean;
-  loadProjects: () => Promise<TravelProject[]>;
+  loadProjects: (force?: boolean) => Promise<TravelProject[]>;
   getProject: (id: string) => Promise<TravelProject | undefined>;
   invalidateCache: () => void;
   updateProjectInCache: (project: TravelProject) => void;
   removeProjectFromCache: (id: string) => void;
+  // Joined projects cache (shared trips a user joined but doesn't own)
+  joinedProjects: TravelProject[];
+  isJoinedLoaded: boolean;
+  setJoinedProjects: (projects: TravelProject[]) => void;
+  isJoinedFresh: () => boolean;
+  markJoinedFetched: () => void;
 }
 
 const ProjectCacheContext = createContext<ProjectCacheContextType | undefined>(undefined);
+
+// Consider data fresh for 60 seconds — within this window we don't refetch.
+const FRESHNESS_WINDOW_MS = 60 * 1000;
 
 export function ProjectCacheProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<TravelProject[]>([]);
   const [projectCache, setProjectCache] = useState<Map<string, TravelProject>>(new Map());
   const [isLoaded, setIsLoaded] = useState(false);
+  const lastFetchedAtRef = useRef<number>(0);
 
-  const loadProjects = useCallback(async () => {
-    // Return cached if already loaded
-    if (isLoaded && projects.length > 0) {
+  // Joined projects state
+  const [joinedProjects, setJoinedProjectsState] = useState<TravelProject[]>([]);
+  const [isJoinedLoaded, setIsJoinedLoaded] = useState(false);
+  const joinedFetchedAtRef = useRef<number>(0);
+
+  const loadProjects = useCallback(async (force = false) => {
+    // Return cached if loaded and fresh (unless forced)
+    if (!force && isLoaded && projects.length > 0 &&
+        Date.now() - lastFetchedAtRef.current < FRESHNESS_WINDOW_MS) {
       return projects;
     }
     
@@ -30,18 +46,16 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
       const all = await getAllProjectsSorted();
       setProjects(all);
       setIsLoaded(true);
+      lastFetchedAtRef.current = Date.now();
       
-      // Save to offline cache
       cacheProjectsOffline(all);
       
-      // Update individual cache
       const newCache = new Map<string, TravelProject>();
       all.forEach(p => newCache.set(p.id, p));
       setProjectCache(newCache);
       
       return all;
     } catch {
-      // Offline fallback: use cached data
       if (!navigator.onLine) {
         const cached = getCachedProjects();
         setProjects(cached);
@@ -53,13 +67,11 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
   }, [isLoaded, projects]);
 
   const getProject = useCallback(async (id: string): Promise<TravelProject | undefined> => {
-    // Try cache first
     const cached = projectCache.get(id);
     if (cached) {
       return cached;
     }
     
-    // Fetch from server
     const project = await fetchProject(id);
     if (project) {
       setProjectCache(prev => new Map(prev).set(id, project));
@@ -71,6 +83,10 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
     setIsLoaded(false);
     setProjects([]);
     setProjectCache(new Map());
+    lastFetchedAtRef.current = 0;
+    setIsJoinedLoaded(false);
+    setJoinedProjectsState([]);
+    joinedFetchedAtRef.current = 0;
   }, []);
 
   const updateProjectInCache = useCallback((project: TravelProject) => {
@@ -95,6 +111,19 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setJoinedProjects = useCallback((list: TravelProject[]) => {
+    setJoinedProjectsState(list);
+    setIsJoinedLoaded(true);
+  }, []);
+
+  const isJoinedFresh = useCallback(() => {
+    return isJoinedLoaded && Date.now() - joinedFetchedAtRef.current < FRESHNESS_WINDOW_MS;
+  }, [isJoinedLoaded]);
+
+  const markJoinedFetched = useCallback(() => {
+    joinedFetchedAtRef.current = Date.now();
+  }, []);
+
   return (
     <ProjectCacheContext.Provider value={{
       projects,
@@ -104,6 +133,11 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
       invalidateCache,
       updateProjectInCache,
       removeProjectFromCache,
+      joinedProjects,
+      isJoinedLoaded,
+      setJoinedProjects,
+      isJoinedFresh,
+      markJoinedFetched,
     }}>
       {children}
     </ProjectCacheContext.Provider>
