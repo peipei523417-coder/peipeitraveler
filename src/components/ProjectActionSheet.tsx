@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { TravelProject } from "@/types/travel";
-import { Share2, Copy, Pencil, Trash2 } from "lucide-react";
+import { Share2, Copy, Pencil, Trash2, LogOut } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -32,12 +32,25 @@ export function ProjectActionSheet({
 
   if (!project) return null;
 
-  const actions = [
-    { icon: Share2, label: t("share"), onClick: () => { onShare(project); onOpenChange(false); } },
-    { icon: Copy, label: t("duplicate"), onClick: () => { onDuplicate(project); onOpenChange(false); } },
-    { icon: Pencil, label: t("edit"), onClick: () => { onEdit(project); onOpenChange(false); } },
-    { icon: Trash2, label: t("delete"), onClick: () => { onDelete(project); onOpenChange(false); }, destructive: true },
-  ];
+  const isJoined = !!project.isJoined;
+
+  // For joined (non-owner) projects: only show "leave shared" — no share/duplicate/edit/delete
+  // because the user does not own this project. Editing of itinerary still happens inside the project page.
+  const actions = isJoined
+    ? [
+        {
+          icon: LogOut,
+          label: t("leaveShared"),
+          onClick: () => { onDelete(project); onOpenChange(false); },
+          destructive: true,
+        },
+      ]
+    : [
+        { icon: Share2, label: t("share"), onClick: () => { onShare(project); onOpenChange(false); } },
+        { icon: Copy, label: t("duplicate"), onClick: () => { onDuplicate(project); onOpenChange(false); } },
+        { icon: Pencil, label: t("edit"), onClick: () => { onEdit(project); onOpenChange(false); } },
+        { icon: Trash2, label: t("delete"), onClick: () => { onDelete(project); onOpenChange(false); }, destructive: true },
+      ];
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
