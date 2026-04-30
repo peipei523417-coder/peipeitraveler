@@ -5,22 +5,40 @@ import { supabase } from "@/integrations/supabase/client";
  * Does NOT delete the underlying project — the owner and other collaborators keep access.
  */
 export async function leaveSharedProject(projectId: string): Promise<{ success: boolean; error?: string }> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email) {
+  if (import.meta.env.DEV) console.log("[Leave Shared] leaveSharedProject start", { projectId });
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token || !session.user?.email) {
+    if (import.meta.env.DEV) console.warn("[Leave Shared] fail: not authenticated", { projectId });
     return { success: false, error: "Not authenticated" };
   }
 
-  const { error } = await supabase
-    .from("project_collaborators")
-    .delete()
-    .eq("project_id", projectId)
-    .eq("email", user.email.toLowerCase());
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-edit-password`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action: "leave-project", projectId }),
+      }
+    );
 
-  if (error) {
-    console.error("Error leaving shared project:", error);
-    return { success: false, error: error.message };
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) {
+      if (import.meta.env.DEV) console.warn("[Leave Shared] fail", { projectId, error: data.error });
+      return { success: false, error: data.error || "Failed to leave project" };
+    }
+
+    if (import.meta.env.DEV) console.log("[Leave Shared] success", { projectId, removed: data.removed });
+    return { success: true };
+  } catch (error) {
+    if (import.meta.env.DEV) console.warn("[Leave Shared] fail", { projectId, error });
+    return { success: false, error: "Network error" };
   }
-  return { success: true };
 }
 
 export async function joinProject(projectId: string): Promise<{
