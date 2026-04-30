@@ -278,11 +278,12 @@ export default function ProjectDetail() {
     isLocalUpdateRef.current = true;
     
     // Optimistic UI: remove item from state immediately
+    const baseItineraryDel = Array.isArray(project.itinerary) ? project.itinerary : [];
     const optimisticProject = {
       ...project,
-      itinerary: project.itinerary.map(day => ({
+      itinerary: baseItineraryDel.map(day => ({
         ...day,
-        items: day.items.filter(i => i.id !== itemId),
+        items: (Array.isArray(day?.items) ? day.items : []).filter(i => i.id !== itemId),
       })),
     };
     setProject(optimisticProject);
