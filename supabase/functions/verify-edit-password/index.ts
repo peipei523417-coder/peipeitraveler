@@ -783,6 +783,59 @@ serve(async (req) => {
       );
     }
 
+    // ========== LEAVE PROJECT ==========
+    if (action === "leave-project") {
+      const authHeader = req.headers.get("authorization");
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ error: "Authentication required" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const projectIdResult = validateUuid(projectId, "Project ID");
+      if (!projectIdResult.valid) {
+        return new Response(
+          JSON.stringify({ error: projectIdResult.error }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const supabaseAuth = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+      if (authError || !user?.email) {
+        return new Response(
+          JSON.stringify({ error: "Invalid authentication" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const email = user.email.toLowerCase();
+      const { data: deletedRows, error: deleteError } = await supabase
+        .from("project_collaborators")
+        .delete()
+        .eq("project_id", projectIdResult.value)
+        .ilike("email", email)
+        .select("id");
+
+      if (deleteError) {
+        console.error("Error leaving project:", deleteError);
+        return new Response(
+          JSON.stringify({ error: "Failed to leave project" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, removed: deletedRows?.length ?? 0 }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ========== SHARE LINK PASSWORD OPERATIONS ==========
     
     // Hash a share link password (requires auth)
