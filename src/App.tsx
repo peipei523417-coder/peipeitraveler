@@ -17,6 +17,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import SharePage from "./pages/SharePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
+import { BillingDebugOverlay } from "@/components/BillingDebugOverlay";
 import "@fontsource/nunito/400.css";
 import "@fontsource/nunito/600.css";
 import "@fontsource/nunito/700.css";
@@ -279,6 +280,7 @@ const App = () => (
             <TooltipProvider>
               <Toaster />
               <Sonner position="top-center" />
+              <BillingDebugOverlay />
               <AppContent />
             </TooltipProvider>
           </LoadingProvider>
