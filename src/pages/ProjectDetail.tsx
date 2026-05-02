@@ -86,22 +86,32 @@ function ProjectDetailInner() {
       // or navigation transition. Give it a brief grace period before bouncing.
       if (import.meta.env.DEV) console.warn("[ProjectDetail] no user yet — waiting grace period", { id });
       setLoading(true);
+      let cancelled = false;
       const t = setTimeout(() => {
-        // Re-check via supabase directly to avoid stale closure
+        // Re-check via supabase directly to avoid stale closure.
+        // Guard with `cancelled` so a re-render (user signed back in, route changed,
+        // unmount) cannot trigger a stray navigate("/") from this in-flight promise.
         supabase.auth.getSession().then(({ data: { session } }) => {
+          if (cancelled) return;
           if (!session?.user) {
             console.warn("[ProjectDetail] redirect reason", { reason: "noAuthenticatedUserAfterGrace", id });
             navigate("/");
           }
         }).catch(() => {
-          console.warn("[ProjectDetail] redirect reason", { reason: "getSessionFailed", id });
-          navigate("/");
+          if (cancelled) return;
+          // Network/transient failure during getSession is NOT a definitive sign-out.
+          // Stay on the page; user can retry. Avoid auto-redirecting to lobby.
+          console.warn("[ProjectDetail] getSession failed during grace — staying put", { id });
         });
       }, 800);
-      return () => clearTimeout(t);
+      return () => {
+        cancelled = true;
+        clearTimeout(t);
+      };
     }
 
-    loadProject(true); // Initial load
+    let cancelled = false;
+    loadProject(true, () => cancelled); // Initial load
     
     // Subscribe to realtime updates (only for external changes)
     const channel = supabase
