@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProProvider } from "@/contexts/ProContext";
 import { LoadingProvider, useLoading } from "@/contexts/LoadingContext";
@@ -33,13 +33,19 @@ const queryClient = new QueryClient();
  */
 function DeepLinkHandler() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const authDebugRef = useRef({ user, authLoading });
+  const currentPathRef = useRef(location.pathname);
   const isHandlingRef = useRef(false);
 
   useEffect(() => {
     authDebugRef.current = { user, authLoading };
   }, [user, authLoading]);
+
+  useEffect(() => {
+    currentPathRef.current = location.pathname;
+  }, [location.pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,9 +135,21 @@ function DeepLinkHandler() {
           console.warn("[DeepLink] No tokens or code found in URL");
         }
 
+        const currentPath = currentPathRef.current;
+        const shouldReturnHome =
+          currentPath === "/" ||
+          currentPath.startsWith("/~oauth") ||
+          currentPath.startsWith("/auth/callback") ||
+          currentPath.startsWith("/oauth-callback");
+
+        if (!shouldReturnHome) {
+          console.log("[DeepLink] OAuth handled; preserving current route", { currentPath });
+          return;
+        }
+
         const authDebug = authDebugRef.current;
         console.log("GLOBAL REDIRECT", {
-          source: "App.tsx:141 DeepLinkHandler OAuth callback",
+          source: "App.tsx:155 DeepLinkHandler OAuth callback",
           authLoading: authDebug.authLoading,
           user: authDebug.user,
           projectLoading: false,
