@@ -59,11 +59,26 @@ function isNativePlatform(): boolean {
 
 /** No-op on web; native plugin self-initialises */
 export async function initBilling(): Promise<void> {
+  console.log("[Billing][DIAG] Configured PRODUCT_ID =", PRODUCT_ID);
   if (!isNativePlatform()) {
     console.log("[Billing] Web environment — native billing skipped");
     return;
   }
   console.log("[Billing] Native billing ready (direct StoreKit / Google Play)");
+  // Probe the store on startup to verify product availability
+  try {
+    const probe = await NativeBilling.getProducts({ productIds: [PRODUCT_ID] });
+    console.log("[Billing][DIAG] fetchProducts result:", JSON.stringify(probe));
+    if (!probe?.products || probe.products.length === 0) {
+      console.warn("[Billing][DIAG] Store returned 0 products for", PRODUCT_ID,
+        "— check App Store Connect / Play Console: product exists, status=Ready/Approved, agreements signed, sandbox tester, bundle id matches.");
+    } else {
+      console.log("[Billing][DIAG] Store returned", probe.products.length, "product(s):",
+        probe.products.map((p: any) => `${p.productId} (${p.price ?? "no price"})`).join(", "));
+    }
+  } catch (err: any) {
+    console.error("[Billing][DIAG] fetchProducts ERROR:", err?.message || err, err);
+  }
 }
 
 /**
@@ -71,13 +86,26 @@ export async function initBilling(): Promise<void> {
  * Returns true on success.
  */
 export async function purchasePro(): Promise<boolean> {
+  console.log("[Billing][DIAG] purchasePro() invoked with PRODUCT_ID =", PRODUCT_ID);
   if (!isNativePlatform()) {
     console.log("[Billing] Web — purchases only available on iOS/Android");
     return false;
   }
 
+  // Pre-flight: verify the store actually knows this product
+  try {
+    const probe = await NativeBilling.getProducts({ productIds: [PRODUCT_ID] });
+    console.log("[Billing][DIAG] pre-purchase fetchProducts:", JSON.stringify(probe));
+    if (!probe?.products || probe.products.length === 0) {
+      console.error("[Billing][DIAG] Cannot purchase — store has no product for ID:", PRODUCT_ID);
+    }
+  } catch (err: any) {
+    console.error("[Billing][DIAG] pre-purchase fetchProducts ERROR:", err?.message || err, err);
+  }
+
   try {
     const result = await NativeBilling.purchase({ productId: PRODUCT_ID });
+    console.log("[Billing][DIAG] purchase result:", JSON.stringify(result));
     if (result.success) {
       setLocalProStatus(true);
       return true;
@@ -88,7 +116,7 @@ export async function purchasePro(): Promise<boolean> {
       console.log("[Billing] Purchase cancelled by user");
       return false;
     }
-    console.error("[Billing] Purchase error:", error);
+    console.error("[Billing][DIAG] Purchase error:", error?.message || error, error);
     return false;
   }
 }
