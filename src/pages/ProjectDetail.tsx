@@ -432,7 +432,16 @@ function ProjectDetailInner() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/")}
+                onClick={() => {
+                  console.log("GLOBAL REDIRECT", {
+                    source: "ProjectDetail.tsx:442 header back button",
+                    authLoading,
+                    user,
+                    projectLoading: loading,
+                    project,
+                  });
+                  navigate("/");
+                }}
                 className="rounded-xl"
               >
                 <ArrowLeft className="w-5 h-5" />
