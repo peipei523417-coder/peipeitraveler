@@ -280,6 +280,7 @@ const App = () => (
             <TooltipProvider>
               <Toaster />
               <Sonner position="top-center" />
+              <BillingDebugOverlay />
               <AppContent />
             </TooltipProvider>
           </LoadingProvider>
