@@ -101,14 +101,14 @@ workflows:
                 config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
-                config.build_settings['MARKETING_VERSION'] = '6.0.9'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '24'  # ⭐ bump > 22
+                config.build_settings['MARKETING_VERSION'] = '6.1.0'
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '25'  # ⭐ bump > 24
               end
             end
           end
 
           project.save
-          puts "Build Number: 24"
+          puts "Build Number: 25"
           RUBY
 
       - name: Install CocoaPods
