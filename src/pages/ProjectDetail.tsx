@@ -151,6 +151,7 @@ function ProjectDetailInner() {
     if (isInitialLoad) {
       try {
         const cached = await getCachedProject(id);
+        if (cancelled()) return;
         if (cached) {
           setProject(cached);
           setLoading(false);
@@ -161,12 +162,13 @@ function ProjectDetailInner() {
         console.error("[ProjectDetail] cache error:", e);
       }
     }
-    
+
     // Fetch fresh data (but don't clear existing state during fetch)
     // Retry once on undefined to survive transient RLS/network races on shared projects.
     let loaded: TravelProject | undefined;
     let fetchError: unknown = null;
     for (let attempt = 0; attempt < 2; attempt++) {
+      if (cancelled()) return;
       try {
         loaded = await getProject(id);
         if (loaded) break;
@@ -179,20 +181,27 @@ function ProjectDetailInner() {
       }
     }
 
+    if (cancelled()) return;
+
     if (!loaded) {
       // Always release the spinner so the user isn't stuck
       setLoading(false);
       if (import.meta.env.DEV) console.warn("[ProjectDetail] permission check result", { id, allowed: false, hasCachedData, fetchError });
-      // Only redirect if this is the very first load AND we have nothing to show.
-      // Transient undefined on a refresh should NOT eject the user.
-      if (isInitialLoad && !hasCachedData) {
+      // Only redirect if this is the very first load AND we have nothing to show
+      // AND the failure was NOT a transient/network error (i.e. fetch resolved cleanly
+      // with "no project" — which we treat as not-found / no-permission).
+      // Transient undefined caused by an exception should NOT eject the user.
+      if (isInitialLoad && !hasCachedData && !fetchError) {
         toast.error(t("error"));
         console.warn("[ProjectDetail] redirect reason", { reason: "fetchReturnedNoProject", id });
         navigate("/");
+      } else if (fetchError) {
+        // Network/RLS transient — stay on page so user can retry.
+        toast.error(t("error"));
       }
       return;
     }
-    
+
     if (import.meta.env.DEV) {
       console.log("[ProjectDetail] project fetch success", { id: loaded.id, joined: !!loaded.isJoined });
       console.log("[ProjectDetail] permission check result", { id: loaded.id, allowed: true });
