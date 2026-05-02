@@ -49,6 +49,7 @@ workflows:
             pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
             pod 'CapacitorBrowser', :path => '../../node_modules/@capacitor/browser'
             pod 'CapacitorCamera', :path => '../../node_modules/@capacitor/camera'
+            pod 'RevenuecatPurchasesCapacitor', :path => '../../node_modules/@revenuecat/purchases-capacitor'
           end
 
           post_install do |installer|
@@ -101,8 +102,8 @@ workflows:
                 config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
-                config.build_settings['MARKETING_VERSION'] = '6.1.1'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '26'  # ⭐ bump > 25
+                config.build_settings['MARKETING_VERSION'] = '6.1.2'
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '27'  # ⭐ bump > 26
               end
             end
           end

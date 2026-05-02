@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,10 +8,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Crown, Sparkles, RotateCcw, Loader2 } from "lucide-react";
+import { Crown, Sparkles, RotateCcw, Loader2, AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { usePro } from "@/contexts/ProContext";
 import { toast } from "sonner";
+import { getProPackage, PURCHASE_CANCELLED } from "@/services/billingService";
 
 interface UpgradeProDialogProps {
   open: boolean;
@@ -24,6 +25,37 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
   const { completePurchase, restorePurchases } = usePro();
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [productLoading, setProductLoading] = useState(false);
+  const [productPrice, setProductPrice] = useState<string | null>(null);
+  const [productError, setProductError] = useState<string | null>(null);
+
+  // Load product info from RevenueCat when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setProductLoading(true);
+    setProductError(null);
+    setProductPrice(null);
+    getProPackage()
+      .then((pkg) => {
+        if (cancelled) return;
+        if (!pkg) {
+          setProductError("找不到商品 pro_function，請確認 App Store Connect / Google Play Console 與 RevenueCat 設定一致");
+        } else {
+          setProductPrice(pkg.product?.priceString ?? null);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setProductError(err?.message || "載入商品失敗");
+      })
+      .finally(() => {
+        if (!cancelled) setProductLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const handlePurchase = async () => {
     setPurchasing(true);
@@ -36,8 +68,8 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
         toast.error("購買未完成");
       }
     } catch (err: any) {
-      if (err?.code === "PURCHASE_CANCELLED") {
-        // silent on user cancel
+      if (err?.code === PURCHASE_CANCELLED) {
+        toast.info("已取消購買");
       } else {
         const msg = err?.message || String(err) || t("error");
         console.error("[UpgradeProDialog] purchase error:", err);
@@ -106,9 +138,26 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
           </p>
         </div>
         <DialogFooter className="flex-col gap-2 sm:flex-col">
+          {productLoading && (
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              載入商品中…
+            </div>
+          )}
+          {productError && (
+            <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span className="break-words">{productError}</span>
+            </div>
+          )}
+          {!productLoading && !productError && productPrice && (
+            <div className="text-center text-sm text-muted-foreground">
+              價格：<span className="font-semibold text-foreground">{productPrice}</span>
+            </div>
+          )}
           <Button
             onClick={handlePurchase}
-            disabled={purchasing || restoring}
+            disabled={purchasing || restoring || productLoading || !!productError}
             className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl"
           >
             {purchasing ? (

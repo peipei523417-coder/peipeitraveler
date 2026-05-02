@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  getLocalProStatus,
-  setLocalProStatus,
   checkEntitlements,
   purchasePro,
   restorePurchases as restoreBilling,
@@ -17,62 +15,49 @@ export function useProStatus() {
   const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Initialize billing on mount
+  // Initialize billing on mount (best-effort; missing key won't crash)
   useEffect(() => {
-    initBilling();
+    initBilling().catch((e) => console.warn("[useProStatus] initBilling:", e?.message || e));
   }, []);
 
   const fetchProStatus = useCallback(async () => {
     if (!user) {
       setIsPro(false);
-      setLocalProStatus(false);
       setLoading(false);
       return;
     }
 
-    // Default to FREE before any check completes — never trust cached state
+    // Default to FREE before any check completes — never trust local cache
     setIsPro(false);
 
     try {
-      // Source of truth = DB. Verified native receipts can upgrade DB upward.
-      const { data, error } = await supabase
+      // PRO 權限的真正來源 = RevenueCat entitlement。DB 只是鏡像。
+      const { data } = await supabase
         .from("user_profiles")
         .select("is_pro")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (error) {
-        console.error("Error fetching pro status:", error);
-      }
-
-      const dbIsPro = data?.is_pro ?? false;
-
       if (!data) {
-        // New user → create profile defaulting to FREE
         await supabase
           .from("user_profiles")
           .insert({ user_id: user.id, is_pro: false });
       }
 
-      // Only check native store entitlement if DB says NOT pro
-      // (avoids slowing every login with a store call)
-      let hasEntitlement = false;
-      if (!dbIsPro) {
-        hasEntitlement = await checkEntitlements();
-        if (hasEntitlement) {
-          await supabase
-            .from("user_profiles")
-            .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
-        }
+      // 永遠以 RevenueCat entitlement 為準
+      const hasEntitlement = await checkEntitlements();
+
+      // 同步 DB
+      if ((data?.is_pro ?? false) !== hasEntitlement) {
+        await supabase
+          .from("user_profiles")
+          .upsert({ user_id: user.id, is_pro: hasEntitlement }, { onConflict: "user_id" });
       }
 
-      const proStatus = dbIsPro || hasEntitlement;
-      setIsPro(proStatus);
-      setLocalProStatus(proStatus);
+      setIsPro(hasEntitlement);
     } catch (error) {
       console.error("Error in fetchProStatus:", error);
       setIsPro(false);
-      setLocalProStatus(false);
     } finally {
       setLoading(false);
     }
@@ -82,21 +67,15 @@ export function useProStatus() {
     fetchProStatus();
   }, [fetchProStatus]);
 
-  /**
-   * Request PRO upgrade — triggers native Apple/Google payment sheet
-   */
   const requestUpgrade = useCallback(async (_source: ProUpgradeSource): Promise<boolean> => {
-    return true; // Show upgrade dialog
+    return true;
   }, []);
 
-  /**
-   * Execute purchase via native IAP — throws on failure so UI can show details
-   */
+  /** Execute purchase via RevenueCat — throws on failure so UI shows details */
   const completePurchase = useCallback(async (): Promise<boolean> => {
     const success = await purchasePro();
     if (success) {
       setIsPro(true);
-      setLocalProStatus(true);
       if (user) {
         await supabase
           .from("user_profiles")
@@ -106,15 +85,12 @@ export function useProStatus() {
     return success;
   }, [user]);
 
-  /**
-   * Restore purchases — throws on failure so UI can show details
-   */
+  /** Restore purchases — throws on failure */
   const restorePurchases = useCallback(async (): Promise<boolean> => {
     if (!user) return false;
     const restored = await restoreBilling();
     if (restored) {
       setIsPro(true);
-      setLocalProStatus(true);
       await supabase
         .from("user_profiles")
         .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
@@ -122,7 +98,7 @@ export function useProStatus() {
     return restored;
   }, [user]);
 
-  // Legacy toggle — kept for dev testing only
+  // Legacy toggle — dev only
   const toggleProStatus = useCallback(async () => {
     if (!user) return;
     try {
@@ -130,20 +106,16 @@ export function useProStatus() {
       const { error } = await supabase
         .from("user_profiles")
         .upsert({ user_id: user.id, is_pro: newStatus }, { onConflict: "user_id" });
-      if (error) {
-        console.error("Error toggling pro status:", error);
-        return;
-      }
+      if (error) return;
       setIsPro(newStatus);
-      setLocalProStatus(newStatus);
     } catch (error) {
       console.error("Error in toggleProStatus:", error);
     }
   }, [user, isPro]);
 
-  return { 
-    isPro, 
-    loading, 
+  return {
+    isPro,
+    loading,
     requestUpgrade,
     restorePurchases,
     completePurchase,
