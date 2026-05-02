@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -35,21 +35,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initial = getInitialSession();
   const [user, setUser] = useState<User | null>(initial.user);
   const [session, setSession] = useState<Session | null>(initial.session);
-  const [loading, setLoading] = useState(!initial.session); // no loading if we have cached session
-  const [initialised, setInitialised] = useState(!!initial.session);
+  const [loading, setLoading] = useState(true);
+  const sessionRestoreDoneRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
 
     // Set up auth state listener BEFORE getting session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, currentSession) => {
+      (event, currentSession) => {
         if (!isMounted) return;
+        console.log("[AuthContext] auth state change", {
+          event,
+          sessionRestoreDone: sessionRestoreDoneRef.current,
+          hasSession: !!currentSession,
+          userId: currentSession?.user?.id ?? null,
+        });
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
-        if (initialised) return;
-        setInitialised(true);
-        setLoading(false);
       }
     );
 
@@ -57,14 +60,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession()
       .then(({ data: { session: initialSession } }) => {
         if (!isMounted) return;
+        sessionRestoreDoneRef.current = true;
+        console.log("[AuthContext] getSession resolved", {
+          hasSession: !!initialSession,
+          userId: initialSession?.user?.id ?? null,
+        });
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
-        setInitialised(true);
         setLoading(false);
       })
       .catch(() => {
         if (!isMounted) return;
-        setInitialised(true);
+        sessionRestoreDoneRef.current = true;
+        console.warn("[AuthContext] getSession failed — auth loading finished without redirect decision");
         setLoading(false);
       });
 
