@@ -136,6 +136,19 @@ function DeepLinkHandler() {
         }
 
         const currentPath = currentPathRef.current;
+
+        // ── HARD GUARD: never redirect away from a project page ──
+        if (currentPath.startsWith("/project")) {
+          console.log("[DeepLink] skip redirect on project page", { currentPath });
+          return;
+        }
+        // Also preserve share / other in-app routes
+        if (currentPath.startsWith("/share")) {
+          console.log("[DeepLink] skip redirect on share page", { currentPath });
+          return;
+        }
+
+        // Only redirect home from root or explicit auth callback routes
         const shouldReturnHome =
           currentPath === "/" ||
           currentPath.startsWith("/~oauth") ||
@@ -148,14 +161,12 @@ function DeepLinkHandler() {
         }
 
         const authDebug = authDebugRef.current;
-        console.log("GLOBAL REDIRECT", {
-          source: "App.tsx:159 DeepLinkHandler OAuth callback",
+        console.log("GLOBAL REDIRECT FINAL", {
+          from: currentPath,
+          reason: "DeepLinkHandler OAuth callback completed on root/auth route",
           authLoading: authDebug.authLoading,
           user: authDebug.user,
-          projectLoading: false,
-          project: null,
         });
-        // Navigate to home
         navigate("/", { replace: true });
       } catch (e) {
         console.error("[DeepLink] Error:", e);
