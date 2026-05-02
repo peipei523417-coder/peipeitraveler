@@ -90,49 +90,36 @@ export function useProStatus() {
   }, []);
 
   /**
-   * Execute purchase via native IAP
+   * Execute purchase via native IAP — throws on failure so UI can show details
    */
   const completePurchase = useCallback(async (): Promise<boolean> => {
-    try {
-      const success = await purchasePro();
-      if (success) {
-        setIsPro(true);
-        setLocalProStatus(true);
-        
-        // Sync to database
-        if (user) {
-          await supabase
-            .from("user_profiles")
-            .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
-        }
-      }
-      return success;
-    } catch (error) {
-      console.error("Error in completePurchase:", error);
-      return false;
-    }
-  }, [user]);
-
-  /**
-   * Restore purchases — REQUIRED for iOS App Store review
-   */
-  const restorePurchases = useCallback(async (): Promise<boolean> => {
-    if (!user) return false;
-
-    try {
-      const restored = await restoreBilling();
-      if (restored) {
-        setIsPro(true);
-        setLocalProStatus(true);
+    const success = await purchasePro();
+    if (success) {
+      setIsPro(true);
+      setLocalProStatus(true);
+      if (user) {
         await supabase
           .from("user_profiles")
           .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
       }
-      return restored;
-    } catch (error) {
-      console.error("Error restoring purchases:", error);
-      return false;
     }
+    return success;
+  }, [user]);
+
+  /**
+   * Restore purchases — throws on failure so UI can show details
+   */
+  const restorePurchases = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
+    const restored = await restoreBilling();
+    if (restored) {
+      setIsPro(true);
+      setLocalProStatus(true);
+      await supabase
+        .from("user_profiles")
+        .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
+    }
+    return restored;
   }, [user]);
 
   // Legacy toggle — kept for dev testing only
