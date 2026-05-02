@@ -149,7 +149,7 @@ function DeepLinkHandler() {
 
         const authDebug = authDebugRef.current;
         console.log("GLOBAL REDIRECT", {
-          source: "App.tsx:155 DeepLinkHandler OAuth callback",
+          source: "App.tsx:159 DeepLinkHandler OAuth callback",
           authLoading: authDebug.authLoading,
           user: authDebug.user,
           projectLoading: false,
