@@ -24,8 +24,14 @@ export const PRODUCT_ID = "pro_function";
 export const ENTITLEMENT_ID = "pro"; // RevenueCat dashboard entitlement identifier
 const PRO_STORAGE_KEY = "peipeigo_is_pro";
 
-const IOS_API_KEY = (import.meta as any).env?.VITE_REVENUECAT_IOS_KEY || "";
-const ANDROID_API_KEY = (import.meta as any).env?.VITE_REVENUECAT_ANDROID_KEY || "";
+// ⚠️ 把你的 RevenueCat **public** SDK key 填在這裡（appl_xxx / goog_xxx）。
+// 這些是 publishable key，可以安全放在前端程式碼中。
+// 取得位置：RevenueCat dashboard → Project settings → API keys → Public SDK keys
+// 也可改用 Vite env：VITE_REVENUECAT_IOS_KEY / VITE_REVENUECAT_ANDROID_KEY
+const IOS_API_KEY =
+  (import.meta as any).env?.VITE_REVENUECAT_IOS_KEY || ""; // ← 例如 "appl_xxxxxxxxxxxxxxxxxxxxxxxx"
+const ANDROID_API_KEY =
+  (import.meta as any).env?.VITE_REVENUECAT_ANDROID_KEY || ""; // ← 例如 "goog_xxxxxxxxxxxxxxxxxxxxxxxx"
 
 let configured = false;
 let configuring: Promise<void> | null = null;
