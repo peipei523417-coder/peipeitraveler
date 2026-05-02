@@ -138,9 +138,26 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
           </p>
         </div>
         <DialogFooter className="flex-col gap-2 sm:flex-col">
+          {productLoading && (
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              載入商品中…
+            </div>
+          )}
+          {productError && (
+            <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span className="break-words">{productError}</span>
+            </div>
+          )}
+          {!productLoading && !productError && productPrice && (
+            <div className="text-center text-sm text-muted-foreground">
+              價格：<span className="font-semibold text-foreground">{productPrice}</span>
+            </div>
+          )}
           <Button
             onClick={handlePurchase}
-            disabled={purchasing || restoring}
+            disabled={purchasing || restoring || productLoading || !!productError}
             className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl"
           >
             {purchasing ? (
