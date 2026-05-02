@@ -108,7 +108,7 @@ workflows:
           end
 
           project.save
-          puts "Build Number: 20"
+          puts "Build Number: 24"
           RUBY
 
       - name: Install CocoaPods
