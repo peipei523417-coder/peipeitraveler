@@ -34,7 +34,12 @@ const queryClient = new QueryClient();
 function DeepLinkHandler() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const authDebugRef = useRef({ user, authLoading });
   const isHandlingRef = useRef(false);
+
+  useEffect(() => {
+    authDebugRef.current = { user, authLoading };
+  }, [user, authLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,10 +129,11 @@ function DeepLinkHandler() {
           console.warn("[DeepLink] No tokens or code found in URL");
         }
 
+        const authDebug = authDebugRef.current;
         console.log("GLOBAL REDIRECT", {
           source: "App.tsx:128 DeepLinkHandler OAuth callback",
-          authLoading,
-          user,
+          authLoading: authDebug.authLoading,
+          user: authDebug.user,
           projectLoading: false,
           project: null,
         });
@@ -176,7 +182,7 @@ function DeepLinkHandler() {
       cancelled = true;
       listenerHandle?.remove();
     };
-  }, [navigate, authLoading, user]);
+  }, [navigate]);
 
   return null;
 }
