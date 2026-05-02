@@ -33,10 +33,16 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
         toast.success(t("proEnabled"));
         onOpenChange(false);
       } else {
-        toast.error(t("error"));
+        toast.error("購買未完成");
       }
-    } catch {
-      toast.error(t("error"));
+    } catch (err: any) {
+      if (err?.code === "PURCHASE_CANCELLED") {
+        // silent on user cancel
+      } else {
+        const msg = err?.message || String(err) || t("error");
+        console.error("[UpgradeProDialog] purchase error:", err);
+        toast.error(msg, { duration: 8000 });
+      }
     } finally {
       setPurchasing(false);
     }
@@ -52,8 +58,10 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
       } else {
         toast.info(t("noRestorablepurchases") || "No purchases to restore");
       }
-    } catch {
-      toast.error(t("error"));
+    } catch (err: any) {
+      const msg = err?.message || String(err) || t("error");
+      console.error("[UpgradeProDialog] restore error:", err);
+      toast.error(msg, { duration: 8000 });
     } finally {
       setRestoring(false);
     }
