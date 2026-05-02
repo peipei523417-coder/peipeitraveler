@@ -1,8 +1,10 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const NotFound = () => {
   const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
 
   const isOAuthTransitionRoute =
     location.pathname.startsWith("/~oauth") ||
@@ -31,7 +33,17 @@ const NotFound = () => {
       <div className="text-center">
         <h1 className="mb-4 text-4xl font-bold">404</h1>
         <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
-        <a href="/" className="text-primary underline hover:text-primary/90">
+        <a
+          href="/"
+          onClick={() => console.log("GLOBAL REDIRECT", {
+            source: "NotFound.tsx:38 return home link",
+            authLoading,
+            user,
+            projectLoading: false,
+            project: null,
+          })}
+          className="text-primary underline hover:text-primary/90"
+        >
           Return to Home
         </a>
       </div>

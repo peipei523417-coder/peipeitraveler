@@ -170,7 +170,7 @@ export default function SharePage() {
   const { shareCode } = useParams<{ shareCode: string }>();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -562,7 +562,16 @@ export default function SharePage() {
             <AlertCircle className="w-12 h-12 mx-auto text-destructive mb-4" />
             <h2 className="text-lg font-bold mb-2">{t("privateTrip")}</h2>
             <p className="text-muted-foreground mb-4">{t("privateNoAccess")}</p>
-            <Button onClick={() => navigate("/")} variant="outline">
+            <Button onClick={() => {
+              console.log("GLOBAL REDIRECT", {
+                source: "SharePage.tsx:568 error back button",
+                authLoading,
+                user,
+                projectLoading: loading,
+                project,
+              });
+              navigate("/");
+            }} variant="outline">
               {t("back")}
             </Button>
           </CardContent>
@@ -779,7 +788,16 @@ export default function SharePage() {
               <Button 
                 variant="ghost" 
                 size="sm"
-                onClick={() => navigate("/")}
+                onClick={() => {
+                  console.log("GLOBAL REDIRECT", {
+                    source: "SharePage.tsx:793 my projects button",
+                    authLoading,
+                    user,
+                    projectLoading: loading,
+                    project,
+                  });
+                  navigate("/");
+                }}
                 className="gap-2"
               >
                 <Home className="w-4 h-4" />

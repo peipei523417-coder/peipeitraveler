@@ -73,6 +73,13 @@ function ProjectDetailInner() {
     if (import.meta.env.DEV) console.log("[ProjectDetail] route id", { id, authLoading, userId: user?.id ?? null });
     if (!id) {
       console.warn("[ProjectDetail] redirect reason", { reason: "missingRouteId" });
+      console.log("GLOBAL REDIRECT", {
+        source: "ProjectDetail.tsx:83 missing route id",
+        authLoading,
+        user,
+        projectLoading: loading,
+        project,
+      });
       navigate("/");
       return;
     }
@@ -95,6 +102,13 @@ function ProjectDetailInner() {
           if (cancelled) return;
           if (!session?.user) {
             console.warn("[ProjectDetail] redirect reason", { reason: "noAuthenticatedUserAfterGrace", id });
+            console.log("GLOBAL REDIRECT", {
+              source: "ProjectDetail.tsx:112 no authenticated user after grace",
+              authLoading,
+              user,
+              projectLoading: loading,
+              project,
+            });
             navigate("/");
           }
         }).catch(() => {
@@ -194,6 +208,13 @@ function ProjectDetailInner() {
       if (isInitialLoad && !hasCachedData && !fetchError) {
         toast.error(t("error"));
         console.warn("[ProjectDetail] redirect reason", { reason: "fetchReturnedNoProject", id });
+        console.log("GLOBAL REDIRECT", {
+          source: "ProjectDetail.tsx:218 fetch returned no project",
+          authLoading,
+          user,
+          projectLoading: loading,
+          project,
+        });
         navigate("/");
       } else if (fetchError) {
         // Network/RLS transient — stay on page so user can retry.
@@ -411,7 +432,16 @@ function ProjectDetailInner() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/")}
+                onClick={() => {
+                  console.log("GLOBAL REDIRECT", {
+                    source: "ProjectDetail.tsx:443 header back button",
+                    authLoading,
+                    user,
+                    projectLoading: loading,
+                    project,
+                  });
+                  navigate("/");
+                }}
                 className="rounded-xl"
               >
                 <ArrowLeft className="w-5 h-5" />
