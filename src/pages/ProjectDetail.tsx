@@ -74,7 +74,7 @@ function ProjectDetailInner() {
     if (!id) {
       console.warn("[ProjectDetail] redirect reason", { reason: "missingRouteId" });
       console.log("GLOBAL REDIRECT", {
-        source: "ProjectDetail.tsx:82 missing route id",
+        source: "ProjectDetail.tsx:83 missing route id",
         authLoading,
         user,
         projectLoading: loading,
@@ -103,7 +103,7 @@ function ProjectDetailInner() {
           if (!session?.user) {
             console.warn("[ProjectDetail] redirect reason", { reason: "noAuthenticatedUserAfterGrace", id });
             console.log("GLOBAL REDIRECT", {
-              source: "ProjectDetail.tsx:108 no authenticated user after grace",
+              source: "ProjectDetail.tsx:112 no authenticated user after grace",
               authLoading,
               user,
               projectLoading: loading,
@@ -209,7 +209,7 @@ function ProjectDetailInner() {
         toast.error(t("error"));
         console.warn("[ProjectDetail] redirect reason", { reason: "fetchReturnedNoProject", id });
         console.log("GLOBAL REDIRECT", {
-          source: "ProjectDetail.tsx:215 fetch returned no project",
+          source: "ProjectDetail.tsx:218 fetch returned no project",
           authLoading,
           user,
           projectLoading: loading,
@@ -434,7 +434,7 @@ function ProjectDetailInner() {
                 size="icon"
                 onClick={() => {
                   console.log("GLOBAL REDIRECT", {
-                    source: "ProjectDetail.tsx:442 header back button",
+                    source: "ProjectDetail.tsx:443 header back button",
                     authLoading,
                     user,
                     projectLoading: loading,
