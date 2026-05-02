@@ -86,23 +86,34 @@ function ProjectDetailInner() {
       // or navigation transition. Give it a brief grace period before bouncing.
       if (import.meta.env.DEV) console.warn("[ProjectDetail] no user yet — waiting grace period", { id });
       setLoading(true);
+      let cancelled = false;
       const t = setTimeout(() => {
-        // Re-check via supabase directly to avoid stale closure
+        // Re-check via supabase directly to avoid stale closure.
+        // Guard with `cancelled` so a re-render (user signed back in, route changed,
+        // unmount) cannot trigger a stray navigate("/") from this in-flight promise.
         supabase.auth.getSession().then(({ data: { session } }) => {
+          if (cancelled) return;
           if (!session?.user) {
             console.warn("[ProjectDetail] redirect reason", { reason: "noAuthenticatedUserAfterGrace", id });
             navigate("/");
           }
         }).catch(() => {
-          console.warn("[ProjectDetail] redirect reason", { reason: "getSessionFailed", id });
-          navigate("/");
+          if (cancelled) return;
+          // Network/transient failure during getSession is NOT a definitive sign-out.
+          // Stay on the page; user can retry. Avoid auto-redirecting to lobby.
+          console.warn("[ProjectDetail] getSession failed during grace — staying put", { id });
         });
       }, 800);
-      return () => clearTimeout(t);
+      return () => {
+        cancelled = true;
+        clearTimeout(t);
+      };
     }
 
-    loadProject(true); // Initial load
-    
+    let cancelled = false;
+    const isCancelled = () => cancelled;
+    loadProject(true, isCancelled); // Initial load
+
     // Subscribe to realtime updates (only for external changes)
     const channel = supabase
       .channel(`project-${id}`)
@@ -116,21 +127,23 @@ function ProjectDetailInner() {
         },
         () => {
           // Only reload if this wasn't triggered by our own local update
-          if (!isLocalUpdateRef.current) {
-            loadProject(false);
+          if (!isLocalUpdateRef.current && !cancelled) {
+            loadProject(false, isCancelled);
           }
         }
       )
       .subscribe();
-    
+
     return () => {
+      cancelled = true;
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, authLoading, user?.id]);
 
-  const loadProject = async (isInitialLoad: boolean) => {
+  const loadProject = async (isInitialLoad: boolean, isCancelled?: () => boolean) => {
     if (!id) return;
+    const cancelled = () => isCancelled?.() === true;
     if (import.meta.env.DEV) console.log("[ProjectDetail] project fetch start", { id, isInitialLoad });
     
     // For initial load, try cache first for instant display
@@ -138,6 +151,7 @@ function ProjectDetailInner() {
     if (isInitialLoad) {
       try {
         const cached = await getCachedProject(id);
+        if (cancelled()) return;
         if (cached) {
           setProject(cached);
           setLoading(false);
@@ -148,12 +162,13 @@ function ProjectDetailInner() {
         console.error("[ProjectDetail] cache error:", e);
       }
     }
-    
+
     // Fetch fresh data (but don't clear existing state during fetch)
     // Retry once on undefined to survive transient RLS/network races on shared projects.
     let loaded: TravelProject | undefined;
     let fetchError: unknown = null;
     for (let attempt = 0; attempt < 2; attempt++) {
+      if (cancelled()) return;
       try {
         loaded = await getProject(id);
         if (loaded) break;
@@ -166,20 +181,27 @@ function ProjectDetailInner() {
       }
     }
 
+    if (cancelled()) return;
+
     if (!loaded) {
       // Always release the spinner so the user isn't stuck
       setLoading(false);
       if (import.meta.env.DEV) console.warn("[ProjectDetail] permission check result", { id, allowed: false, hasCachedData, fetchError });
-      // Only redirect if this is the very first load AND we have nothing to show.
-      // Transient undefined on a refresh should NOT eject the user.
-      if (isInitialLoad && !hasCachedData) {
+      // Only redirect if this is the very first load AND we have nothing to show
+      // AND the failure was NOT a transient/network error (i.e. fetch resolved cleanly
+      // with "no project" — which we treat as not-found / no-permission).
+      // Transient undefined caused by an exception should NOT eject the user.
+      if (isInitialLoad && !hasCachedData && !fetchError) {
         toast.error(t("error"));
         console.warn("[ProjectDetail] redirect reason", { reason: "fetchReturnedNoProject", id });
         navigate("/");
+      } else if (fetchError) {
+        // Network/RLS transient — stay on page so user can retry.
+        toast.error(t("error"));
       }
       return;
     }
-    
+
     if (import.meta.env.DEV) {
       console.log("[ProjectDetail] project fetch success", { id: loaded.id, joined: !!loaded.isJoined });
       console.log("[ProjectDetail] permission check result", { id: loaded.id, allowed: true });
