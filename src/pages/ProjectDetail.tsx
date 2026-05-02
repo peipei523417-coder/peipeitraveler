@@ -111,8 +111,9 @@ function ProjectDetailInner() {
     }
 
     let cancelled = false;
-    loadProject(true, () => cancelled); // Initial load
-    
+    const isCancelled = () => cancelled;
+    loadProject(true, isCancelled); // Initial load
+
     // Subscribe to realtime updates (only for external changes)
     const channel = supabase
       .channel(`project-${id}`)
@@ -126,21 +127,23 @@ function ProjectDetailInner() {
         },
         () => {
           // Only reload if this wasn't triggered by our own local update
-          if (!isLocalUpdateRef.current) {
-            loadProject(false);
+          if (!isLocalUpdateRef.current && !cancelled) {
+            loadProject(false, isCancelled);
           }
         }
       )
       .subscribe();
-    
+
     return () => {
+      cancelled = true;
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, authLoading, user?.id]);
 
-  const loadProject = async (isInitialLoad: boolean) => {
+  const loadProject = async (isInitialLoad: boolean, isCancelled?: () => boolean) => {
     if (!id) return;
+    const cancelled = () => isCancelled?.() === true;
     if (import.meta.env.DEV) console.log("[ProjectDetail] project fetch start", { id, isInitialLoad });
     
     // For initial load, try cache first for instant display
