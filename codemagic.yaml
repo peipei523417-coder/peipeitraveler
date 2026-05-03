@@ -18,7 +18,6 @@ workflows:
       - name: Clean old dependencies and iOS generated files
         script: |
           rm -rf node_modules
-          rm -f package-lock.json
           rm -f bun.lock
           rm -f bun.lockb
           rm -rf ios/App/Pods
@@ -28,18 +27,15 @@ workflows:
 
       - name: Install dependencies with npm
         script: |
-          if [ -f package-lock.json ]; then
-            npm ci || npm install
-          else
-            npm install
-          fi
-          test -x node_modules/.bin/vite || (echo "❌ vite not installed in node_modules/.bin" && ls node_modules/.bin | head -50 && exit 1)
+          NPM_CONFIG_LEGACY_PEER_DEPS=true npm install
+          ls -la node_modules/.bin/vite
+          npm ls vite @vitejs/plugin-react-swc lovable-tagger
           echo "✅ vite present at node_modules/.bin/vite"
           npm ls @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/camera || true
 
       - name: Build web
         script: |
-          npx vite build
+          npm run build
 
       - name: Ensure Podfile exists
         script: |
