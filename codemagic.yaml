@@ -28,12 +28,18 @@ workflows:
 
       - name: Install dependencies with npm
         script: |
-          npm install
+          if [ -f package-lock.json ]; then
+            npm ci || npm install
+          else
+            npm install
+          fi
+          test -x node_modules/.bin/vite || (echo "❌ vite not installed in node_modules/.bin" && ls node_modules/.bin | head -50 && exit 1)
+          echo "✅ vite present at node_modules/.bin/vite"
           npm ls @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/camera || true
 
       - name: Build web
         script: |
-          npm run build
+          npx vite build
 
       - name: Ensure Podfile exists
         script: |
