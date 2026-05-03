@@ -27,7 +27,7 @@ workflows:
 
       - name: Install dependencies with npm
         script: |
-          npm install
+          NPM_CONFIG_LEGACY_PEER_DEPS=true npm install
           ls -la node_modules/.bin/vite
           npm ls vite @vitejs/plugin-react-swc lovable-tagger
           echo "✅ vite present at node_modules/.bin/vite"
