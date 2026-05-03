@@ -20,8 +20,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Register billing plugin BEFORE super.onCreate
-        registerPlugin(NativeBillingPlugin.class);
+        // Billing handled by RevenueCat (@revenuecat/purchases-capacitor).
+        // Legacy NativeBillingPlugin removed from compilation.
         super.onCreate(savedInstanceState);
     }
 
