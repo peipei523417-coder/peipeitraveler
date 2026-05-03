@@ -24,7 +24,18 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install
+        run: |
+          bun install
+          if [ ! -x node_modules/.bin/vite ]; then
+            echo "⚠️ vite not found after bun install — falling back to npm install"
+            if [ -f package-lock.json ]; then
+              npm ci || npm install
+            else
+              npm install
+            fi
+          fi
+          test -x node_modules/.bin/vite || (echo "❌ vite still missing in node_modules/.bin" && exit 1)
+          echo "✅ vite present at node_modules/.bin/vite"
 
       - name: Verify Capacitor config (local mode)
         run: |
@@ -36,7 +47,7 @@ jobs:
           echo "✅ Capacitor config is local-webview mode"
 
       - name: Build web assets (Vite production build)
-        run: npx vite build
+        run: ./node_modules/.bin/vite build
         env:
           NODE_ENV: production
 
