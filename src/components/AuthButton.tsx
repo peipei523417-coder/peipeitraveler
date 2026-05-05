@@ -43,7 +43,7 @@ export function AuthButton() {
       if (restored) {
         toast.success(t("purchaseRestored"));
       } else {
-        toast.info(t("noRestorablePurchases") || "沒有可恢復的購買紀錄");
+        toast.info(t("noRestorablePurchases") || "No purchases to restore");
       }
     } catch (error) {
       console.error("Error restoring purchase:", error);

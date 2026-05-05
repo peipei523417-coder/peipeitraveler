@@ -111,7 +111,7 @@ export function GoogleMapsInput({ value, onChange, placeName, onPlaceNameChange 
         <Input
           value={inputValue}
           onChange={handleInputChange}
-          placeholder="貼上 Google Maps 連結..."
+          placeholder="Paste a Google Maps link..."
           className="pl-10 pr-10 rounded-xl h-11"
         />
         {parseResult.isValid && (
@@ -126,7 +126,7 @@ export function GoogleMapsInput({ value, onChange, placeName, onPlaceNameChange 
             <>
               <Check className="w-4 h-4 text-green-500" />
               <span className="text-green-600">
-                連結有效 {parseResult.placeName && `- ${parseResult.placeName}`}
+                Valid link {parseResult.placeName && `- ${parseResult.placeName}`}
               </span>
               <Button
                 type="button"
@@ -136,13 +136,13 @@ export function GoogleMapsInput({ value, onChange, placeName, onPlaceNameChange 
                 className="ml-auto gap-1 h-7 text-xs"
               >
                 <ExternalLink className="w-3 h-3" />
-                開啟地圖
+                Open Map
               </Button>
             </>
           ) : (
             <>
               <MapPin className="w-4 h-4 text-amber-500" />
-              <span className="text-amber-600">請貼上有效的 Google Maps 連結</span>
+              <span className="text-amber-600">Please paste a valid Google Maps link</span>
             </>
           )}
         </div>
