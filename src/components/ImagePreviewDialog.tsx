@@ -125,15 +125,15 @@ export const ImagePreviewDialog = forwardRef<HTMLDivElement, ImagePreviewDialogP
           className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-0 bg-black border-none rounded-none [&>button]:hidden"
         >
           <VisuallyHidden>
-            <DialogTitle>Image Preview</DialogTitle>
-            <DialogDescription>Full-screen image preview with gesture zoom</DialogDescription>
+            <DialogTitle>圖片預覽</DialogTitle>
+            <DialogDescription>全螢幕圖片預覽，支援手勢縮放</DialogDescription>
           </VisuallyHidden>
           
           {/* Custom close button - larger for mobile */}
           <button
             onClick={() => onOpenChange(false)}
             className="absolute top-4 right-4 z-50 w-12 h-12 flex items-center justify-center bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors touch-manipulation"
-            aria-label="Close"
+            aria-label="關閉"
           >
             <X className="w-6 h-6" />
           </button>

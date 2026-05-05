@@ -23,7 +23,7 @@ const NotFound = () => {
   if (isOAuthTransitionRoute) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted">
-        <p className="text-muted-foreground">Returning to the app...</p>
+        <p className="text-muted-foreground">正在返回 App⋯</p>
       </div>
     );
   }

@@ -94,7 +94,7 @@ export function ItineraryItemDialog({
   // Validate time when start or end time changes
   useEffect(() => {
     if (useTime && (isTimeBefore(endTime, startTime) || endTime === startTime)) {
-      setTimeError(t("endTimeError") || "End time must be later than start time");
+      setTimeError(t("endTimeError") || "結束時間必須晚於開始時間");
     } else {
       setTimeError(null);
     }
@@ -242,7 +242,7 @@ export function ItineraryItemDialog({
               </Label>
               <Textarea
                 id="description"
-                placeholder="e.g., Ichiran Ramen Main Shop"
+                placeholder="例如：一蘭拉麵本店"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="rounded-xl min-h-[80px] resize-none"
@@ -273,7 +273,7 @@ export function ItineraryItemDialog({
                   className="rounded-xl w-16"
                   min="1"
                 />
-                <span className="text-sm text-muted-foreground">people</span>
+                <span className="text-sm text-muted-foreground">人</span>
                 {perPersonCost !== null && (
                   <span className="text-sm text-muted-foreground">
                     = <span className="font-bold text-primary">${perPersonCost}</span> {t("perPerson")}
@@ -298,7 +298,7 @@ export function ItineraryItemDialog({
             <div className="space-y-2">
               <Label className="text-sm font-bold flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                {t("location")} (optional)
+                {t("location")} (選填)
               </Label>
               <GoogleMapsInput
                 value={googleMapsUrl}
@@ -310,7 +310,7 @@ export function ItineraryItemDialog({
             <div className="space-y-2">
               <Label className="text-sm font-bold flex items-center gap-2">
                 <ImageIcon className="w-4 h-4" />
-                Image (optional)
+                圖片 (選填)
               </Label>
               <div className="flex items-center gap-3">
                 <label className="cursor-pointer touch-manipulation">
@@ -371,10 +371,10 @@ export function ItineraryItemDialog({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <AlertCircle className="w-5 h-5" />
-              Time Conflict
+              時間衝突
             </AlertDialogTitle>
             <AlertDialogDescription className="text-foreground">
-              The time overlaps with another item. Please check again.
+              時間重複了，請重新檢查。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

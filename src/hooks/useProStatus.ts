@@ -31,7 +31,7 @@ export function useProStatus() {
     setIsPro(false);
 
     try {
-      // RevenueCat entitlement is the source of truth for PRO status. DB only mirrors it.
+      // PRO 權限的真正來源 = RevenueCat entitlement。DB 只是鏡像。
       const { data } = await supabase
         .from("user_profiles")
         .select("is_pro")
@@ -44,10 +44,10 @@ export function useProStatus() {
           .insert({ user_id: user.id, is_pro: false });
       }
 
-      // Always use RevenueCat entitlement as source of truth
+      // 永遠以 RevenueCat entitlement 為準
       const hasEntitlement = await checkEntitlements();
 
-      // Sync DB
+      // 同步 DB
       if ((data?.is_pro ?? false) !== hasEntitlement) {
         await supabase
           .from("user_profiles")

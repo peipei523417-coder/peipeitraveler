@@ -404,9 +404,9 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
   const original = await getProject(id);
   if (!original) return undefined;
   
-  // Create new project with "(Copy)" suffix
+  // Create new project with "(副本)" suffix
   const newProject = await createProject(
-    `${original.name} (Copy)`,
+    `${original.name} (副本)`,
     original.startDate,
     original.endDate,
     original.coverImageUrl

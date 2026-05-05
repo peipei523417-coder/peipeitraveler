@@ -1,34 +1,34 @@
 <!--
-  Android permission configuration.
-  Add these permissions to android/app/src/main/AndroidManifest.xml
-  before the <application> tag inside <manifest>.
+  Android 權限設定
+  請將以下權限加入 android/app/src/main/AndroidManifest.xml
+  放在 <manifest> 標籤內，<application> 標籤之前
 -->
 
-<!-- Network permissions -->
+<!-- 網路連接權限 -->
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-<!-- Camera permissions -->
+<!-- 相機權限 -->
 <uses-permission android:name="android.permission.CAMERA" />
 <uses-feature android:name="android.hardware.camera" android:required="false" />
 
-<!-- Photo library / storage permissions -->
+<!-- 相簿/儲存權限 -->
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
-<!-- Location permissions -->
+<!-- 定位權限 -->
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
 <!--
-  Version number configuration.
-  Update android/app/build.gradle:
-
+  版本號設定
+  請在 android/app/build.gradle 中修改：
+  
   android {
       defaultConfig {
-          versionCode 76
-          versionName "1.0.76"
+          versionCode 1
+          versionName "1.0.0"
       }
   }
 -->

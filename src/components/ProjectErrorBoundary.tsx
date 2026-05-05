@@ -36,13 +36,13 @@ export class ProjectErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-background">
           <p className="text-lg font-semibold text-foreground mb-2">
-            Project failed to load
+            專案載入失敗
           </p>
           <p className="text-sm text-muted-foreground mb-6">
-            Please return home and try again.
+            請返回大廳後再試一次
           </p>
           <Button onClick={this.handleBack} className="rounded-xl">
-            Return Home
+            返回大廳
           </Button>
         </div>
       );

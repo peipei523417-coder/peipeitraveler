@@ -1,12 +1,12 @@
 /**
  * billingService.ts — RevenueCat-based IAP (iOS + Android)
  *
- * Replaces the legacy custom NativeBilling Capacitor plugin.
- * Product ID remains: pro_function
- * Recommended entitlement name: pro (map pro_function to the "pro" entitlement in RevenueCat).
+ * 取代舊的 NativeBilling 自製 Capacitor plugin。
+ * Product ID 維持: pro_function
+ * Entitlement 名稱建議: pro (在 RevenueCat dashboard 設定，把 pro_function 掛到 "pro" entitlement)
  *
- * Public SDK keys (appl_... / goog_...) are publishable keys and can live in code/env.
- * Inject through Vite env:
+ * 公開 SDK key（appl_... / goog_...）為 publishable key，可直接放程式碼/env。
+ * 透過 Vite env 注入：
  *   VITE_REVENUECAT_IOS_KEY
  *   VITE_REVENUECAT_ANDROID_KEY
  */
@@ -24,14 +24,14 @@ export const PRODUCT_ID = "pro_function";
 export const ENTITLEMENT_ID = "pro"; // RevenueCat dashboard entitlement identifier
 const PRO_STORAGE_KEY = "peipeigo_is_pro";
 
-// Place your RevenueCat public SDK keys here (appl_xxx / goog_xxx).
-// These are publishable keys and are safe for frontend code.
-// Location: RevenueCat dashboard → Project settings → API keys → Public SDK keys
-// You may also use Vite env: VITE_REVENUECAT_IOS_KEY / VITE_REVENUECAT_ANDROID_KEY
+// ⚠️ 把你的 RevenueCat **public** SDK key 填在這裡（appl_xxx / goog_xxx）。
+// 這些是 publishable key，可以安全放在前端程式碼中。
+// 取得位置：RevenueCat dashboard → Project settings → API keys → Public SDK keys
+// 也可改用 Vite env：VITE_REVENUECAT_IOS_KEY / VITE_REVENUECAT_ANDROID_KEY
 const IOS_API_KEY =
-  (import.meta as any).env?.VITE_REVENUECAT_IOS_KEY || ""; // e.g. "appl_xxxxxxxxxxxxxxxxxxxxxxxx"
+  (import.meta as any).env?.VITE_REVENUECAT_IOS_KEY || ""; // ← 例如 "appl_xxxxxxxxxxxxxxxxxxxxxxxx"
 const ANDROID_API_KEY =
-  (import.meta as any).env?.VITE_REVENUECAT_ANDROID_KEY || ""; // e.g. "goog_xxxxxxxxxxxxxxxxxxxxxxxx"
+  (import.meta as any).env?.VITE_REVENUECAT_ANDROID_KEY || ""; // ← 例如 "goog_xxxxxxxxxxxxxxxxxxxxxxxx"
 
 let configured = false;
 let configuring: Promise<void> | null = null;
@@ -47,7 +47,7 @@ export class BillingError extends Error {
 }
 export const PURCHASE_CANCELLED = "PURCHASE_CANCELLED";
 
-// Cache helpers (UI speed only; not an authorization source)
+// ── Cache helpers (僅 UI 加速顯示，不作為權限判斷依據) ────────
 export function getLocalProStatus(): boolean {
   try {
     return localStorage.getItem(PRO_STORAGE_KEY) === "true";
@@ -98,7 +98,7 @@ export async function initBilling(): Promise<void> {
         "— set VITE_REVENUECAT_IOS_KEY / VITE_REVENUECAT_ANDROID_KEY in .env"
       );
       throw new BillingError(
-        `Missing RevenueCat ${platform.toUpperCase()} API key (VITE_REVENUECAT_${platform.toUpperCase()}_KEY)`,
+        `缺少 RevenueCat ${platform.toUpperCase()} API Key（VITE_REVENUECAT_${platform.toUpperCase()}_KEY）`,
         "MISSING_RC_KEY"
       );
     }
@@ -111,7 +111,7 @@ export async function initBilling(): Promise<void> {
     } catch (err: any) {
       console.error("[Billing][DIAG] RevenueCat configure ERROR:", err?.message || err, err);
       throw new BillingError(
-        `RevenueCat initialization failed: ${err?.message || err}`,
+        `RevenueCat 初始化失敗：${err?.message || err}`,
         err?.code || "RC_CONFIGURE_FAILED"
       );
     }
@@ -136,7 +136,7 @@ function entitlementActive(info: CustomerInfo | undefined | null): boolean {
 
 // ── Public API ──────────────────────────────────────────────
 
-/** Try to find the pro_function package; return null when not found. */
+/** 嘗試找出 pro_function 的 package；找不到則回傳 null */
 export async function getProPackage(): Promise<PurchasesPackage | null> {
   await ensureConfigured();
   try {
@@ -182,13 +182,13 @@ export async function getProPackage(): Promise<PurchasesPackage | null> {
   } catch (err: any) {
     console.error("[Billing][DIAG] getOfferings ERROR:", err?.message || err, err);
     throw new BillingError(
-      `Failed to fetch product information: ${err?.message || err}`,
+      `取得商品資訊失敗：${err?.message || err}`,
       err?.code || "FETCH_OFFERINGS_FAILED"
     );
   }
 }
 
-/** Fetch product details directly for fallback. */
+/** 直接抓商品資訊（fallback 用） */
 export async function getProductDetails(): Promise<PurchasesStoreProduct | null> {
   await ensureConfigured();
   try {
@@ -201,10 +201,10 @@ export async function getProductDetails(): Promise<PurchasesStoreProduct | null>
   }
 }
 
-/** Purchase pro_function through the native purchase sheet; true means entitlement is active. */
+/** 購買 pro_function — 開啟原生付款表單；回傳 true 表示已取得 entitlement */
 export async function purchasePro(): Promise<boolean> {
   if (!isNativePlatform()) {
-    throw new BillingError("Purchases are only available in the iOS / Android app", "WEB_NOT_SUPPORTED");
+    throw new BillingError("購買僅在 iOS / Android App 中可用", "WEB_NOT_SUPPORTED");
   }
   await ensureConfigured();
 
@@ -221,10 +221,10 @@ export async function purchasePro(): Promise<boolean> {
     }
   }
 
-  // Fallback: try purchasing directly by productId when supported.
+  // Fallback：嘗試直接用 productId 購買（部分版本支援）
   const product = await getProductDetails();
   if (!product) {
-    const msg = `Product ${PRODUCT_ID} was not found. Confirm the Product ID matches in App Store Connect / Google Play Console and RevenueCat.`;
+    const msg = `找不到商品 ${PRODUCT_ID}，請確認 App Store Connect / Google Play Console 與 RevenueCat dashboard 的 Product ID 是否一致`;
     console.error("[Billing][DIAG]", msg);
     throw new BillingError(msg, "PRODUCT_NOT_FOUND");
   }
@@ -249,15 +249,15 @@ function handlePurchaseError(err: any): never {
     err?.userCancelled === true ||
     /cancel/i.test(msg)
   ) {
-    throw new BillingError("User cancelled purchase", PURCHASE_CANCELLED);
+    throw new BillingError("使用者取消購買", PURCHASE_CANCELLED);
   }
   throw new BillingError(
-    `Purchase failed: ${msg}${code ? ` (code: ${code})` : ""}`,
+    `購買失敗：${msg}${code ? ` (code: ${code})` : ""}`,
     code || "PURCHASE_FAILED"
   );
 }
 
-/** Restore purchases — required for App Store review. */
+/** 恢復購買 — App Store 審查必備 */
 export async function restorePurchases(): Promise<boolean> {
   if (!isNativePlatform()) return getLocalProStatus();
   await ensureConfigured();
@@ -272,13 +272,13 @@ export async function restorePurchases(): Promise<boolean> {
     const msg = err?.message || String(err);
     console.error("[Billing][DIAG] Restore error:", msg, "code:", code, err);
     throw new BillingError(
-      `Restore purchases failed: ${msg}${code ? ` (code: ${code})` : ""}`,
+      `恢復購買失敗：${msg}${code ? ` (code: ${code})` : ""}`,
       code || "RESTORE_FAILED"
     );
   }
 }
 
-/** Check current entitlement status — the only trusted PRO source. */
+/** 檢查目前 entitlement 狀態 — 唯一可信的 PRO 判斷依據 */
 export async function checkEntitlements(): Promise<boolean> {
   if (!isNativePlatform()) return false;
   try {

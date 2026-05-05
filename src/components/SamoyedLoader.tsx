@@ -15,7 +15,7 @@ export function SamoyedLoader() {
         <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
         <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
       </div>
-      <p className="text-sm text-muted-foreground font-medium">Loading...</p>
+      <p className="text-sm text-muted-foreground font-medium">載入中...</p>
     </div>
   );
 }

@@ -50,7 +50,7 @@ export function SimpleTimePicker({ value, onChange, minTime }: SimpleTimePickerP
       {/* Hour Dropdown */}
       <Select value={hour || "00"} onValueChange={handleHourChange}>
         <SelectTrigger className="w-[70px] rounded-xl h-11">
-          <SelectValue placeholder="Hour" />
+          <SelectValue placeholder="時" />
         </SelectTrigger>
         <SelectContent className="max-h-[300px] z-[100] bg-background">
           {getAvailableHours().map((h) => (
@@ -66,7 +66,7 @@ export function SimpleTimePicker({ value, onChange, minTime }: SimpleTimePickerP
       {/* Minute Dropdown */}
       <Select value={minute || "00"} onValueChange={handleMinuteChange}>
         <SelectTrigger className="w-[70px] rounded-xl h-11">
-          <SelectValue placeholder="Minute" />
+          <SelectValue placeholder="分" />
         </SelectTrigger>
         <SelectContent className="max-h-[300px] z-[100] bg-background">
           {getAvailableMinutes().map((m) => (
