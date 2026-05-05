@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Used to take photos for your travel itinerary";
+"NSPhotoLibraryUsageDescription" = "Used to select and upload photos for your itinerary";
+"NSPhotoLibraryAddUsageDescription" = "Used to save photos to your library";
+"NSLocationWhenInUseUsageDescription" = "Used to show your location and navigation";
