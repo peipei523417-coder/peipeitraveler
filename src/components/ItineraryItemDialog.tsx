@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ItineraryItem, HighlightColor } from "@/types/travel";
 import {
   Dialog,
@@ -16,17 +16,24 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, Image as ImageIcon, Palette, AlertCircle, MapPin, DollarSign, Users } from "lucide-react";
+import { Clock, Image as ImageIcon, Palette, AlertCircle, MapPin, DollarSign, Users, Camera as CameraIcon, FileImage } from "lucide-react";
 import { GoogleMapsInput } from "@/components/GoogleMapsInput";
 import { SimpleTimePicker, getNextAvailableTime, isTimeBefore } from "@/components/SimpleTimePicker";
 import { HighlightColorPicker } from "@/components/HighlightColorPicker";
 import { hasTimeConflict, findOverlappingItem } from "@/lib/time-validation";
 import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/switch";
+
 
 interface ItineraryItemDialogProps {
   open: boolean;
