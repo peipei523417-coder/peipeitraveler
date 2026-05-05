@@ -6,7 +6,7 @@ workflows:
       app_store_connect: codemagic-final
 
     environment:
-      xcode: 26.0   # ⭐ 這行是關鍵（解 Apple SDK 限制）
+      xcode: 26.0
       node: 22
       ios_signing:
         certificates:
@@ -104,14 +104,14 @@ workflows:
                 config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
-                config.build_settings['MARKETING_VERSION'] = '6.1.10'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '35'  # ⭐ bump > 29
+                config.build_settings['MARKETING_VERSION'] = '6.1.11'
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '36'
               end
             end
           end
 
           project.save
-          puts "Build Number: 25"
+          puts "Build Number: 36"
           RUBY
 
       - name: Install CocoaPods

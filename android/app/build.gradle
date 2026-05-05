@@ -7,8 +7,8 @@ android {
         applicationId "com.peitravel.smartplanner"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 75
-        versionName "1.0.75"
+        versionCode 76
+        versionName "1.0.76"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
@@ -21,7 +21,7 @@ android {
         }
     }
 
-    // --- 關鍵繞過代碼開始 ---
+    // --- Compatibility overrides start ---
     lintOptions {
         checkReleaseBuilds false
         abortOnError false
@@ -37,7 +37,7 @@ android {
             }
         }
     }
-    // --- 關鍵繞過代碼結束 ---
+    // --- Compatibility overrides end ---
 }
 
 repositories {

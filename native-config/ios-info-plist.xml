@@ -1,12 +1,10 @@
 <!-- iOS Info.plist permission descriptions -->
 <key>NSCameraUsageDescription</key>
-<string>Used to take photos for your travel itinerary</string>
+<string>Allow access to camera to upload travel photos.</string>
 
 <key>NSPhotoLibraryUsageDescription</key>
-<string>Used to select and upload photos for your itinerary</string>
+<string>Allow access to photo library to select travel images.</string>
 
 <key>NSPhotoLibraryAddUsageDescription</key>
-<string>Used to save photos to your library</string>
+<string>Allow saving photos to your library.</string>
 
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>Used to show your location and navigation</string>
