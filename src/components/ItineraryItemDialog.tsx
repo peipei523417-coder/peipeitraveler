@@ -387,17 +387,28 @@ export function ItineraryItemDialog({
                 圖片 (選填)
               </Label>
               <div className="flex items-center gap-3">
-                <label className="cursor-pointer touch-manipulation">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  <span className="inline-flex items-center justify-center min-w-[120px] min-h-[44px] px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-black hover:bg-gray-100 active:bg-gray-200 transition-colors shadow-sm">
-                    {t("chooseFile")}
-                  </span>
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setImageSheetOpen(true)}
+                  className="cursor-pointer touch-manipulation inline-flex items-center justify-center min-w-[120px] min-h-[44px] px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-black hover:bg-gray-100 active:bg-gray-200 transition-colors shadow-sm"
+                >
+                  {t("chooseFile")}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
               </div>
               {imageUrl && (
                 <div className="relative">
