@@ -40,14 +40,14 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
       .then((pkg) => {
         if (cancelled) return;
         if (!pkg) {
-          setProductError("找不到商品 pro_function，請確認 App Store Connect / Google Play Console 與 RevenueCat 設定一致");
+          setProductError("Product pro_function was not found. Please confirm App Store Connect / Google Play Console and RevenueCat settings match.");
         } else {
           setProductPrice(pkg.product?.priceString ?? null);
         }
       })
       .catch((err) => {
         if (cancelled) return;
-        setProductError(err?.message || "載入商品失敗");
+        setProductError(err?.message || "Failed to load product");
       })
       .finally(() => {
         if (!cancelled) setProductLoading(false);
@@ -65,11 +65,11 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
         toast.success(t("proEnabled"));
         onOpenChange(false);
       } else {
-        toast.error("購買未完成");
+        toast.error("Purchase was not completed");
       }
     } catch (err: any) {
       if (err?.code === PURCHASE_CANCELLED) {
-        toast.info("已取消購買");
+        toast.info("Purchase cancelled");
       } else {
         const msg = err?.message || String(err) || t("error");
         console.error("[UpgradeProDialog] purchase error:", err);
@@ -141,7 +141,7 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
           {productLoading && (
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
-              載入商品中…
+              Loading product...
             </div>
           )}
           {productError && (
@@ -152,7 +152,7 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
           )}
           {!productLoading && !productError && productPrice && (
             <div className="text-center text-sm text-muted-foreground">
-              價格：<span className="font-semibold text-foreground">{productPrice}</span>
+              Price: <span className="font-semibold text-foreground">{productPrice}</span>
             </div>
           )}
           <Button

@@ -62,13 +62,13 @@ export type HighlightColor =
   | 'orange';
 
 export const HIGHLIGHT_COLORS: { value: HighlightColor; label: string; class: string }[] = [
-  { value: 'none', label: '無', class: 'bg-white' },
-  { value: 'yellow', label: '黃色', class: 'bg-highlight-yellow' },
-  { value: 'green', label: '綠色', class: 'bg-highlight-green' },
-  { value: 'blue', label: '藍色', class: 'bg-highlight-blue' },
-  { value: 'pink', label: '粉紅', class: 'bg-highlight-pink' },
-  { value: 'purple', label: '紫色', class: 'bg-highlight-purple' },
-  { value: 'orange', label: '橘色', class: 'bg-highlight-orange' },
+  { value: 'none', label: 'None', class: 'bg-white' },
+  { value: 'yellow', label: 'Yellow', class: 'bg-highlight-yellow' },
+  { value: 'green', label: 'Green', class: 'bg-highlight-green' },
+  { value: 'blue', label: 'Blue', class: 'bg-highlight-blue' },
+  { value: 'pink', label: 'Pink', class: 'bg-highlight-pink' },
+  { value: 'purple', label: 'Purple', class: 'bg-highlight-purple' },
+  { value: 'orange', label: 'Orange', class: 'bg-highlight-orange' },
 ];
 
 export interface ProjectFormData {

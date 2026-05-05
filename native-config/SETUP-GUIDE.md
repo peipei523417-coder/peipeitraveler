@@ -1,84 +1,80 @@
-# PeiTraveler 原生 App 設定指南
+# PeiTraveler Native App Setup Guide
 
-## 基本資訊
+## Basic Information
 
-| 項目 | 值 |
+| Item | Value |
 |------|-----|
 | App ID | `com.peipeigo.travel` |
-| App 名稱 | `PeiPeiGoTravel` |
-| Version Name | `1.0.0` |
-| Version Code | `1` |
+| App Name | `PeiPeiGoTravel` |
+| Version Name | `1.0.76` |
+| Version Code | `76` |
 
 ---
 
-## 第一步：本機設定
+## Step 1: Local Setup
 
 ```bash
-# 1. 拉取最新程式碼
+# 1. Pull latest code
 git pull
 
-# 2. 安裝依賴
+# 2. Install dependencies
 npm install
 
-# 3. 新增原生平台
+# 3. Add native platforms
 npx cap add android
 npx cap add ios
 
-# 4. 建置並同步
+# 4. Build and sync
 npm run build
 npx cap sync
 ```
 
 ---
 
-## 第二步：Android 設定
+## Step 2: Android Setup
 
-### 2.1 版本號 (`android/app/build.gradle`)
+### 2.1 Version number (`android/app/build.gradle`)
 
-找到 `defaultConfig` 區塊，修改：
+Update the `defaultConfig` block:
 
 ```gradle
 android {
     defaultConfig {
-        applicationId "com.peipeigo.travel"
-        versionCode 1
-        versionName "1.0.0"
-        // ... 其他設定
+        applicationId "com.peitravel.smartplanner"
+        versionCode 76
+        versionName "1.0.76"
     }
 }
 ```
 
-### 2.2 權限 (`android/app/src/main/AndroidManifest.xml`)
+### 2.2 Permissions (`android/app/src/main/AndroidManifest.xml`)
 
-在 `<manifest>` 內、`<application>` 前加入權限（參考 `native-config/android-permissions.xml`）。
+Add permissions inside `<manifest>`, before `<application>` (see `native-config/android-permissions.xml`).
 
 ---
 
-## 第三步：iOS 設定
+## Step 3: iOS Setup
 
-### 3.1 版本號 (`ios/App/App/Info.plist`)
+### 3.1 Version number (`ios/App/App.xcodeproj/project.pbxproj`)
 
-```xml
-<key>CFBundleShortVersionString</key>
-<string>1.0.0</string>
-
-<key>CFBundleVersion</key>
-<string>1</string>
+```text
+MARKETING_VERSION = 6.1.11;
+CURRENT_PROJECT_VERSION = 36;
 ```
 
-### 3.2 權限說明 (`ios/App/App/Info.plist`)
+### 3.2 Permission descriptions (`ios/App/App/Info.plist`)
 
-加入權限說明（參考 `native-config/ios-info-plist.xml`）。
+Add permission descriptions directly in `Info.plist` (see `native-config/ios-info-plist.xml`).
 
 ---
 
-## 第四步：App 圖示與啟動畫面
+## Step 4: App Icon and Splash Screen
 
-1. 將圖示放入 `resources/` 資料夾：
+1. Place assets in the `resources/` folder:
    - `icon.png` (1024x1024)
    - `splash.png` (2732x2732)
 
-2. 執行自動產生：
+2. Generate assets:
    ```bash
    npm install -g @capacitor/assets
    npx capacitor-assets generate
@@ -86,33 +82,31 @@ android {
 
 ---
 
-## 第五步：隱私權政策
+## Step 5: Privacy Policy
 
-在 App Store / Google Play 提交時填入：
+Use this URL for App Store / Google Play submission:
 
 ```
-隱私權政策網址：https://peipeitraveler.lovable.app/privacy-policy
+https://peipeigotravel.lovable.app/privacy-policy
 ```
-
-或在 App 內設定頁面加入此連結。
 
 ---
 
-## 執行 App
+## Run the App
 
 ```bash
 # Android
 npx cap run android
 
-# iOS (需要 Mac + Xcode)
+# iOS (requires Mac + Xcode)
 npx cap run ios
 ```
 
 ---
 
-## 發布準備
+## Release Preparation
 
-發布前記得：
-1. 移除 `capacitor.config.ts` 中的 `server.url` 設定
-2. 執行 `npm run build && npx cap sync`
-3. 在各平台產生正式版 APK/IPA
+Before release:
+1. Remove any `server.url` setting from `capacitor.config.ts`.
+2. Run `npm run build && npx cap sync`.
+3. Generate fresh APK/AAB and IPA builds for each platform.

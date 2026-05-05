@@ -1,38 +1,26 @@
 import { format, Locale } from "date-fns";
-import { zhTW, enUS, es, ko, ja } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 
 const locales: Record<string, Locale> = {
-  "zh-TW": zhTW,
   en: enUS,
-  es: es,
-  ko: ko,
-  ja: ja,
 };
 
 // Date format patterns per locale
 const dateFormats: Record<string, string> = {
-  "zh-TW": "yyyy/MM/dd",
   en: "MM/dd/yyyy",
-  es: "dd/MM/yyyy",
-  ko: "yyyy.MM.dd",
-  ja: "yyyy/MM/dd",
 };
 
 const shortDateFormats: Record<string, string> = {
-  "zh-TW": "MM/dd",
   en: "MM/dd",
-  es: "dd/MM",
-  ko: "MM/dd",
-  ja: "MM/dd",
 };
 
 export function getLocale(language: string): Locale {
-  return locales[language] || zhTW;
+  return locales[language] || enUS;
 }
 
 export function formatDate(date: Date, language: string): string {
   const locale = getLocale(language);
-  const formatStr = dateFormats[language] || "yyyy/MM/dd";
+  const formatStr = dateFormats[language] || "MM/dd/yyyy";
   return format(date, formatStr, { locale });
 }
 

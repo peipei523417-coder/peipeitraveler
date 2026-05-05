@@ -49,7 +49,7 @@ export function getNextAvailableTime(afterTime: string): string {
 export function TimeSelect({ 
   value, 
   onChange, 
-  placeholder = "選擇時間",
+  placeholder = "Select time",
   minTime,
   disabledTimes = []
 }: TimeSelectProps) {

@@ -433,14 +433,14 @@ export default function Index() {
         <div className="text-center max-w-md">
           <Plane className="w-16 h-16 text-primary mx-auto mb-6" />
           <h1 className="text-2xl font-bold text-foreground mb-8">
-            開始您的旅程 / Start Your Journey
+            Start Your Journey
           </h1>
           <Button
             size="lg"
             className="gap-2 rounded-xl w-full max-w-xs"
             onClick={() => setLoginDialogOpen(true)}
           >
-            使用帳號登入 / Sign in
+            Sign in
           </Button>
         </div>
         <LoginDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen} />
