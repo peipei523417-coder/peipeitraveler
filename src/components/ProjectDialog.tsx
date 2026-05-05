@@ -31,7 +31,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Switch } from "@/components/ui/switch";
 import { CalendarIcon, Plane, Upload, X, Lock, Globe, Eye, EyeOff, Image as ImageIcon, Camera, FileImage } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
-import { zhTW } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import pencilIcon from "@/assets/pencil-icon.png";
@@ -404,11 +404,11 @@ export function ProjectDialog({
                     {dateRange?.from ? (
                       dateRange.to ? (
                         <>
-                          {format(dateRange.from, "yyyy/MM/dd", { locale: zhTW })} -{" "}
-                          {format(dateRange.to, "yyyy/MM/dd", { locale: zhTW })}
+                          {format(dateRange.from, "yyyy/MM/dd", { locale: enUS })} -{" "}
+                          {format(dateRange.to, "yyyy/MM/dd", { locale: enUS })}
                         </>
                       ) : (
-                        format(dateRange.from, "yyyy/MM/dd", { locale: zhTW })
+                        format(dateRange.from, "yyyy/MM/dd", { locale: enUS })
                       )
                     ) : (
                       <span>{t("selectDateRange")}</span>
@@ -423,7 +423,7 @@ export function ProjectDialog({
                     selected={dateRange}
                     onSelect={setDateRange}
                     numberOfMonths={2}
-                    locale={zhTW}
+                    locale={enUS}
                     className="pointer-events-auto"
                   />
                 </PopoverContent>
@@ -519,7 +519,7 @@ export function ProjectDialog({
               {t("draftFoundDescription")}
               {pendingDraft && (
                 <span className="block mt-2 text-foreground font-medium">
-                  {t("projectName")}：{pendingDraft.name}
+                  {t("projectName")}: {pendingDraft.name}
                 </span>
               )}
             </AlertDialogDescription>
