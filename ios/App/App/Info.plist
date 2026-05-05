@@ -48,13 +48,13 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>用於拍攝行程照片</string>
+	<string>Used to take photos for your travel itinerary</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>用於選擇並上傳行程照片</string>
+	<string>Used to select and upload photos for your itinerary</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>用於儲存行程照片到相簿</string>
+	<string>Used to save photos to your library</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>用於顯示目前位置與導航功能</string>
+	<string>Used to show your location and navigation</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
