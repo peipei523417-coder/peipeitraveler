@@ -212,6 +212,8 @@ export const translations = {
       restorePurchase: "Restore Purchase",
       restorePurchases: "Restore Purchases",
       noRestorablepurchases: "No purchases to restore",
+      noRestorablePurchases: "No purchases to restore",
+      endTimeError: "End time must be later than start time",
       privacyPolicy: "Privacy Policy",
       deleteAccount: "Delete Account",
       deleteAccountTitle: "Delete your account?",
