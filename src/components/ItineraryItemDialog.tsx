@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ItineraryItem, HighlightColor } from "@/types/travel";
 import {
   Dialog,
@@ -16,17 +16,24 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, Image as ImageIcon, Palette, AlertCircle, MapPin, DollarSign, Users } from "lucide-react";
+import { Clock, Image as ImageIcon, Palette, AlertCircle, MapPin, DollarSign, Users, Camera as CameraIcon, FileImage } from "lucide-react";
 import { GoogleMapsInput } from "@/components/GoogleMapsInput";
 import { SimpleTimePicker, getNextAvailableTime, isTimeBefore } from "@/components/SimpleTimePicker";
 import { HighlightColorPicker } from "@/components/HighlightColorPicker";
 import { hasTimeConflict, findOverlappingItem } from "@/lib/time-validation";
 import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/switch";
+
 
 interface ItineraryItemDialogProps {
   open: boolean;
@@ -191,6 +198,73 @@ export function ItineraryItemDialog({
     setImageUrl(previewUrl);
   };
 
+  const isNative = () => !!(window as any).Capacitor?.isNativePlatform?.();
+
+  const dataUrlToFile = async (dataUrl: string, filename: string): Promise<File> => {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    return new File([blob], filename, { type: blob.type || "image/jpeg" });
+  };
+
+  const pickFromCameraNative = async () => {
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import("@capacitor/camera");
+      const photo = await Camera.getPhoto({
+        quality: 80,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+      if (photo.dataUrl) {
+        const file = await dataUrlToFile(photo.dataUrl, `item_${Date.now()}.jpg`);
+        setImageFile(file);
+        setImageUrl(photo.dataUrl);
+      }
+    } catch {
+      // user cancelled — silent
+    }
+  };
+
+  const pickFromLibraryNative = async () => {
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import("@capacitor/camera");
+      const photo = await Camera.getPhoto({
+        quality: 80,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Photos,
+      });
+      if (photo.dataUrl) {
+        const file = await dataUrlToFile(photo.dataUrl, `item_${Date.now()}.jpg`);
+        setImageFile(file);
+        setImageUrl(photo.dataUrl);
+      }
+    } catch {
+      // user cancelled — silent
+    }
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [imageSheetOpen, setImageSheetOpen] = useState(false);
+
+  const handleTakePhoto = () => {
+    setImageSheetOpen(false);
+    if (isNative()) pickFromCameraNative();
+    else cameraInputRef.current?.click();
+  };
+
+  const handlePickLibrary = () => {
+    setImageSheetOpen(false);
+    if (isNative()) pickFromLibraryNative();
+    else fileInputRef.current?.click();
+  };
+
+  const handlePickFile = () => {
+    setImageSheetOpen(false);
+    fileInputRef.current?.click();
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -313,17 +387,28 @@ export function ItineraryItemDialog({
                 圖片 (選填)
               </Label>
               <div className="flex items-center gap-3">
-                <label className="cursor-pointer touch-manipulation">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                  <span className="inline-flex items-center justify-center min-w-[120px] min-h-[44px] px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-black hover:bg-gray-100 active:bg-gray-200 transition-colors shadow-sm">
-                    {t("chooseFile")}
-                  </span>
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setImageSheetOpen(true)}
+                  className="cursor-pointer touch-manipulation inline-flex items-center justify-center min-w-[120px] min-h-[44px] px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-black hover:bg-gray-100 active:bg-gray-200 transition-colors shadow-sm"
+                >
+                  {t("chooseFile")}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
               </div>
               {imageUrl && (
                 <div className="relative">
@@ -387,6 +472,29 @@ export function ItineraryItemDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image source selection sheet — Traditional Chinese, replaces native English picker */}
+      <Sheet open={imageSheetOpen} onOpenChange={setImageSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle className="text-center">{t("chooseFile")}</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-2 py-4">
+            <Button variant="outline" className="w-full justify-center gap-2 h-12 rounded-xl" onClick={handlePickLibrary}>
+              <ImageIcon className="w-5 h-5" />{t("choosePhotoLibrary")}
+            </Button>
+            <Button variant="outline" className="w-full justify-center gap-2 h-12 rounded-xl" onClick={handleTakePhoto}>
+              <CameraIcon className="w-5 h-5" />{t("takePhoto")}
+            </Button>
+            <Button variant="outline" className="w-full justify-center gap-2 h-12 rounded-xl" onClick={handlePickFile}>
+              <FileImage className="w-5 h-5" />{t("chooseFile")}
+            </Button>
+            <Button variant="ghost" className="w-full justify-center h-12 rounded-xl mt-1" onClick={() => setImageSheetOpen(false)}>
+              {t("cancel")}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
