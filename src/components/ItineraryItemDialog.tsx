@@ -472,6 +472,29 @@ export function ItineraryItemDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image source selection sheet — Traditional Chinese, replaces native English picker */}
+      <Sheet open={imageSheetOpen} onOpenChange={setImageSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle className="text-center">{t("chooseFile")}</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-2 py-4">
+            <Button variant="outline" className="w-full justify-center gap-2 h-12 rounded-xl" onClick={handlePickLibrary}>
+              <ImageIcon className="w-5 h-5" />{t("choosePhotoLibrary")}
+            </Button>
+            <Button variant="outline" className="w-full justify-center gap-2 h-12 rounded-xl" onClick={handleTakePhoto}>
+              <CameraIcon className="w-5 h-5" />{t("takePhoto")}
+            </Button>
+            <Button variant="outline" className="w-full justify-center gap-2 h-12 rounded-xl" onClick={handlePickFile}>
+              <FileImage className="w-5 h-5" />{t("chooseFile")}
+            </Button>
+            <Button variant="ghost" className="w-full justify-center h-12 rounded-xl mt-1" onClick={() => setImageSheetOpen(false)}>
+              {t("cancel")}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
