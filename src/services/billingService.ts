@@ -201,6 +201,44 @@ export async function getProductDetails(): Promise<PurchasesStoreProduct | null>
   }
 }
 
+/** 收集 offerings/packages/products 完整診斷資訊（給 UI 顯示用） */
+export async function collectBillingDiagnostics(): Promise<string> {
+  try {
+    await ensureConfigured();
+    const offerings = await Purchases.getOfferings();
+    const currentId = offerings.current?.identifier ?? "(none)";
+    const allKeys = Object.keys(offerings.all || {});
+    const currentPkgs = (offerings.current?.availablePackages || []).map((p) => ({
+      pkg: p.identifier,
+      product: p.product?.identifier,
+      price: p.product?.priceString,
+    }));
+    const allPkgs: any[] = [];
+    for (const k of allKeys) {
+      const o = offerings.all[k];
+      for (const p of o?.availablePackages || []) {
+        allPkgs.push({ offering: k, pkg: p.identifier, product: p.product?.identifier });
+      }
+    }
+    let entitlements: string[] = [];
+    try {
+      const { customerInfo } = await Purchases.getCustomerInfo();
+      entitlements = Object.keys(customerInfo?.entitlements?.active || {});
+    } catch { /* ignore */ }
+    return JSON.stringify({
+      PRODUCT_ID,
+      ENTITLEMENT_ID,
+      currentOffering: currentId,
+      offerings: allKeys,
+      currentPackages: currentPkgs,
+      allPackages: allPkgs,
+      activeEntitlements: entitlements,
+    }, null, 2);
+  } catch (err: any) {
+    return `diagnostics failed: ${err?.message || err}`;
+  }
+}
+
 /** 購買 pro_function — 開啟原生付款表單；回傳 true 表示已取得 entitlement */
 export async function purchasePro(): Promise<boolean> {
   if (!isNativePlatform()) {
@@ -210,10 +248,16 @@ export async function purchasePro(): Promise<boolean> {
 
   const pkg = await getProPackage();
   if (pkg) {
+    console.log("[Billing][DIAG] purchasing package:", JSON.stringify({
+      pkg: pkg.identifier,
+      product: pkg.product?.identifier,
+      offering: (pkg as any).offeringIdentifier,
+    }));
     try {
       const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
+      const ents = Object.keys(customerInfo?.entitlements?.active || {});
       const ok = entitlementActive(customerInfo);
-      console.log("[Billing][DIAG] purchasePackage success, entitlement active =", ok);
+      console.log("[Billing][DIAG] purchasePackage success, entitlements:", ents.join(",") || "(none)", "active=", ok);
       setLocalProStatus(ok);
       return ok;
     } catch (err: any) {
@@ -224,7 +268,8 @@ export async function purchasePro(): Promise<boolean> {
   // Fallback：嘗試直接用 productId 購買（部分版本支援）
   const product = await getProductDetails();
   if (!product) {
-    const msg = `找不到商品 ${PRODUCT_ID}，請確認 App Store Connect / Google Play Console 與 RevenueCat dashboard 的 Product ID 是否一致`;
+    const diag = await collectBillingDiagnostics();
+    const msg = `找不到商品 ${PRODUCT_ID}（offering=default / package=lifetime|src_lifetime）。請確認 RevenueCat dashboard offering "default" 內已掛 product ${PRODUCT_ID}，且 App Store Connect 的 IAP 已 Approved/Ready to Submit。\n\n[診斷]\n${diag}`;
     console.error("[Billing][DIAG]", msg);
     throw new BillingError(msg, "PRODUCT_NOT_FOUND");
   }
