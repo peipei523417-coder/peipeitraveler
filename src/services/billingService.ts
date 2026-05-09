@@ -241,9 +241,27 @@ export async function purchasePro(): Promise<boolean> {
 }
 
 function handlePurchaseError(err: any): never {
-  const code = err?.code || err?.errorCode;
+  const code = err?.code ?? err?.errorCode;
   const msg = err?.message || String(err);
-  console.error("[Billing][DIAG] Purchase error:", msg, "code:", code, err);
+  const underlying =
+    err?.underlyingErrorMessage ||
+    err?.underlyingError?.message ||
+    err?.underlyingError ||
+    err?.readableErrorCode ||
+    null;
+  console.error(
+    "[Billing][DIAG] Purchase error:",
+    JSON.stringify({
+      code,
+      message: msg,
+      readableErrorCode: err?.readableErrorCode,
+      underlyingError: underlying,
+      userCancelled: err?.userCancelled,
+      raw: (() => {
+        try { return JSON.parse(JSON.stringify(err)); } catch { return String(err); }
+      })(),
+    })
+  );
   if (
     code === PURCHASES_ERROR_CODE?.PURCHASE_CANCELLED_ERROR ||
     err?.userCancelled === true ||
@@ -251,10 +269,15 @@ function handlePurchaseError(err: any): never {
   ) {
     throw new BillingError("使用者取消購買", PURCHASE_CANCELLED);
   }
-  throw new BillingError(
-    `購買失敗：${msg}${code ? ` (code: ${code})` : ""}`,
-    code || "PURCHASE_FAILED"
-  );
+  const detail = [
+    `購買失敗：${msg}`,
+    code != null ? `code=${code}` : null,
+    err?.readableErrorCode ? `readable=${err.readableErrorCode}` : null,
+    underlying ? `underlying=${typeof underlying === "string" ? underlying : JSON.stringify(underlying)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+  throw new BillingError(detail, code != null ? String(code) : "PURCHASE_FAILED");
 }
 
 /** 恢復購買 — App Store 審查必備 */
