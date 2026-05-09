@@ -12,7 +12,7 @@ import { Crown, Sparkles, RotateCcw, Loader2, AlertTriangle } from "lucide-react
 import { useTranslation } from "react-i18next";
 import { usePro } from "@/contexts/ProContext";
 import { toast } from "sonner";
-import { getProPackage, PURCHASE_CANCELLED } from "@/services/billingService";
+import { getProPackage, PURCHASE_CANCELLED, collectBillingDiagnostics } from "@/services/billingService";
 
 interface UpgradeProDialogProps {
   open: boolean;
@@ -28,6 +28,7 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
   const [productLoading, setProductLoading] = useState(false);
   const [productPrice, setProductPrice] = useState<string | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
+  const [purchaseDiagnostic, setPurchaseDiagnostic] = useState<string | null>(null);
 
   // Load product info from RevenueCat when dialog opens
   useEffect(() => {
@@ -59,13 +60,17 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
 
   const handlePurchase = async () => {
     setPurchasing(true);
+    setPurchaseDiagnostic(null);
     try {
       const success = await completePurchase();
       if (success) {
         toast.success(t("proEnabled"));
         onOpenChange(false);
       } else {
-        toast.error("購買未完成");
+        const diag = await collectBillingDiagnostics();
+        const detail = `購買未完成（沒有取得 entitlement="pro"）\n\n[診斷]\n${diag}`;
+        setPurchaseDiagnostic(detail);
+        toast.error("購買未完成 — 請查看下方診斷資訊", { duration: 8000 });
       }
     } catch (err: any) {
       if (err?.code === PURCHASE_CANCELLED) {
@@ -73,7 +78,11 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
       } else {
         const msg = err?.message || String(err) || t("error");
         console.error("[UpgradeProDialog] purchase error:", err);
-        toast.error(msg, { duration: 8000 });
+        const diag = await collectBillingDiagnostics().catch(() => "(diagnostics unavailable)");
+        setPurchaseDiagnostic(
+          `❌ ${msg}\n\ncode: ${err?.code ?? "(none)"}\n\n[診斷]\n${diag}`
+        );
+        toast.error(msg, { duration: 10000 });
       }
     } finally {
       setPurchasing(false);
@@ -148,6 +157,21 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
             <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-2">
               <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <span className="break-words">{productError}</span>
+            </div>
+          )}
+          {purchaseDiagnostic && (
+            <div className="text-xs bg-destructive/10 text-destructive rounded-lg p-2 max-h-64 overflow-auto">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-semibold">購買診斷</span>
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => {
+                    try { navigator.clipboard?.writeText(purchaseDiagnostic); toast.success("已複製"); } catch {}
+                  }}
+                >複製</button>
+              </div>
+              <pre className="whitespace-pre-wrap break-all font-mono text-[10px] leading-snug">{purchaseDiagnostic}</pre>
             </div>
           )}
           {!productLoading && !productError && productPrice && (
