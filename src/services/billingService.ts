@@ -245,10 +245,7 @@ export async function purchasePro(): Promise<boolean> {
     }));
     try {
       const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
-      const ents = Object.keys(customerInfo?.entitlements?.active || {});
-      const ok = entitlementActive(customerInfo);
-      console.log("[Billing][DIAG] purchasePackage success, entitlements:", ents.join(",") || "(none)", "active=", ok);
-      setLocalProStatus(ok);
+      const ok = enforceActiveProEntitlement(customerInfo, "purchasePackage success");
       return ok;
     } catch (err: any) {
       handlePurchaseError(err);
@@ -265,9 +262,7 @@ export async function purchasePro(): Promise<boolean> {
   }
   try {
     const { customerInfo } = await Purchases.purchaseStoreProduct({ product });
-    const ok = entitlementActive(customerInfo);
-    console.log("[Billing][DIAG] purchaseStoreProduct success, entitlement active =", ok);
-    setLocalProStatus(ok);
+    const ok = enforceActiveProEntitlement(customerInfo, "purchaseStoreProduct success");
     return ok;
   } catch (err: any) {
     handlePurchaseError(err);
@@ -317,13 +312,11 @@ function handlePurchaseError(err: any): never {
 
 /** 恢復購買 — App Store 審查必備 */
 export async function restorePurchases(): Promise<boolean> {
-  if (!isNativePlatform()) return getLocalProStatus();
+  if (!isNativePlatform()) return false;
   await ensureConfigured();
   try {
     const { customerInfo } = await Purchases.restorePurchases();
-    const ok = entitlementActive(customerInfo);
-    console.log("[Billing][DIAG] restorePurchases entitlement active =", ok);
-    setLocalProStatus(ok);
+    const ok = enforceActiveProEntitlement(customerInfo, "restorePurchases");
     return ok;
   } catch (err: any) {
     const code = err?.code || err?.errorCode;
@@ -342,8 +335,7 @@ export async function checkEntitlements(): Promise<boolean> {
   try {
     await ensureConfigured();
     const { customerInfo } = await Purchases.getCustomerInfo();
-    const ok = entitlementActive(customerInfo);
-    setLocalProStatus(ok);
+    const ok = enforceActiveProEntitlement(customerInfo, "getCustomerInfo");
     return ok;
   } catch (err: any) {
     console.error("[Billing][DIAG] checkEntitlements error:", err?.message || err, err);
