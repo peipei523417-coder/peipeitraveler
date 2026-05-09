@@ -159,6 +159,21 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
               <span className="break-words">{productError}</span>
             </div>
           )}
+          {purchaseDiagnostic && (
+            <div className="text-xs bg-destructive/10 text-destructive rounded-lg p-2 max-h-64 overflow-auto">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-semibold">購買診斷</span>
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => {
+                    try { navigator.clipboard?.writeText(purchaseDiagnostic); toast.success("已複製"); } catch {}
+                  }}
+                >複製</button>
+              </div>
+              <pre className="whitespace-pre-wrap break-all font-mono text-[10px] leading-snug">{purchaseDiagnostic}</pre>
+            </div>
+          )}
           {!productLoading && !productError && productPrice && (
             <div className="text-center text-sm text-muted-foreground">
               價格：<span className="font-semibold text-foreground">{productPrice}</span>
