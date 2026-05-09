@@ -68,7 +68,7 @@ export function useProStatus() {
   }, [fetchProStatus]);
 
   const requestUpgrade = useCallback(async (_source: ProUpgradeSource): Promise<boolean> => {
-    return true;
+    return false;
   }, []);
 
   /** Execute purchase via RevenueCat — throws on failure so UI shows details */
@@ -98,21 +98,6 @@ export function useProStatus() {
     return restored;
   }, [user]);
 
-  // Legacy toggle — dev only
-  const toggleProStatus = useCallback(async () => {
-    if (!user) return;
-    try {
-      const newStatus = !isPro;
-      const { error } = await supabase
-        .from("user_profiles")
-        .upsert({ user_id: user.id, is_pro: newStatus }, { onConflict: "user_id" });
-      if (error) return;
-      setIsPro(newStatus);
-    } catch (error) {
-      console.error("Error in toggleProStatus:", error);
-    }
-  }, [user, isPro]);
-
   return {
     isPro,
     loading,
@@ -120,6 +105,5 @@ export function useProStatus() {
     restorePurchases,
     completePurchase,
     refetch: fetchProStatus,
-    toggleProStatus,
   };
 }
