@@ -22,7 +22,6 @@ import {
 
 export const PRODUCT_ID = "pro_function";
 export const ENTITLEMENT_ID = "pro"; // RevenueCat dashboard entitlement identifier
-const PRO_STORAGE_KEY = "peipeigo_is_pro";
 
 // ⚠️ 把你的 RevenueCat **public** SDK key 填在這裡（appl_xxx / goog_xxx）。
 // 這些是 publishable key，可以安全放在前端程式碼中。
@@ -46,22 +45,6 @@ export class BillingError extends Error {
   }
 }
 export const PURCHASE_CANCELLED = "PURCHASE_CANCELLED";
-
-// ── Cache helpers (僅 UI 加速顯示，不作為權限判斷依據) ────────
-export function getLocalProStatus(): boolean {
-  try {
-    return localStorage.getItem(PRO_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-export function setLocalProStatus(isPro: boolean): void {
-  try {
-    localStorage.setItem(PRO_STORAGE_KEY, isPro ? "true" : "false");
-  } catch {
-    /* ignore */
-  }
-}
 
 // ── Platform detection ──────────────────────────────────────
 function isNativePlatform(): boolean {
@@ -132,6 +115,13 @@ async function ensureConfigured() {
 function entitlementActive(info: CustomerInfo | undefined | null): boolean {
   const ent = info?.entitlements?.active?.[ENTITLEMENT_ID];
   return !!ent;
+}
+
+function enforceActiveProEntitlement(customerInfo: CustomerInfo | undefined | null, source: string): boolean {
+  const active = entitlementActive(customerInfo);
+  const activeKeys = Object.keys(customerInfo?.entitlements?.active || {});
+  console.log("[Billing][DIAG]", source, "active entitlements:", activeKeys.join(",") || "(none)", "pro=", active);
+  return active;
 }
 
 // ── Public API ──────────────────────────────────────────────
