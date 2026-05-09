@@ -17,7 +17,6 @@ import {
   PURCHASES_ERROR_CODE,
   type CustomerInfo,
   type PurchasesPackage,
-  type PurchasesStoreProduct,
 } from "@revenuecat/purchases-capacitor";
 
 export const PRODUCT_ID = "pro_function";
@@ -191,19 +190,6 @@ export async function getProPackage(): Promise<PurchasesPackage | null> {
   }
 }
 
-/** 直接抓商品資訊（fallback 用） */
-export async function getProductDetails(): Promise<PurchasesStoreProduct | null> {
-  await ensureConfigured();
-  try {
-    const result = await Purchases.getProducts({ productIdentifiers: [PRODUCT_ID] });
-    console.log("[Billing][DIAG] getProducts result:", JSON.stringify(result));
-    return result.products?.[0] || null;
-  } catch (err: any) {
-    console.error("[Billing][DIAG] getProducts ERROR:", err?.message || err, err);
-    return null;
-  }
-}
-
 /** 收集 offerings/packages/products 完整診斷資訊（給 UI 顯示用） */
 export async function collectBillingDiagnostics(): Promise<string> {
   try {
@@ -274,22 +260,10 @@ export async function purchasePro(): Promise<boolean> {
     }
   }
 
-  // Fallback：嘗試直接用 productId 購買（部分版本支援）
-  const product = await getProductDetails();
-  if (!product) {
-    const diag = await collectBillingDiagnostics();
-    const msg = `找不到商品 ${PRODUCT_ID}（offering=default / package=lifetime|src_lifetime）。請確認 RevenueCat dashboard offering "default" 內已掛 product ${PRODUCT_ID}，且 App Store Connect 的 IAP 已 Approved/Ready to Submit。\n\n[診斷]\n${diag}`;
-    console.error("[Billing][DIAG]", msg);
-    throw new BillingError(msg, "PRODUCT_NOT_FOUND");
-  }
-  try {
-    const { customerInfo } = await Purchases.purchaseStoreProduct({ product });
-    const ok = enforceActiveProEntitlement(customerInfo, "purchaseStoreProduct success");
-    return ok;
-  } catch (err: any) {
-    handlePurchaseError(err);
-  }
-  return false;
+  const diag = await collectBillingDiagnostics();
+  const msg = `找不到可購買的 package（offering=default / package=lifetime|src_lifetime / product=${PRODUCT_ID}）。未取得 RevenueCat active entitlement="${ENTITLEMENT_ID}" 前不會解鎖 PRO。\n\n[診斷]\n${diag}`;
+  console.error("[Billing][DIAG]", msg);
+  throw new BillingError(msg, "PACKAGE_NOT_FOUND");
 }
 
 function handlePurchaseError(err: any): never {
