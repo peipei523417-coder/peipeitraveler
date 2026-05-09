@@ -24,6 +24,7 @@ export const PRODUCT_ID = "pro_function";
 export const ENTITLEMENT_ID = "pro"; // RevenueCat dashboard entitlement identifier
 const REQUIRED_OFFERING_ID = "default";
 const ALLOWED_PACKAGE_IDS = new Set(["lifetime", "src_lifetime", "$rc_lifetime"]);
+const LEGACY_PRO_STORAGE_KEY = "peipeigo_is_pro";
 
 // ⚠️ 把你的 RevenueCat **public** SDK key 填在這裡（appl_xxx / goog_xxx）。
 // 這些是 publishable key，可以安全放在前端程式碼中。
@@ -64,6 +65,7 @@ function getPlatform(): "ios" | "android" | "web" {
 
 // ── Configure ───────────────────────────────────────────────
 export async function initBilling(): Promise<void> {
+  purgeLegacyProCache();
   console.log("[Billing][DIAG] PRODUCT_ID =", PRODUCT_ID, " ENTITLEMENT =", ENTITLEMENT_ID);
   if (!isNativePlatform()) {
     console.log("[Billing] Web environment — RevenueCat skipped");
@@ -124,6 +126,14 @@ function enforceActiveProEntitlement(customerInfo: CustomerInfo | undefined | nu
   const activeKeys = Object.keys(customerInfo?.entitlements?.active || {});
   console.log("[Billing][DIAG]", source, "active entitlements:", activeKeys.join(",") || "(none)", "pro=", active);
   return active;
+}
+
+function purgeLegacyProCache(): void {
+  try {
+    localStorage.removeItem(LEGACY_PRO_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 // ── Public API ──────────────────────────────────────────────
@@ -218,6 +228,14 @@ export async function collectBillingDiagnostics(): Promise<string> {
       const { customerInfo } = await Purchases.getCustomerInfo();
       entitlements = Object.keys(customerInfo?.entitlements?.active || {});
     } catch { /* ignore */ }
+    let products: any[] = [];
+    try {
+      const result = await Purchases.getProducts({ productIdentifiers: [PRODUCT_ID] });
+      products = (result.products || []).map((p) => ({
+        product: p.identifier,
+        price: p.priceString,
+      }));
+    } catch { /* ignore */ }
     return JSON.stringify({
       PRODUCT_ID,
       ENTITLEMENT_ID,
@@ -225,6 +243,7 @@ export async function collectBillingDiagnostics(): Promise<string> {
       offerings: allKeys,
       currentPackages: currentPkgs,
       allPackages: allPkgs,
+      products,
       activeEntitlements: entitlements,
     }, null, 2);
   } catch (err: any) {
