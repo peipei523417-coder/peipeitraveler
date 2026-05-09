@@ -73,7 +73,18 @@ export function useProStatus() {
 
   /** Execute purchase via RevenueCat — throws on failure so UI shows details */
   const completePurchase = useCallback(async (): Promise<boolean> => {
-    const success = await purchasePro();
+    let success = false;
+    try {
+      success = await purchasePro();
+    } catch (error) {
+      setIsPro(false);
+      if (user) {
+        await supabase
+          .from("user_profiles")
+          .upsert({ user_id: user.id, is_pro: false }, { onConflict: "user_id" });
+      }
+      throw error;
+    }
     if (success) {
       setIsPro(true);
       if (user) {
@@ -95,7 +106,16 @@ export function useProStatus() {
   /** Restore purchases — throws on failure */
   const restorePurchases = useCallback(async (): Promise<boolean> => {
     if (!user) return false;
-    const restored = await restoreBilling();
+    let restored = false;
+    try {
+      restored = await restoreBilling();
+    } catch (error) {
+      setIsPro(false);
+      await supabase
+        .from("user_profiles")
+        .upsert({ user_id: user.id, is_pro: false }, { onConflict: "user_id" });
+      throw error;
+    }
     if (restored) {
       setIsPro(true);
       await supabase
