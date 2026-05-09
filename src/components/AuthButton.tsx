@@ -31,7 +31,7 @@ export function AuthButton() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, loading, signOut } = useAuth();
-  const { isPro, toggleProStatus, restorePurchases } = usePro();
+  const { isPro, restorePurchases } = usePro();
   const [loginOpen, setLoginOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
