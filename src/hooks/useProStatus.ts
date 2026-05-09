@@ -81,6 +81,13 @@ export function useProStatus() {
           .from("user_profiles")
           .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
       }
+    } else {
+      setIsPro(false);
+      if (user) {
+        await supabase
+          .from("user_profiles")
+          .upsert({ user_id: user.id, is_pro: false }, { onConflict: "user_id" });
+      }
     }
     return success;
   }, [user]);
@@ -94,6 +101,11 @@ export function useProStatus() {
       await supabase
         .from("user_profiles")
         .upsert({ user_id: user.id, is_pro: true }, { onConflict: "user_id" });
+    } else {
+      setIsPro(false);
+      await supabase
+        .from("user_profiles")
+        .upsert({ user_id: user.id, is_pro: false }, { onConflict: "user_id" });
     }
     return restored;
   }, [user]);
