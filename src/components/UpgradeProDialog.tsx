@@ -60,13 +60,17 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
 
   const handlePurchase = async () => {
     setPurchasing(true);
+    setPurchaseDiagnostic(null);
     try {
       const success = await completePurchase();
       if (success) {
         toast.success(t("proEnabled"));
         onOpenChange(false);
       } else {
-        toast.error("購買未完成");
+        const diag = await collectBillingDiagnostics();
+        const detail = `購買未完成（沒有取得 entitlement="pro"）\n\n[診斷]\n${diag}`;
+        setPurchaseDiagnostic(detail);
+        toast.error("購買未完成 — 請查看下方診斷資訊", { duration: 8000 });
       }
     } catch (err: any) {
       if (err?.code === PURCHASE_CANCELLED) {
@@ -74,7 +78,11 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
       } else {
         const msg = err?.message || String(err) || t("error");
         console.error("[UpgradeProDialog] purchase error:", err);
-        toast.error(msg, { duration: 8000 });
+        const diag = await collectBillingDiagnostics().catch(() => "(diagnostics unavailable)");
+        setPurchaseDiagnostic(
+          `❌ ${msg}\n\ncode: ${err?.code ?? "(none)"}\n\n[診斷]\n${diag}`
+        );
+        toast.error(msg, { duration: 10000 });
       }
     } finally {
       setPurchasing(false);
