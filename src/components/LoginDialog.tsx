@@ -15,6 +15,9 @@ import { toast } from "sonner";
 
 /** Production URL used as OAuth redirect for native apps */
 const PRODUCTION_URL = "https://peipeigotravel.lovable.app";
+const ANDROID_PACKAGE_NAME = "com.peitravel.smartplanner";
+const ANDROID_GOOGLE_OAUTH_CLIENT_ID = "306766228473-h5ebkjhhv3jh2g5pva1rjfr722ohlha2.apps.googleusercontent.com";
+const ANDROID_GOOGLE_OAUTH_SHA1 = "AB:12:34:20:25:0D:70:7E:98:EA:C1:8A:15:4E:68:E9:A5:A8:5E:0F:B";
 
 interface LoginDialogProps {
   open: boolean;
@@ -50,7 +53,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
     const scheme =
       platform === "ios"
         ? "com.peipeigo.travel"
-        : "com.peitravel.smartplanner";
+        : ANDROID_PACKAGE_NAME;
 
     const nonce =
       typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -69,7 +72,41 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
     });
     if (provider === "google") params.set("prompt", "select_account");
 
-    return `${PRODUCTION_URL}/~oauth/initiate?${params.toString()}`;
+    return {
+      oauthUrl: `${PRODUCTION_URL}/~oauth/initiate?${params.toString()}`,
+      callbackUrl: callbackUrl.toString(),
+      platform,
+      scheme,
+    };
+  };
+
+  const logAndroidGoogleDiagnostics = (
+    phase: "start" | "browser-opened" | "error",
+    details: Record<string, unknown> = {}
+  ) => {
+    const platform = (window as any).Capacitor?.getPlatform?.() ?? "web";
+    if (platform !== "android") return;
+    console.info(`[Android Google Login][${phase}]`, {
+      packageName: ANDROID_PACKAGE_NAME,
+      detectedPlatform: platform,
+      flow: "browser OAuth via @capacitor/browser / Chrome Custom Tab",
+      nativeGoogleSignIn: false,
+      prompt: "select_account",
+      googleServicesAndroidClientId: ANDROID_GOOGLE_OAUTH_CLIENT_ID,
+      googleServicesSha1: ANDROID_GOOGLE_OAUTH_SHA1,
+      mismatchHint:
+        "If Google sign-in stalls or shows account-add messaging, verify Google Play App Signing SHA-1 is attached to the Android OAuth client for com.peitravel.smartplanner.",
+      ...details,
+    });
+  };
+
+  const formatOAuthError = (err: unknown) => {
+    const maybeError = err as { code?: unknown; message?: unknown; error?: unknown; name?: unknown };
+    return {
+      code: maybeError?.code ?? maybeError?.name ?? null,
+      message: maybeError?.message ?? maybeError?.error ?? String(err),
+      raw: err,
+    };
   };
 
   const handleOAuthLogin = async (provider: "google" | "apple") => {
@@ -87,9 +124,23 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         localStorage.setItem("native_oauth_pending", "1");
         localStorage.setItem("native_oauth_provider", provider);
 
-        const oauthUrl = buildNativeOAuthUrl(provider);
+        const { oauthUrl, callbackUrl, platform, scheme } = buildNativeOAuthUrl(provider);
+        if (provider === "google") {
+          logAndroidGoogleDiagnostics("start", {
+            oauthRedirectUrl: callbackUrl,
+            oauthInitiateUrl: oauthUrl,
+            callbackScheme: scheme,
+            detectedPlatform: platform,
+          });
+        }
         const { Browser } = await import("@capacitor/browser");
         await Browser.open({ url: oauthUrl, presentationStyle: "fullscreen" });
+        if (provider === "google") {
+          logAndroidGoogleDiagnostics("browser-opened", {
+            oauthRedirectUrl: callbackUrl,
+            oauthInitiateUrl: oauthUrl,
+          });
+        }
         // Keep loading overlay visible — DeepLinkHandler closes browser & sets session,
         // and the user-effect above will dismiss this dialog when auth completes.
         return;
@@ -112,6 +163,11 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       setLoading(null);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     } catch (err) {
+      if (provider === "google") {
+        logAndroidGoogleDiagnostics("error", {
+          googleSignInError: formatOAuthError(err),
+        });
+      }
       console.error("OAuth error:", err);
       toast.error(t("signInFailed"));
       setLoading(null);
