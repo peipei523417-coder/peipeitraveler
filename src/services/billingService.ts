@@ -17,12 +17,13 @@ import {
   PURCHASES_ERROR_CODE,
   type CustomerInfo,
   type PurchasesPackage,
-  type PurchasesStoreProduct,
 } from "@revenuecat/purchases-capacitor";
 
 export const PRODUCT_ID = "pro_function";
 export const ENTITLEMENT_ID = "pro"; // RevenueCat dashboard entitlement identifier
-const PRO_STORAGE_KEY = "peipeigo_is_pro";
+const REQUIRED_OFFERING_ID = "default";
+const ALLOWED_PACKAGE_IDS = new Set(["lifetime", "src_lifetime", "$rc_lifetime"]);
+const LEGACY_PRO_STORAGE_KEY = "peipeigo_is_pro";
 
 // ⚠️ 把你的 RevenueCat **public** SDK key 填在這裡（appl_xxx / goog_xxx）。
 // 這些是 publishable key，可以安全放在前端程式碼中。
@@ -47,22 +48,6 @@ export class BillingError extends Error {
 }
 export const PURCHASE_CANCELLED = "PURCHASE_CANCELLED";
 
-// ── Cache helpers (僅 UI 加速顯示，不作為權限判斷依據) ────────
-export function getLocalProStatus(): boolean {
-  try {
-    return localStorage.getItem(PRO_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-export function setLocalProStatus(isPro: boolean): void {
-  try {
-    localStorage.setItem(PRO_STORAGE_KEY, isPro ? "true" : "false");
-  } catch {
-    /* ignore */
-  }
-}
-
 // ── Platform detection ──────────────────────────────────────
 function isNativePlatform(): boolean {
   return (
@@ -79,6 +64,7 @@ function getPlatform(): "ios" | "android" | "web" {
 
 // ── Configure ───────────────────────────────────────────────
 export async function initBilling(): Promise<void> {
+  purgeLegacyProCache();
   console.log("[Billing][DIAG] PRODUCT_ID =", PRODUCT_ID, " ENTITLEMENT =", ENTITLEMENT_ID);
   if (!isNativePlatform()) {
     console.log("[Billing] Web environment — RevenueCat skipped");
@@ -134,6 +120,21 @@ function entitlementActive(info: CustomerInfo | undefined | null): boolean {
   return !!ent;
 }
 
+function enforceActiveProEntitlement(customerInfo: CustomerInfo | undefined | null, source: string): boolean {
+  const active = entitlementActive(customerInfo);
+  const activeKeys = Object.keys(customerInfo?.entitlements?.active || {});
+  console.log("[Billing][DIAG]", source, "active entitlements:", activeKeys.join(",") || "(none)", "pro=", active);
+  return active;
+}
+
+function purgeLegacyProCache(): void {
+  try {
+    localStorage.removeItem(LEGACY_PRO_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 // ── Public API ──────────────────────────────────────────────
 
 /** 嘗試找出 pro_function 的 package；找不到則回傳 null */
@@ -149,17 +150,18 @@ export async function getProPackage(): Promise<PurchasesPackage | null> {
       })
     );
 
-    const candidates: PurchasesPackage[] = [];
-    if (offerings.current?.availablePackages?.length) {
-      candidates.push(...offerings.current.availablePackages);
-    }
-    for (const key of Object.keys(offerings.all || {})) {
-      const o = offerings.all[key];
-      if (o?.availablePackages) candidates.push(...o.availablePackages);
+    if (offerings.current?.identifier !== REQUIRED_OFFERING_ID) {
+      console.warn(
+        "[Billing][DIAG] Current offering is not default:",
+        offerings.current?.identifier || "(none)"
+      );
+      return null;
     }
 
+    const candidates = offerings.current?.availablePackages || [];
+
     const match = candidates.find(
-      (p) => p?.product?.identifier === PRODUCT_ID
+      (p) => p?.product?.identifier === PRODUCT_ID && ALLOWED_PACKAGE_IDS.has(p.identifier)
     );
     if (match) {
       console.log(
@@ -175,8 +177,8 @@ export async function getProPackage(): Promise<PurchasesPackage | null> {
     console.warn(
       "[Billing][DIAG] No package matching",
       PRODUCT_ID,
-      "in offerings. Available products:",
-      candidates.map((p) => p.product?.identifier).join(", ") || "(none)"
+      "in default offering packages lifetime/src_lifetime. Available packages:",
+      candidates.map((p) => `${p.identifier}:${p.product?.identifier}`).join(", ") || "(none)"
     );
     return null;
   } catch (err: any) {
@@ -185,19 +187,6 @@ export async function getProPackage(): Promise<PurchasesPackage | null> {
       `取得商品資訊失敗：${err?.message || err}`,
       err?.code || "FETCH_OFFERINGS_FAILED"
     );
-  }
-}
-
-/** 直接抓商品資訊（fallback 用） */
-export async function getProductDetails(): Promise<PurchasesStoreProduct | null> {
-  await ensureConfigured();
-  try {
-    const result = await Purchases.getProducts({ productIdentifiers: [PRODUCT_ID] });
-    console.log("[Billing][DIAG] getProducts result:", JSON.stringify(result));
-    return result.products?.[0] || null;
-  } catch (err: any) {
-    console.error("[Billing][DIAG] getProducts ERROR:", err?.message || err, err);
-    return null;
   }
 }
 
@@ -225,6 +214,14 @@ export async function collectBillingDiagnostics(): Promise<string> {
       const { customerInfo } = await Purchases.getCustomerInfo();
       entitlements = Object.keys(customerInfo?.entitlements?.active || {});
     } catch { /* ignore */ }
+    let products: any[] = [];
+    try {
+      const result = await Purchases.getProducts({ productIdentifiers: [PRODUCT_ID] });
+      products = (result.products || []).map((p) => ({
+        product: p.identifier,
+        price: p.priceString,
+      }));
+    } catch { /* ignore */ }
     return JSON.stringify({
       PRODUCT_ID,
       ENTITLEMENT_ID,
@@ -232,6 +229,7 @@ export async function collectBillingDiagnostics(): Promise<string> {
       offerings: allKeys,
       currentPackages: currentPkgs,
       allPackages: allPkgs,
+      products,
       activeEntitlements: entitlements,
     }, null, 2);
   } catch (err: any) {
@@ -255,34 +253,17 @@ export async function purchasePro(): Promise<boolean> {
     }));
     try {
       const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
-      const ents = Object.keys(customerInfo?.entitlements?.active || {});
-      const ok = entitlementActive(customerInfo);
-      console.log("[Billing][DIAG] purchasePackage success, entitlements:", ents.join(",") || "(none)", "active=", ok);
-      setLocalProStatus(ok);
+      const ok = enforceActiveProEntitlement(customerInfo, "purchasePackage success");
       return ok;
     } catch (err: any) {
       handlePurchaseError(err);
     }
   }
 
-  // Fallback：嘗試直接用 productId 購買（部分版本支援）
-  const product = await getProductDetails();
-  if (!product) {
-    const diag = await collectBillingDiagnostics();
-    const msg = `找不到商品 ${PRODUCT_ID}（offering=default / package=lifetime|src_lifetime）。請確認 RevenueCat dashboard offering "default" 內已掛 product ${PRODUCT_ID}，且 App Store Connect 的 IAP 已 Approved/Ready to Submit。\n\n[診斷]\n${diag}`;
-    console.error("[Billing][DIAG]", msg);
-    throw new BillingError(msg, "PRODUCT_NOT_FOUND");
-  }
-  try {
-    const { customerInfo } = await Purchases.purchaseStoreProduct({ product });
-    const ok = entitlementActive(customerInfo);
-    console.log("[Billing][DIAG] purchaseStoreProduct success, entitlement active =", ok);
-    setLocalProStatus(ok);
-    return ok;
-  } catch (err: any) {
-    handlePurchaseError(err);
-  }
-  return false;
+  const diag = await collectBillingDiagnostics();
+  const msg = `找不到可購買的 package（offering=default / package=lifetime|src_lifetime / product=${PRODUCT_ID}）。未取得 RevenueCat active entitlement="${ENTITLEMENT_ID}" 前不會解鎖 PRO。\n\n[診斷]\n${diag}`;
+  console.error("[Billing][DIAG]", msg);
+  throw new BillingError(msg, "PACKAGE_NOT_FOUND");
 }
 
 function handlePurchaseError(err: any): never {
@@ -327,13 +308,11 @@ function handlePurchaseError(err: any): never {
 
 /** 恢復購買 — App Store 審查必備 */
 export async function restorePurchases(): Promise<boolean> {
-  if (!isNativePlatform()) return getLocalProStatus();
+  if (!isNativePlatform()) return false;
   await ensureConfigured();
   try {
     const { customerInfo } = await Purchases.restorePurchases();
-    const ok = entitlementActive(customerInfo);
-    console.log("[Billing][DIAG] restorePurchases entitlement active =", ok);
-    setLocalProStatus(ok);
+    const ok = enforceActiveProEntitlement(customerInfo, "restorePurchases");
     return ok;
   } catch (err: any) {
     const code = err?.code || err?.errorCode;
@@ -352,8 +331,7 @@ export async function checkEntitlements(): Promise<boolean> {
   try {
     await ensureConfigured();
     const { customerInfo } = await Purchases.getCustomerInfo();
-    const ok = entitlementActive(customerInfo);
-    setLocalProStatus(ok);
+    const ok = enforceActiveProEntitlement(customerInfo, "getCustomerInfo");
     return ok;
   } catch (err: any) {
     console.error("[Billing][DIAG] checkEntitlements error:", err?.message || err, err);

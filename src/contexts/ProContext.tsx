@@ -8,17 +8,14 @@ interface ProContextType {
   requestUpgrade: (source: ProUpgradeSource) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
   completePurchase: (transactionId?: string) => Promise<boolean>;
-  // Legacy method - kept for compatibility
-  toggleProStatus: () => Promise<void>;
 }
 
 const ProContext = createContext<ProContextType>({
   isPro: false,
   loading: true,
-  requestUpgrade: async () => true,
+  requestUpgrade: async () => false,
   restorePurchases: async () => false,
   completePurchase: async () => false,
-  toggleProStatus: async () => {},
 });
 
 export function ProProvider({ children }: { children: ReactNode }) {
@@ -27,8 +24,7 @@ export function ProProvider({ children }: { children: ReactNode }) {
     loading, 
     requestUpgrade,
     restorePurchases,
-    completePurchase,
-    toggleProStatus 
+    completePurchase 
   } = useProStatus();
 
   return (
@@ -37,8 +33,7 @@ export function ProProvider({ children }: { children: ReactNode }) {
       loading, 
       requestUpgrade,
       restorePurchases,
-      completePurchase,
-      toggleProStatus 
+      completePurchase 
     }}>
       {children}
     </ProContext.Provider>

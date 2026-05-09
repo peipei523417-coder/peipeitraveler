@@ -40,7 +40,7 @@ export default function Index() {
   const location = useLocation();
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
-  const { isPro, toggleProStatus } = usePro();
+  const { isPro } = usePro();
   const {
     projects: cachedProjects,
     isLoaded,
