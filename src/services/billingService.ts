@@ -22,6 +22,8 @@ import {
 
 export const PRODUCT_ID = "pro_function";
 export const ENTITLEMENT_ID = "pro"; // RevenueCat dashboard entitlement identifier
+const REQUIRED_OFFERING_ID = "default";
+const ALLOWED_PACKAGE_IDS = new Set(["lifetime", "src_lifetime", "$rc_lifetime"]);
 
 // ⚠️ 把你的 RevenueCat **public** SDK key 填在這裡（appl_xxx / goog_xxx）。
 // 這些是 publishable key，可以安全放在前端程式碼中。
@@ -139,17 +141,18 @@ export async function getProPackage(): Promise<PurchasesPackage | null> {
       })
     );
 
-    const candidates: PurchasesPackage[] = [];
-    if (offerings.current?.availablePackages?.length) {
-      candidates.push(...offerings.current.availablePackages);
-    }
-    for (const key of Object.keys(offerings.all || {})) {
-      const o = offerings.all[key];
-      if (o?.availablePackages) candidates.push(...o.availablePackages);
+    if (offerings.current?.identifier !== REQUIRED_OFFERING_ID) {
+      console.warn(
+        "[Billing][DIAG] Current offering is not default:",
+        offerings.current?.identifier || "(none)"
+      );
+      return null;
     }
 
+    const candidates = offerings.current?.availablePackages || [];
+
     const match = candidates.find(
-      (p) => p?.product?.identifier === PRODUCT_ID
+      (p) => p?.product?.identifier === PRODUCT_ID && ALLOWED_PACKAGE_IDS.has(p.identifier)
     );
     if (match) {
       console.log(
@@ -165,8 +168,8 @@ export async function getProPackage(): Promise<PurchasesPackage | null> {
     console.warn(
       "[Billing][DIAG] No package matching",
       PRODUCT_ID,
-      "in offerings. Available products:",
-      candidates.map((p) => p.product?.identifier).join(", ") || "(none)"
+      "in default offering packages lifetime/src_lifetime. Available packages:",
+      candidates.map((p) => `${p.identifier}:${p.product?.identifier}`).join(", ") || "(none)"
     );
     return null;
   } catch (err: any) {
