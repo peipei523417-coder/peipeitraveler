@@ -28,6 +28,7 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
   const [productLoading, setProductLoading] = useState(false);
   const [productPrice, setProductPrice] = useState<string | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
+  const [purchaseDiagnostic, setPurchaseDiagnostic] = useState<string | null>(null);
 
   // Load product info from RevenueCat when dialog opens
   useEffect(() => {
