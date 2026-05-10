@@ -30,13 +30,26 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
   const [productError, setProductError] = useState<string | null>(null);
   const [purchaseDiagnostic, setPurchaseDiagnostic] = useState<string | null>(null);
 
-  // Load product info from RevenueCat when dialog opens
+  // Load product info from RevenueCat when dialog opens + re-check entitlement
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setProductLoading(true);
     setProductError(null);
     setProductPrice(null);
+
+    // Re-check entitlement when dialog opens — auto-close if already PRO
+    checkEntitlements()
+      .then(async (active) => {
+        if (cancelled) return;
+        if (active) {
+          toast.success(t("proEnabled") || "已恢復 PRO");
+          onOpenChange(false);
+          return;
+        }
+      })
+      .catch(() => {});
+
     getProPackage()
       .then((pkg) => {
         if (cancelled) return;
@@ -56,7 +69,7 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, onOpenChange, t]);
 
   const handlePurchase = async () => {
     setPurchasing(true);
