@@ -7,7 +7,7 @@ interface ProContextType {
   // New IAP-compliant methods
   requestUpgrade: (source: ProUpgradeSource) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
-  completePurchase: (transactionId?: string) => Promise<boolean>;
+  completePurchase: (opts?: { onAlreadyOwned?: () => void }) => Promise<boolean>;
 }
 
 const ProContext = createContext<ProContextType>({
