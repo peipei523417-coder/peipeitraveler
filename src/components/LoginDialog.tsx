@@ -129,6 +129,56 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
     };
   };
 
+  /**
+   * Try native Android Google Sign-In / Credential Manager first.
+   * Returns true on success (Supabase session set), false otherwise.
+   * Never throws — caller falls back to Chrome Custom Tab on false.
+   */
+  const tryNativeAndroidGoogleSignIn = async (): Promise<{
+    attempted: boolean;
+    success: boolean;
+    fallbackReason: string | null;
+  }> => {
+    const platform = (window as any).Capacitor?.getPlatform?.() ?? "web";
+    if (platform !== "android") {
+      return { attempted: false, success: false, fallbackReason: "not-android" };
+    }
+    // Probe for an installed native Google Sign-In plugin (Capacitor registers them on window.Capacitor.Plugins).
+    const cap = (window as any).Capacitor;
+    const plugins = cap?.Plugins || {};
+    const hasNativePlugin =
+      !!plugins.GoogleAuth ||
+      !!plugins.SocialLogin ||
+      !!plugins.GoogleSignIn ||
+      !!plugins.CredentialManager;
+    if (!hasNativePlugin) {
+      return {
+        attempted: true,
+        success: false,
+        fallbackReason:
+          "no-native-google-signin-plugin-registered (GoogleAuth/SocialLogin/GoogleSignIn/CredentialManager) — using Chrome Custom Tab fallback",
+      };
+    }
+    // A native plugin is registered; try the most common one's signIn() method, but
+    // never throw — if anything fails (cancel / no-account / API mismatch) we fall back.
+    try {
+      const plugin = plugins.GoogleAuth || plugins.SocialLogin || plugins.GoogleSignIn || plugins.CredentialManager;
+      const result = await plugin.signIn?.({ provider: "google" });
+      const idToken = result?.authentication?.idToken || result?.idToken || result?.credential?.idToken;
+      if (!idToken) {
+        return { attempted: true, success: false, fallbackReason: "native-plugin-returned-no-idToken" };
+      }
+      const { error } = await lovable.auth.signInWithIdToken({ provider: "google", token: idToken });
+      if (error) {
+        return { attempted: true, success: false, fallbackReason: `supabase-signInWithIdToken-failed: ${error.message || error}` };
+      }
+      return { attempted: true, success: true, fallbackReason: null };
+    } catch (e: any) {
+      const reason = e?.message || String(e);
+      return { attempted: true, success: false, fallbackReason: `native-plugin-threw: ${reason}` };
+    }
+  };
+
   const handleOAuthLogin = async (provider: "google" | "apple") => {
     if (loading) return;
     setLoading(provider);
@@ -144,6 +194,27 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
         localStorage.setItem("native_oauth_pending", "1");
         localStorage.setItem("native_oauth_provider", provider);
 
+        // Android Google: try native Credential Manager / Google Sign-In first; fallback to Chrome Custom Tab
+        if (provider === "google") {
+          const platform = (window as any).Capacitor?.getPlatform?.() ?? "web";
+          if (platform === "android") {
+            const nativeResult = await tryNativeAndroidGoogleSignIn();
+            logAndroidGoogleDiagnostics("start", {
+              nativeCredentialManagerAttempted: nativeResult.attempted,
+              nativeCredentialManagerSuccess: nativeResult.success,
+              nativeCredentialManagerFallbackReason: nativeResult.fallbackReason,
+              chromeCustomTabFallbackUsed: !nativeResult.success,
+              finalLoginSuccess: nativeResult.success || "pending-via-fallback",
+            });
+            if (nativeResult.success) {
+              localStorage.removeItem("native_oauth_pending");
+              localStorage.removeItem("native_oauth_provider");
+              // user-effect will close dialog on auth state change
+              return;
+            }
+          }
+        }
+
         const { oauthUrl, callbackUrl, platform, scheme } = buildNativeOAuthUrl(provider);
         if (provider === "google") {
           logAndroidGoogleDiagnostics("start", {
@@ -151,6 +222,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
             oauthInitiateUrl: oauthUrl,
             callbackScheme: scheme,
             detectedPlatform: platform,
+            chromeCustomTabFallbackUsed: true,
           });
         }
         const { Browser } = await import("@capacitor/browser");
@@ -159,6 +231,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
           logAndroidGoogleDiagnostics("browser-opened", {
             oauthRedirectUrl: callbackUrl,
             oauthInitiateUrl: oauthUrl,
+            chromeCustomTabFallbackUsed: true,
           });
         }
         // Keep loading overlay visible — DeepLinkHandler closes browser & sets session,
@@ -186,6 +259,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       if (provider === "google") {
         logAndroidGoogleDiagnostics("error", {
           googleSignInError: formatOAuthError(err),
+          finalLoginSuccess: false,
         });
       }
       console.error("OAuth error:", err);
