@@ -12,7 +12,7 @@ import { Crown, Sparkles, RotateCcw, Loader2, AlertTriangle } from "lucide-react
 import { useTranslation } from "react-i18next";
 import { usePro } from "@/contexts/ProContext";
 import { toast } from "sonner";
-import { getProPackage, PURCHASE_CANCELLED, collectBillingDiagnostics } from "@/services/billingService";
+import { getProPackage, PURCHASE_CANCELLED, collectBillingDiagnostics, checkEntitlements } from "@/services/billingService";
 
 interface UpgradeProDialogProps {
   open: boolean;
@@ -30,13 +30,26 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
   const [productError, setProductError] = useState<string | null>(null);
   const [purchaseDiagnostic, setPurchaseDiagnostic] = useState<string | null>(null);
 
-  // Load product info from RevenueCat when dialog opens
+  // Load product info from RevenueCat when dialog opens + re-check entitlement
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setProductLoading(true);
     setProductError(null);
     setProductPrice(null);
+
+    // Re-check entitlement when dialog opens — auto-close if already PRO
+    checkEntitlements()
+      .then(async (active) => {
+        if (cancelled) return;
+        if (active) {
+          toast.success(t("proEnabled") || "已恢復 PRO");
+          onOpenChange(false);
+          return;
+        }
+      })
+      .catch(() => {});
+
     getProPackage()
       .then((pkg) => {
         if (cancelled) return;
@@ -56,15 +69,19 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, onOpenChange, t]);
 
   const handlePurchase = async () => {
     setPurchasing(true);
     setPurchaseDiagnostic(null);
     try {
-      const success = await completePurchase();
+      const success = await completePurchase({
+        onAlreadyOwned: () => {
+          toast.info("你已購買 PRO，正在恢復權益…", { duration: 6000 });
+        },
+      });
       if (success) {
-        toast.success(t("proEnabled"));
+        toast.success(t("proEnabled") || "已恢復 PRO");
         onOpenChange(false);
       } else {
         const diag = await collectBillingDiagnostics();
