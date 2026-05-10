@@ -75,9 +75,13 @@ export function UpgradeProDialog({ open, onOpenChange, type }: UpgradeProDialogP
     setPurchasing(true);
     setPurchaseDiagnostic(null);
     try {
-      const success = await completePurchase();
+      const success = await completePurchase({
+        onAlreadyOwned: () => {
+          toast.info("你已購買 PRO，正在恢復權益…", { duration: 6000 });
+        },
+      });
       if (success) {
-        toast.success(t("proEnabled"));
+        toast.success(t("proEnabled") || "已恢復 PRO");
         onOpenChange(false);
       } else {
         const diag = await collectBillingDiagnostics();
