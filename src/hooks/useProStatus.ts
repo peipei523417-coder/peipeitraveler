@@ -45,7 +45,7 @@ export function useProStatus() {
       }
 
       // 永遠以 RevenueCat entitlement 為準
-      const hasEntitlement = await checkEntitlements();
+      const hasEntitlement = await checkEntitlements(user.id);
 
       // 同步 DB
       if ((data?.is_pro ?? false) !== hasEntitlement) {
