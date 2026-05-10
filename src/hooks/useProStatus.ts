@@ -72,7 +72,7 @@ export function useProStatus() {
   }, []);
 
   /** Execute purchase via RevenueCat — throws on failure so UI shows details */
-  const completePurchase = useCallback(async (): Promise<boolean> => {
+  const completePurchase = useCallback(async (opts?: { onAlreadyOwned?: () => void }): Promise<boolean> => {
     let success = false;
     try {
       success = await purchasePro();
