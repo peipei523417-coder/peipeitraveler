@@ -280,15 +280,17 @@ export async function collectBillingDiagnostics(): Promise<string> {
 }
 
 /** 購買 pro_function — 開啟原生付款表單；回傳 true 表示已取得 entitlement */
-export async function purchasePro(opts?: { onAlreadyOwned?: () => void }): Promise<boolean> {
+export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUserId?: string | null }): Promise<boolean> {
   if (!isNativePlatform()) {
     throw new BillingError("購買僅在 iOS / Android App 中可用", "WEB_NOT_SUPPORTED");
   }
   await ensureConfigured();
+  const loginInfo = await ensureRevenueCatLogin(opts?.authUserId ?? null);
+  console.log("[Billing][DIAG] purchasePro login:", JSON.stringify({ platform: getPlatform(), authUserId: opts?.authUserId ?? null, ...loginInfo }));
 
   const pkg = await getProPackage();
   if (pkg) {
-    console.log("[Billing][DIAG] purchasing package:", JSON.stringify({
+    console.log("[Billing][DIAG] purchasePackage called:", JSON.stringify({
       pkg: pkg.identifier,
       product: pkg.product?.identifier,
       offering: (pkg as any).offeringIdentifier,
@@ -312,10 +314,10 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void }): Promi
       if (isAlreadyOwned) {
         console.warn("[Billing][DIAG] PRODUCT_ALREADY_PURCHASED detected — auto restoring/syncing");
         try { opts?.onAlreadyOwned?.(); } catch {}
-        const restored = await syncAndRestoreEntitlement();
+        const restored = await syncAndRestoreEntitlement(opts?.authUserId ?? null);
         if (restored) return true;
         throw new BillingError(
-          `已購買但無法恢復 entitlement="${ENTITLEMENT_ID}"，請稍後再試或重新登入 App Store / Google Play`,
+          `Google Play 顯示此商品已購買，但目前尚未同步到 PRO 權益。請確認手機 Play 商店帳號與 App 登入帳號一致，或重新登入後再恢復購買。`,
           "ALREADY_PURCHASED_RESTORE_FAILED"
         );
       }
