@@ -45,7 +45,7 @@ export function useProStatus() {
       }
 
       // 永遠以 RevenueCat entitlement 為準
-      const hasEntitlement = await checkEntitlements();
+      const hasEntitlement = await checkEntitlements(user.id);
 
       // 同步 DB
       if ((data?.is_pro ?? false) !== hasEntitlement) {
@@ -75,7 +75,7 @@ export function useProStatus() {
   const completePurchase = useCallback(async (opts?: { onAlreadyOwned?: () => void }): Promise<boolean> => {
     let success = false;
     try {
-      success = await purchasePro(opts);
+      success = await purchasePro({ ...opts, authUserId: user?.id ?? null });
     } catch (error) {
       setIsPro(false);
       if (user) {
@@ -108,7 +108,7 @@ export function useProStatus() {
     if (!user) return false;
     let restored = false;
     try {
-      restored = await restoreBilling();
+      restored = await restoreBilling(user.id);
     } catch (error) {
       setIsPro(false);
       await supabase
