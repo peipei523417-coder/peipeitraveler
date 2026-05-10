@@ -12,7 +12,7 @@ import { Crown, Sparkles, RotateCcw, Loader2, AlertTriangle } from "lucide-react
 import { useTranslation } from "react-i18next";
 import { usePro } from "@/contexts/ProContext";
 import { toast } from "sonner";
-import { getProPackage, PURCHASE_CANCELLED, collectBillingDiagnostics } from "@/services/billingService";
+import { getProPackage, PURCHASE_CANCELLED, collectBillingDiagnostics, checkEntitlements } from "@/services/billingService";
 
 interface UpgradeProDialogProps {
   open: boolean;
