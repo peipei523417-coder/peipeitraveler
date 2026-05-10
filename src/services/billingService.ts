@@ -425,12 +425,35 @@ function handlePurchaseError(err: any): never {
 }
 
 /** 恢復購買 — App Store 審查必備 */
-export async function restorePurchases(): Promise<boolean> {
+export async function restorePurchases(authUserId?: string | null): Promise<boolean> {
   if (!isNativePlatform()) return false;
   await ensureConfigured();
+  const platform = getPlatform();
+  const loginInfo = await ensureRevenueCatLogin(authUserId ?? null);
+  console.log("[Billing][DIAG] restorePurchases entry:", JSON.stringify({ platform, authUserId: authUserId ?? null, ...loginInfo }));
+  // Android: sync from Google Play first
+  if (platform === "android") {
+    try {
+      console.log("[Billing][DIAG] syncPurchases called (manual restore)");
+      await Purchases.syncPurchases();
+    } catch (e: any) {
+      console.warn("[Billing][DIAG] syncPurchases failed (manual restore):", e?.message || e);
+    }
+  }
   try {
+    console.log("[Billing][DIAG] restorePurchases called (manual)");
     const { customerInfo } = await Purchases.restorePurchases();
-    const ok = enforceActiveProEntitlement(customerInfo, "restorePurchases");
+    await logCustomerInfoDiagnostics("restorePurchases (manual)", customerInfo);
+    let ok = enforceActiveProEntitlement(customerInfo, "restorePurchases (manual)");
+    if (!ok) {
+      // Final getCustomerInfo just in case
+      try {
+        console.log("[Billing][DIAG] getCustomerInfo called (after manual restore)");
+        const { customerInfo: ci2 } = await Purchases.getCustomerInfo();
+        await logCustomerInfoDiagnostics("getCustomerInfo (after manual restore)", ci2);
+        ok = enforceActiveProEntitlement(ci2, "getCustomerInfo (after manual restore)");
+      } catch {}
+    }
     return ok;
   } catch (err: any) {
     const code = err?.code || err?.errorCode;
@@ -444,12 +467,15 @@ export async function restorePurchases(): Promise<boolean> {
 }
 
 /** 檢查目前 entitlement 狀態 — 唯一可信的 PRO 判斷依據 */
-export async function checkEntitlements(): Promise<boolean> {
+export async function checkEntitlements(authUserId?: string | null): Promise<boolean> {
   if (!isNativePlatform()) return false;
   try {
     await ensureConfigured();
+    const loginInfo = await ensureRevenueCatLogin(authUserId ?? null);
+    console.log("[Billing][DIAG] checkEntitlements login:", JSON.stringify({ authUserId: authUserId ?? null, ...loginInfo }));
     const { customerInfo } = await Purchases.getCustomerInfo();
-    const ok = enforceActiveProEntitlement(customerInfo, "getCustomerInfo");
+    await logCustomerInfoDiagnostics("getCustomerInfo (check)", customerInfo);
+    const ok = enforceActiveProEntitlement(customerInfo, "getCustomerInfo (check)");
     return ok;
   } catch (err: any) {
     console.error("[Billing][DIAG] checkEntitlements error:", err?.message || err, err);
