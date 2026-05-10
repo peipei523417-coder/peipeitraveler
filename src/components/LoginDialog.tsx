@@ -81,21 +81,41 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   };
 
   const logAndroidGoogleDiagnostics = (
-    phase: "start" | "browser-opened" | "error",
+    phase: "start" | "browser-opened" | "callback" | "error",
     details: Record<string, unknown> = {}
   ) => {
     const platform = (window as any).Capacitor?.getPlatform?.() ?? "web";
     if (platform !== "android") return;
+    // Parse OAuth URL params if present so adb logcat shows the exact final URL params
+    let parsedOauthParams: Record<string, string> | undefined;
+    const oauthUrl = (details as any).oauthInitiateUrl as string | undefined;
+    if (oauthUrl) {
+      try {
+        const u = new URL(oauthUrl);
+        parsedOauthParams = Object.fromEntries(u.searchParams.entries());
+      } catch {}
+    }
     console.info(`[Android Google Login][${phase}]`, {
       packageName: ANDROID_PACKAGE_NAME,
       detectedPlatform: platform,
-      flow: "browser OAuth via @capacitor/browser / Chrome Custom Tab",
-      nativeGoogleSignIn: false,
-      prompt: "select_account",
+      provider: "google",
+      flow: "browser OAuth via @capacitor/browser / Chrome Custom Tab (NOT WebView, NOT native Google Sign-In SDK)",
+      browserOpenUsed: true,
+      webViewUsed: false,
+      nativeGoogleSignInSDK: false,
+      promptParam: "select_account",
+      loginHintParam: null,
+      loginHintPresent: false,
       googleServicesAndroidClientId: ANDROID_GOOGLE_OAUTH_CLIENT_ID,
+      googleServicesAndroidClientType: "Android OAuth client (type 1) — uses package + SHA-1, NO secret",
       googleServicesSha1: ANDROID_GOOGLE_OAUTH_SHA1,
+      brokerNote:
+        "Lovable /~oauth/initiate broker forwards to Google's web OAuth endpoint. The Web OAuth client (not the Android client) is used by the broker.",
+      addAccountHint:
+        "If Google shows 'add account' form instead of account picker, Chrome Custom Tab cookie jar has no signed-in Google session — picker degrades to sign-in/add-account form. This is Google web behaviour, not a bug in prompt=select_account.",
       mismatchHint:
-        "If Google sign-in stalls or shows account-add messaging, verify Google Play App Signing SHA-1 is attached to the Android OAuth client for com.peitravel.smartplanner.",
+        "If Google sign-in stalls, verify Google Play App Signing SHA-1 is attached to the Android OAuth client for com.peitravel.smartplanner.",
+      parsedOauthParams,
       ...details,
     });
   };
