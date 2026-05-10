@@ -238,7 +238,7 @@ export async function collectBillingDiagnostics(): Promise<string> {
 }
 
 /** 購買 pro_function — 開啟原生付款表單；回傳 true 表示已取得 entitlement */
-export async function purchasePro(): Promise<boolean> {
+export async function purchasePro(opts?: { onAlreadyOwned?: () => void }): Promise<boolean> {
   if (!isNativePlatform()) {
     throw new BillingError("購買僅在 iOS / Android App 中可用", "WEB_NOT_SUPPORTED");
   }
@@ -253,9 +253,30 @@ export async function purchasePro(): Promise<boolean> {
     }));
     try {
       const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
+      await logCustomerInfoDiagnostics("purchasePackage success", customerInfo);
       const ok = enforceActiveProEntitlement(customerInfo, "purchasePackage success");
       return ok;
     } catch (err: any) {
+      // Code 6 = PRODUCT_ALREADY_PURCHASED_ERROR, Code 7 = RECEIPT_ALREADY_IN_USE
+      // Also catch ITEM_ALREADY_OWNED string codes from Google Play
+      const code = err?.code ?? err?.errorCode;
+      const msg = String(err?.message || err || "");
+      const isAlreadyOwned =
+        code === "6" || code === 6 ||
+        code === "7" || code === 7 ||
+        code === PURCHASES_ERROR_CODE?.PRODUCT_ALREADY_PURCHASED_ERROR ||
+        code === PURCHASES_ERROR_CODE?.RECEIPT_ALREADY_IN_USE_ERROR ||
+        /already\s*active|already\s*purchased|ITEM_ALREADY_OWNED/i.test(msg);
+      if (isAlreadyOwned) {
+        console.warn("[Billing][DIAG] PRODUCT_ALREADY_PURCHASED detected — auto restoring/syncing");
+        try { opts?.onAlreadyOwned?.(); } catch {}
+        const restored = await syncAndRestoreEntitlement();
+        if (restored) return true;
+        throw new BillingError(
+          `已購買但無法恢復 entitlement="${ENTITLEMENT_ID}"，請稍後再試或重新登入 App Store / Google Play`,
+          "ALREADY_PURCHASED_RESTORE_FAILED"
+        );
+      }
       handlePurchaseError(err);
     }
   }
@@ -264,6 +285,54 @@ export async function purchasePro(): Promise<boolean> {
   const msg = `找不到可購買的 package（offering=default / package=lifetime|src_lifetime / product=${PRODUCT_ID}）。未取得 RevenueCat active entitlement="${ENTITLEMENT_ID}" 前不會解鎖 PRO。\n\n[診斷]\n${diag}`;
   console.error("[Billing][DIAG]", msg);
   throw new BillingError(msg, "PACKAGE_NOT_FOUND");
+}
+
+/** 嘗試 syncPurchases (Android) + restorePurchases，回傳是否取得 entitlement="pro" */
+async function syncAndRestoreEntitlement(): Promise<boolean> {
+  const platform = getPlatform();
+  // Android: syncPurchases asks Google Play for any owned items not yet known to RC
+  if (platform === "android") {
+    try {
+      await Purchases.syncPurchases();
+      console.log("[Billing][DIAG] syncPurchases() ok (android)");
+    } catch (e: any) {
+      console.warn("[Billing][DIAG] syncPurchases failed:", e?.message || e);
+    }
+  }
+  try {
+    const { customerInfo } = await Purchases.restorePurchases();
+    await logCustomerInfoDiagnostics("restorePurchases (auto after code=6)", customerInfo);
+    if (entitlementActive(customerInfo)) return true;
+  } catch (e: any) {
+    console.warn("[Billing][DIAG] restorePurchases (auto) failed:", e?.message || e);
+  }
+  // Final: re-fetch customerInfo
+  try {
+    const { customerInfo } = await Purchases.getCustomerInfo();
+    await logCustomerInfoDiagnostics("getCustomerInfo (auto after code=6)", customerInfo);
+    return entitlementActive(customerInfo);
+  } catch (e: any) {
+    console.warn("[Billing][DIAG] getCustomerInfo (auto) failed:", e?.message || e);
+    return false;
+  }
+}
+
+async function logCustomerInfoDiagnostics(source: string, info: CustomerInfo | undefined | null) {
+  try {
+    const active = info?.entitlements?.active || {};
+    console.log("[Billing][DIAG]", source, JSON.stringify({
+      PRODUCT_ID,
+      ENTITLEMENT_ID,
+      appUserId: (info as any)?.originalAppUserId ?? null,
+      originalAppUserId: (info as any)?.originalAppUserId ?? null,
+      activeEntitlements: Object.keys(active),
+      activeProDetail: active[ENTITLEMENT_ID] ? {
+        productIdentifier: (active[ENTITLEMENT_ID] as any)?.productIdentifier,
+        isActive: (active[ENTITLEMENT_ID] as any)?.isActive,
+        willRenew: (active[ENTITLEMENT_ID] as any)?.willRenew,
+      } : null,
+    }));
+  } catch {}
 }
 
 function handlePurchaseError(err: any): never {
