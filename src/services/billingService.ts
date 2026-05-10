@@ -290,14 +290,22 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUser
 
   const pkg = await getProPackage();
   if (pkg) {
+    // Log entitlements BEFORE purchase to detect pre-existing entitlement state
+    try {
+      const { customerInfo: ciBefore } = await Purchases.getCustomerInfo();
+      await logCustomerInfoDiagnostics("BEFORE purchasePackage", ciBefore);
+    } catch (e: any) {
+      console.warn("[Billing][DIAG] getCustomerInfo (before purchase) failed:", e?.message || e);
+    }
     console.log("[Billing][DIAG] purchasePackage called:", JSON.stringify({
       pkg: pkg.identifier,
       product: pkg.product?.identifier,
       offering: (pkg as any).offeringIdentifier,
+      timestamp: new Date().toISOString(),
     }));
     try {
       const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
-      await logCustomerInfoDiagnostics("purchasePackage success", customerInfo);
+      await logCustomerInfoDiagnostics("AFTER purchasePackage success", customerInfo);
       const ok = enforceActiveProEntitlement(customerInfo, "purchasePackage success");
       return ok;
     } catch (err: any) {
