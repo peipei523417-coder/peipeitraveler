@@ -75,7 +75,7 @@ export function useProStatus() {
   const completePurchase = useCallback(async (opts?: { onAlreadyOwned?: () => void }): Promise<boolean> => {
     let success = false;
     try {
-      success = await purchasePro();
+      success = await purchasePro(opts);
     } catch (error) {
       setIsPro(false);
       if (user) {
