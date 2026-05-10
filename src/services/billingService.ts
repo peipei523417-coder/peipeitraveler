@@ -290,14 +290,22 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUser
 
   const pkg = await getProPackage();
   if (pkg) {
+    // Log entitlements BEFORE purchase to detect pre-existing entitlement state
+    try {
+      const { customerInfo: ciBefore } = await Purchases.getCustomerInfo();
+      await logCustomerInfoDiagnostics("BEFORE purchasePackage", ciBefore);
+    } catch (e: any) {
+      console.warn("[Billing][DIAG] getCustomerInfo (before purchase) failed:", e?.message || e);
+    }
     console.log("[Billing][DIAG] purchasePackage called:", JSON.stringify({
       pkg: pkg.identifier,
       product: pkg.product?.identifier,
       offering: (pkg as any).offeringIdentifier,
+      timestamp: new Date().toISOString(),
     }));
     try {
       const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
-      await logCustomerInfoDiagnostics("purchasePackage success", customerInfo);
+      await logCustomerInfoDiagnostics("AFTER purchasePackage success", customerInfo);
       const ok = enforceActiveProEntitlement(customerInfo, "purchasePackage success");
       return ok;
     } catch (err: any) {
@@ -369,7 +377,10 @@ async function syncAndRestoreEntitlement(authUserId?: string | null): Promise<bo
 async function logCustomerInfoDiagnostics(source: string, info: CustomerInfo | undefined | null) {
   try {
     const active = info?.entitlements?.active || {};
+    const allPurchased = (info as any)?.allPurchasedProductIdentifiers ?? [];
+    const nonSubs = (info as any)?.nonSubscriptionTransactions ?? [];
     console.log("[Billing][DIAG]", source, JSON.stringify({
+      platform: getPlatform(),
       PRODUCT_ID,
       ENTITLEMENT_ID,
       appUserId: (info as any)?.originalAppUserId ?? null,
@@ -379,7 +390,14 @@ async function logCustomerInfoDiagnostics(source: string, info: CustomerInfo | u
         productIdentifier: (active[ENTITLEMENT_ID] as any)?.productIdentifier,
         isActive: (active[ENTITLEMENT_ID] as any)?.isActive,
         willRenew: (active[ENTITLEMENT_ID] as any)?.willRenew,
+        store: (active[ENTITLEMENT_ID] as any)?.store,
+        latestPurchaseDate: (active[ENTITLEMENT_ID] as any)?.latestPurchaseDate,
       } : null,
+      allPurchasedProductIdentifiers: allPurchased,
+      nonSubscriptionTransactionsCount: Array.isArray(nonSubs) ? nonSubs.length : 0,
+      hasRealTransaction:
+        (Array.isArray(allPurchased) && allPurchased.length > 0) ||
+        (Array.isArray(nonSubs) && nonSubs.length > 0),
     }));
   } catch {}
 }
