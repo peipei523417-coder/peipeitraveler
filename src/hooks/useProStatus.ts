@@ -108,7 +108,7 @@ export function useProStatus() {
     if (!user) return false;
     let restored = false;
     try {
-      restored = await restoreBilling();
+      restored = await restoreBilling(user.id);
     } catch (error) {
       setIsPro(false);
       await supabase
