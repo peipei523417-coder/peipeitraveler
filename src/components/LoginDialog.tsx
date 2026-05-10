@@ -168,9 +168,10 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
       if (!idToken) {
         return { attempted: true, success: false, fallbackReason: "native-plugin-returned-no-idToken" };
       }
-      const { error } = await lovable.auth.signInWithIdToken({ provider: "google", token: idToken });
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { error } = await supabase.auth.signInWithIdToken({ provider: "google", token: idToken });
       if (error) {
-        return { attempted: true, success: false, fallbackReason: `supabase-signInWithIdToken-failed: ${error.message || error}` };
+        return { attempted: true, success: false, fallbackReason: `signInWithIdToken-failed: ${error.message || error}` };
       }
       return { attempted: true, success: true, fallbackReason: null };
     } catch (e: any) {
