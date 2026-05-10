@@ -114,6 +114,48 @@ async function ensureConfigured() {
   if (!configured) await initBilling();
 }
 
+/**
+ * Ensure RevenueCat appUserID matches our auth user id.
+ * Call this BEFORE purchase / restore / checkEntitlements.
+ * Returns { before, after } for diagnostics.
+ */
+export async function ensureRevenueCatLogin(authUserId: string | null | undefined): Promise<{ before: string | null; after: string | null; loggedIn: boolean }> {
+  if (!isNativePlatform()) return { before: null, after: null, loggedIn: false };
+  await ensureConfigured();
+  let before: string | null = null;
+  try {
+    const res = await Purchases.getAppUserID();
+    before = res?.appUserID ?? null;
+  } catch (e: any) {
+    console.warn("[Billing][DIAG] getAppUserID failed:", e?.message || e);
+  }
+  if (!authUserId) {
+    console.log("[Billing][DIAG] ensureRevenueCatLogin: no authUserId provided, current appUserID =", before);
+    return { before, after: before, loggedIn: false };
+  }
+  if (before === authUserId) {
+    console.log("[Billing][DIAG] ensureRevenueCatLogin: appUserID already matches authUserId =", authUserId);
+    return { before, after: before, loggedIn: false };
+  }
+  try {
+    const result = await Purchases.logIn({ appUserID: authUserId });
+    console.log("[Billing][DIAG] Purchases.logIn called", JSON.stringify({
+      authUserId,
+      before,
+      created: (result as any)?.created,
+    }));
+    let after: string | null = authUserId;
+    try {
+      const res = await Purchases.getAppUserID();
+      after = res?.appUserID ?? authUserId;
+    } catch {}
+    return { before, after, loggedIn: true };
+  } catch (e: any) {
+    console.error("[Billing][DIAG] Purchases.logIn FAILED:", e?.message || e);
+    return { before, after: before, loggedIn: false };
+  }
+}
+
 // ── Helpers ─────────────────────────────────────────────────
 function entitlementActive(info: CustomerInfo | undefined | null): boolean {
   const ent = info?.entitlements?.active?.[ENTITLEMENT_ID];
