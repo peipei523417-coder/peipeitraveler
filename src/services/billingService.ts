@@ -369,7 +369,10 @@ async function syncAndRestoreEntitlement(authUserId?: string | null): Promise<bo
 async function logCustomerInfoDiagnostics(source: string, info: CustomerInfo | undefined | null) {
   try {
     const active = info?.entitlements?.active || {};
+    const allPurchased = (info as any)?.allPurchasedProductIdentifiers ?? [];
+    const nonSubs = (info as any)?.nonSubscriptionTransactions ?? [];
     console.log("[Billing][DIAG]", source, JSON.stringify({
+      platform: getPlatform(),
       PRODUCT_ID,
       ENTITLEMENT_ID,
       appUserId: (info as any)?.originalAppUserId ?? null,
@@ -379,7 +382,14 @@ async function logCustomerInfoDiagnostics(source: string, info: CustomerInfo | u
         productIdentifier: (active[ENTITLEMENT_ID] as any)?.productIdentifier,
         isActive: (active[ENTITLEMENT_ID] as any)?.isActive,
         willRenew: (active[ENTITLEMENT_ID] as any)?.willRenew,
+        store: (active[ENTITLEMENT_ID] as any)?.store,
+        latestPurchaseDate: (active[ENTITLEMENT_ID] as any)?.latestPurchaseDate,
       } : null,
+      allPurchasedProductIdentifiers: allPurchased,
+      nonSubscriptionTransactionsCount: Array.isArray(nonSubs) ? nonSubs.length : 0,
+      hasRealTransaction:
+        (Array.isArray(allPurchased) && allPurchased.length > 0) ||
+        (Array.isArray(nonSubs) && nonSubs.length > 0),
     }));
   } catch {}
 }
