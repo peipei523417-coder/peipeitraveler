@@ -105,7 +105,7 @@ workflows:
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
                 config.build_settings['MARKETING_VERSION'] = '6.1.14'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '46'  # ⭐ TestFlight build 46 — verified store transaction required
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '47'  # ⭐ TestFlight build 47 — free-stable build (PRO disabled, 4 projects / 15 days, 7-day retention)
               end
             end
           end

@@ -16,31 +16,35 @@ import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ShareDialog } from "@/components/ShareDialog";
 import { AuthButton } from "@/components/AuthButton";
-import { UpgradeProDialog } from "@/components/UpgradeProDialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { ProjectActionSheet } from "@/components/ProjectActionSheet";
 import { Button } from "@/components/ui/button";
-import { Plane, Plus, Crown, Zap, Users } from "lucide-react";
+import { Plane, Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePro } from "@/contexts/ProContext";
 import { LoginDialog } from "@/components/LoginDialog";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 import { getJoinedProjects, leaveSharedProject } from "@/lib/join-project";
+import {
+  ENABLE_PRO_FEATURES,
+  FREE_PROJECT_LIMIT,
+  FREE_DAY_LIMIT,
+  PRO_PROJECT_LIMIT,
+  PRO_DAY_LIMIT,
+  PROJECT_RETENTION_DAYS,
+} from "@/config/featureFlags";
 
-// Tier limits
-const FREE_PROJECT_LIMIT = 3;
-const FREE_DAY_LIMIT = 3;
-const PRO_PROJECT_LIMIT = 20;
-const PRO_DAY_LIMIT = 20;
+// Free-stable build copy (PRO disabled — never opens purchase flow)
+const PROJECT_LIMIT_MESSAGE = "你的旅行清單快塞滿啦 🧳\n最多可保存 4 個旅程～";
+const DAY_LIMIT_MESSAGE = "單一行程最多可安排 15 天喔～";
 
 export default function Index() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
-  const { isPro } = usePro();
+  const isPro = ENABLE_PRO_FEATURES ? false : false; // PRO disabled in this build
   const {
     projects: cachedProjects,
     isLoaded,
@@ -61,8 +65,6 @@ export default function Index() {
   const [editingProject, setEditingProject] = useState<TravelProject | null>(null);
   const [deletingProject, setDeletingProject] = useState<TravelProject | null>(null);
   const [shareProject, setShareProject] = useState<TravelProject | null>(null);
-  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
-  const [upgradeDialogType, setUpgradeDialogType] = useState<"project" | "day">("project");
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
   const [expiryDaysRemaining, setExpiryDaysRemaining] = useState(0);
@@ -143,16 +145,17 @@ export default function Index() {
     let soonestDays = Infinity;
 
     for (const p of projects) {
+      // Use local-date arithmetic so users don't get cut off early by UTC offset
       const endDate = new Date(p.endDate);
       const deleteDate = new Date(endDate);
-      deleteDate.setDate(deleteDate.getDate() + 30);
+      deleteDate.setDate(deleteDate.getDate() + PROJECT_RETENTION_DAYS);
       const daysLeft = Math.ceil((deleteDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysLeft > 0 && daysLeft <= 7 && daysLeft < soonestDays) {
+      if (daysLeft > 0 && daysLeft <= PROJECT_RETENTION_DAYS && daysLeft < soonestDays) {
         soonestDays = daysLeft;
       }
     }
 
-    if (soonestDays <= 7) {
+    if (soonestDays <= PROJECT_RETENTION_DAYS) {
       setExpiryDaysRemaining(soonestDays);
       setExpiryWarningOpen(true);
       localStorage.setItem(LAST_KEY, today);
@@ -194,8 +197,8 @@ export default function Index() {
   const handleCreateProjectClick = () => {
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
     if (totalProjectCount >= limit) {
-      setUpgradeDialogType("project");
-      setUpgradeDialogOpen(true);
+      // Free-stable build: hard stop, no upgrade flow
+      toast.error(PROJECT_LIMIT_MESSAGE, { duration: 5000 });
       return;
     }
     setDialogOpen(true);
@@ -204,19 +207,17 @@ export default function Index() {
   const handleCreateProject = async (data: ProjectFormData, coverFile?: File) => {
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
     if (totalProjectCount >= limit) {
-      setUpgradeDialogType("project");
-      setUpgradeDialogOpen(true);
+      toast.error(PROJECT_LIMIT_MESSAGE, { duration: 5000 });
       return;
     }
 
     const startDate = new Date(data.startDate);
     const endDate = new Date(data.endDate);
     const dayCount = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    
+
     const dayLimit = isPro ? PRO_DAY_LIMIT : FREE_DAY_LIMIT;
     if (dayCount > dayLimit) {
-      setUpgradeDialogType("day");
-      setUpgradeDialogOpen(true);
+      toast.error(DAY_LIMIT_MESSAGE, { duration: 5000 });
       return;
     }
 
@@ -325,11 +326,10 @@ export default function Index() {
   };
 
   const handleDuplicateProject = async (project: TravelProject) => {
-    // Same limit as creating a new project: free=3, pro=20
+    // Duplicates count toward the same free-tier limit (4 owned projects)
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
     if (totalProjectCount >= limit) {
-      setUpgradeDialogType("project");
-      setUpgradeDialogOpen(true);
+      toast.error(PROJECT_LIMIT_MESSAGE, { duration: 5000 });
       return;
     }
 
@@ -474,14 +474,7 @@ export default function Index() {
             <div className="flex items-center gap-2">
               <LanguageSelector />
               
-              {user && isPro && (
-                <div
-                  className="gap-1.5 rounded-xl text-xs px-3 py-1.5 inline-flex items-center bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0"
-                >
-                  <Crown className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">PRO</span>
-                </div>
-              )}
+              {/* PRO badge intentionally hidden in free-stable build */}
               <AuthButton />
             </div>
           </div>
@@ -520,9 +513,6 @@ export default function Index() {
                 >
                   <Plus className="w-4 h-4" />
                   {t("newProject")}
-                  {!isPro && projects.length >= FREE_PROJECT_LIMIT && (
-                    <Crown className="w-3 h-3 text-amber-300" />
-                  )}
                 </Button>
               </div>
             </div>
@@ -659,11 +649,7 @@ export default function Index() {
         }}
       />
 
-      <UpgradeProDialog
-        open={upgradeDialogOpen}
-        onOpenChange={setUpgradeDialogOpen}
-        type={upgradeDialogType}
-      />
+      {/* UpgradeProDialog disabled — PRO purchase flow off in this build */}
 
       <ExpiryWarningDialog
         open={expiryWarningOpen}

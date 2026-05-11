@@ -33,10 +33,10 @@ export const ExpiryWarningDialog = forwardRef<HTMLDivElement, ExpiryWarningDialo
               </div>
             </div>
             <AlertDialogTitle className="text-xl text-center">
-              {t("expiryWarningTitle")}
+              這個旅程已經過期囉 🗓️
             </AlertDialogTitle>
             <AlertDialogDescription className="text-center text-foreground/80 whitespace-pre-line">
-              {t("expiryWarningDesc", { days: daysRemaining })}
+              {`系統會在 7 天後自動清除專案，記得提前備份重要內容～`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

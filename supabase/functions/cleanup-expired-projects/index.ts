@@ -16,9 +16,9 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Find projects where end_date + 30 days has passed
+    // Find projects where end_date + 7 days has passed (free-stable build)
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 30);
+    cutoffDate.setDate(cutoffDate.getDate() - 7);
     const cutoffStr = cutoffDate.toISOString().split("T")[0];
 
     const { data: expiredProjects, error: fetchError } = await supabase
