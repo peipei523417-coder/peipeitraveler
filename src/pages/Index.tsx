@@ -474,14 +474,7 @@ export default function Index() {
             <div className="flex items-center gap-2">
               <LanguageSelector />
               
-              {user && isPro && (
-                <div
-                  className="gap-1.5 rounded-xl text-xs px-3 py-1.5 inline-flex items-center bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0"
-                >
-                  <Crown className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">PRO</span>
-                </div>
-              )}
+              {/* PRO badge intentionally hidden in free-stable build */}
               <AuthButton />
             </div>
           </div>
