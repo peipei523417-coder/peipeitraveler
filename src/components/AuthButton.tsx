@@ -144,17 +144,19 @@ export function AuthButton() {
         <DropdownMenuContent align="end" className="w-56">
           <div className="px-2 py-1.5">
             <p className="text-sm font-medium truncate">{user.email}</p>
-            {isPro && (
+            {ENABLE_PRO_FEATURES && isPro && (
               <p className="text-xs text-primary font-bold">PRO</p>
             )}
           </div>
           <DropdownMenuSeparator />
-          
-          {/* Restore Purchase - for PRO users */}
-          <DropdownMenuItem onClick={handleRestorePurchase}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            {t("restorePurchase")}
-          </DropdownMenuItem>
+
+          {/* Restore Purchase hidden — PRO disabled in this build */}
+          {ENABLE_PRO_FEATURES && (
+            <DropdownMenuItem onClick={handleRestorePurchase}>
+              <FileText className="w-4 h-4 mr-2" />
+              {t("restorePurchase")}
+            </DropdownMenuItem>
+          )}
           
           {/* Privacy Policy */}
           <DropdownMenuItem onClick={openPrivacyPolicy}>
