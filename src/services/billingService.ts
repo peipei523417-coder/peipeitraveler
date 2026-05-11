@@ -138,6 +138,7 @@ export async function ensureRevenueCatLogin(authUserId: string | null | undefine
   try {
     const res = await Purchases.getAppUserID();
     before = res?.appUserID ?? null;
+    console.log("[Billing][DIAG] appUserID before login =", before ?? "(null)");
   } catch (e: any) {
     console.warn("[Billing][DIAG] getAppUserID failed:", e?.message || e);
   }
@@ -161,10 +162,43 @@ export async function ensureRevenueCatLogin(authUserId: string | null | undefine
       const res = await Purchases.getAppUserID();
       after = res?.appUserID ?? authUserId;
     } catch {}
+    console.log("[Billing][DIAG] appUserID after login =", after ?? "(null)");
+    await invalidateCustomerInfo("after Purchases.logIn");
     return { before, after, loggedIn: true };
   } catch (e: any) {
     console.error("[Billing][DIAG] Purchases.logIn FAILED:", e?.message || e);
     return { before, after: before, loggedIn: false };
+  }
+}
+
+export async function logOutRevenueCat(source = "auth_logout"): Promise<void> {
+  if (!isNativePlatform()) return;
+  try {
+    await ensureConfigured();
+    const before = await Purchases.getAppUserID().then((r) => r?.appUserID ?? null).catch(() => null);
+    console.log("[Billing][DIAG] Purchases.logOut start:", JSON.stringify({ source, before }));
+    const { customerInfo } = await Purchases.logOut();
+    await logCustomerInfoDiagnostics(`Purchases.logOut (${source})`, customerInfo);
+    await invalidateCustomerInfo(`after Purchases.logOut (${source})`);
+    const after = await Purchases.getAppUserID().then((r) => r?.appUserID ?? null).catch(() => null);
+    console.log("[Billing][DIAG] Purchases.logOut done:", JSON.stringify({ source, before, after }));
+  } catch (e: any) {
+    console.warn("[Billing][DIAG] Purchases.logOut failed:", e?.message || e);
+  }
+}
+
+async function requireRevenueCatUser(authUserId: string | null | undefined, source: string): Promise<void> {
+  if (!authUserId) {
+    console.error("[Billing][DIAG]", source, "blocked: missing authUserId");
+    throw new BillingError("請先登入後再購買或恢復 PRO", "AUTH_REQUIRED");
+  }
+  const loginInfo = await ensureRevenueCatLogin(authUserId);
+  console.log("[Billing][DIAG]", source, "login:", JSON.stringify({ platform: getPlatform(), authUserId, ...loginInfo }));
+  if (loginInfo.after !== authUserId) {
+    throw new BillingError(
+      `RevenueCat appUserID 未正確切換，已阻止 PRO 解鎖（expected=${authUserId}, actual=${loginInfo.after || "(none)"}）`,
+      "RC_USER_MISMATCH"
+    );
   }
 }
 
@@ -186,6 +220,15 @@ function purgeLegacyProCache(): void {
     localStorage.removeItem(LEGACY_PRO_STORAGE_KEY);
   } catch {
     /* ignore */
+  }
+}
+
+async function invalidateCustomerInfo(source: string): Promise<void> {
+  try {
+    await Purchases.invalidateCustomerInfoCache();
+    console.log("[Billing][DIAG] invalidateCustomerInfoCache:", source);
+  } catch (e: any) {
+    console.warn("[Billing][DIAG] invalidateCustomerInfoCache failed:", source, e?.message || e);
   }
 }
 
