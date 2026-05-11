@@ -76,6 +76,18 @@ export async function initBilling(): Promise<void> {
   configuring = (async () => {
     const platform = getPlatform();
     const apiKey = platform === "ios" ? IOS_API_KEY : ANDROID_API_KEY;
+    const keyPrefix = apiKey ? apiKey.slice(0, 5) : "(empty)";
+    const expectedPrefix = platform === "ios" ? "appl_" : "goog_";
+    console.log("[Billing][DIAG] configure platform=", platform,
+      " isNative=", isNativePlatform(),
+      " keyPrefix=", keyPrefix,
+      " expectedPrefix=", expectedPrefix,
+      " keyLen=", apiKey?.length ?? 0);
+    if (apiKey && !apiKey.startsWith(expectedPrefix)) {
+      console.error("[Billing][DIAG] ❌ RevenueCat API key prefix MISMATCH for", platform,
+        "— got", keyPrefix, "expected", expectedPrefix,
+        "— this WILL cause Invalid Credentials / code=2");
+    }
 
     if (!apiKey) {
       console.error(
