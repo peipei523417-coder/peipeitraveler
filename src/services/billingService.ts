@@ -138,6 +138,7 @@ export async function ensureRevenueCatLogin(authUserId: string | null | undefine
   try {
     const res = await Purchases.getAppUserID();
     before = res?.appUserID ?? null;
+    console.log("[Billing][DIAG] appUserID before login =", before ?? "(null)");
   } catch (e: any) {
     console.warn("[Billing][DIAG] getAppUserID failed:", e?.message || e);
   }
@@ -161,10 +162,43 @@ export async function ensureRevenueCatLogin(authUserId: string | null | undefine
       const res = await Purchases.getAppUserID();
       after = res?.appUserID ?? authUserId;
     } catch {}
+    console.log("[Billing][DIAG] appUserID after login =", after ?? "(null)");
+    await invalidateCustomerInfo("after Purchases.logIn");
     return { before, after, loggedIn: true };
   } catch (e: any) {
     console.error("[Billing][DIAG] Purchases.logIn FAILED:", e?.message || e);
     return { before, after: before, loggedIn: false };
+  }
+}
+
+export async function logOutRevenueCat(source = "auth_logout"): Promise<void> {
+  if (!isNativePlatform()) return;
+  try {
+    await ensureConfigured();
+    const before = await Purchases.getAppUserID().then((r) => r?.appUserID ?? null).catch(() => null);
+    console.log("[Billing][DIAG] Purchases.logOut start:", JSON.stringify({ source, before }));
+    const { customerInfo } = await Purchases.logOut();
+    await logCustomerInfoDiagnostics(`Purchases.logOut (${source})`, customerInfo);
+    await invalidateCustomerInfo(`after Purchases.logOut (${source})`);
+    const after = await Purchases.getAppUserID().then((r) => r?.appUserID ?? null).catch(() => null);
+    console.log("[Billing][DIAG] Purchases.logOut done:", JSON.stringify({ source, before, after }));
+  } catch (e: any) {
+    console.warn("[Billing][DIAG] Purchases.logOut failed:", e?.message || e);
+  }
+}
+
+async function requireRevenueCatUser(authUserId: string | null | undefined, source: string): Promise<void> {
+  if (!authUserId) {
+    console.error("[Billing][DIAG]", source, "blocked: missing authUserId");
+    throw new BillingError("請先登入後再購買或恢復 PRO", "AUTH_REQUIRED");
+  }
+  const loginInfo = await ensureRevenueCatLogin(authUserId);
+  console.log("[Billing][DIAG]", source, "login:", JSON.stringify({ platform: getPlatform(), authUserId, ...loginInfo }));
+  if (loginInfo.after !== authUserId) {
+    throw new BillingError(
+      `RevenueCat appUserID 未正確切換，已阻止 PRO 解鎖（expected=${authUserId}, actual=${loginInfo.after || "(none)"}）`,
+      "RC_USER_MISMATCH"
+    );
   }
 }
 
@@ -178,6 +212,7 @@ function enforceActiveProEntitlement(customerInfo: CustomerInfo | undefined | nu
   const active = entitlementActive(customerInfo);
   const activeKeys = Object.keys(customerInfo?.entitlements?.active || {});
   console.log("[Billing][DIAG]", source, "active entitlements:", activeKeys.join(",") || "(none)", "pro=", active);
+  console.log("[Billing][DIAG] entitlement active source =", active ? source : "none", "pro=", active);
   return active;
 }
 
@@ -186,6 +221,15 @@ function purgeLegacyProCache(): void {
     localStorage.removeItem(LEGACY_PRO_STORAGE_KEY);
   } catch {
     /* ignore */
+  }
+}
+
+async function invalidateCustomerInfo(source: string): Promise<void> {
+  try {
+    await Purchases.invalidateCustomerInfoCache();
+    console.log("[Billing][DIAG] invalidateCustomerInfoCache:", source);
+  } catch (e: any) {
+    console.warn("[Billing][DIAG] invalidateCustomerInfoCache failed:", source, e?.message || e);
   }
 }
 
@@ -297,8 +341,7 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUser
     throw new BillingError("購買僅在 iOS / Android App 中可用", "WEB_NOT_SUPPORTED");
   }
   await ensureConfigured();
-  const loginInfo = await ensureRevenueCatLogin(opts?.authUserId ?? null);
-  console.log("[Billing][DIAG] purchasePro login:", JSON.stringify({ platform: getPlatform(), authUserId: opts?.authUserId ?? null, ...loginInfo }));
+  await requireRevenueCatUser(opts?.authUserId ?? null, "purchasePro");
 
   const pkg = await getProPackage();
   if (pkg) {
@@ -309,6 +352,7 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUser
     } catch (e: any) {
       console.warn("[Billing][DIAG] getCustomerInfo (before purchase) failed:", e?.message || e);
     }
+    console.log("[Billing][DIAG] whether purchase sheet opened = unknown_before_purchasePackage");
     console.log("[Billing][DIAG] purchasePackage called:", JSON.stringify({
       pkg: pkg.identifier,
       product: pkg.product?.identifier,
@@ -316,7 +360,12 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUser
       timestamp: new Date().toISOString(),
     }));
     try {
-      const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
+      const purchaseResult = await Purchases.purchasePackage({ aPackage: pkg });
+      console.log("[Billing][DIAG] purchase result source = purchasePackage_resolved", JSON.stringify({
+        productIdentifier: (purchaseResult as any)?.productIdentifier ?? null,
+        whetherPurchaseSheetOpened: "RevenueCat_native_purchasePackage_resolved",
+      }));
+      const { customerInfo } = purchaseResult;
       await logCustomerInfoDiagnostics("AFTER purchasePackage success", customerInfo);
       const ok = enforceActiveProEntitlement(customerInfo, "purchasePackage success");
       return ok;
@@ -332,13 +381,11 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUser
         code === PURCHASES_ERROR_CODE?.RECEIPT_ALREADY_IN_USE_ERROR ||
         /already\s*active|already\s*purchased|ITEM_ALREADY_OWNED/i.test(msg);
       if (isAlreadyOwned) {
-        console.warn("[Billing][DIAG] PRODUCT_ALREADY_PURCHASED detected — auto restoring/syncing");
+        console.warn("[Billing][DIAG] purchase result source = already_owned_error_no_auto_restore");
         try { opts?.onAlreadyOwned?.(); } catch {}
-        const restored = await syncAndRestoreEntitlement(opts?.authUserId ?? null);
-        if (restored) return true;
         throw new BillingError(
-          `Google Play 顯示此商品已購買，但目前尚未同步到 PRO 權益。請確認手機 Play 商店帳號與 App 登入帳號一致，或重新登入後再恢復購買。`,
-          "ALREADY_PURCHASED_RESTORE_FAILED"
+          `商店回報此商品已購買，但本次沒有完成新的 StoreKit / Billing transaction；不會自動解鎖 PRO。請由「恢復購買」手動恢復。`,
+          "ALREADY_PURCHASED_REQUIRES_MANUAL_RESTORE"
         );
       }
       handlePurchaseError(err);
@@ -349,41 +396,6 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUser
   const msg = `找不到可購買的 package（offering=default / package=lifetime|src_lifetime / product=${PRODUCT_ID}）。未取得 RevenueCat active entitlement="${ENTITLEMENT_ID}" 前不會解鎖 PRO。\n\n[診斷]\n${diag}`;
   console.error("[Billing][DIAG]", msg);
   throw new BillingError(msg, "PACKAGE_NOT_FOUND");
-}
-
-/** 嘗試 syncPurchases (Android) + restorePurchases，回傳是否取得 entitlement="pro" */
-async function syncAndRestoreEntitlement(authUserId?: string | null): Promise<boolean> {
-  const platform = getPlatform();
-  const loginInfo = await ensureRevenueCatLogin(authUserId ?? null);
-  console.log("[Billing][DIAG] syncAndRestore login:", JSON.stringify({ platform, authUserId: authUserId ?? null, ...loginInfo }));
-  // Android: syncPurchases asks Google Play for any owned items not yet known to RC
-  if (platform === "android") {
-    try {
-      console.log("[Billing][DIAG] syncPurchases called");
-      await Purchases.syncPurchases();
-      console.log("[Billing][DIAG] syncPurchases() ok (android)");
-    } catch (e: any) {
-      console.warn("[Billing][DIAG] syncPurchases failed:", e?.message || e);
-    }
-  }
-  try {
-    console.log("[Billing][DIAG] restorePurchases called (auto)");
-    const { customerInfo } = await Purchases.restorePurchases();
-    await logCustomerInfoDiagnostics("restorePurchases (auto)", customerInfo);
-    if (entitlementActive(customerInfo)) return true;
-  } catch (e: any) {
-    console.warn("[Billing][DIAG] restorePurchases (auto) failed:", e?.message || e);
-  }
-  // Final: re-fetch customerInfo
-  try {
-    console.log("[Billing][DIAG] getCustomerInfo called (auto)");
-    const { customerInfo } = await Purchases.getCustomerInfo();
-    await logCustomerInfoDiagnostics("getCustomerInfo (auto)", customerInfo);
-    return entitlementActive(customerInfo);
-  } catch (e: any) {
-    console.warn("[Billing][DIAG] getCustomerInfo (auto) failed:", e?.message || e);
-    return false;
-  }
 }
 
 async function logCustomerInfoDiagnostics(source: string, info: CustomerInfo | undefined | null) {
@@ -459,8 +471,8 @@ export async function restorePurchases(authUserId?: string | null): Promise<bool
   if (!isNativePlatform()) return false;
   await ensureConfigured();
   const platform = getPlatform();
-  const loginInfo = await ensureRevenueCatLogin(authUserId ?? null);
-  console.log("[Billing][DIAG] restorePurchases entry:", JSON.stringify({ platform, authUserId: authUserId ?? null, ...loginInfo }));
+  console.log("[Billing][DIAG] restore trigger source = user_action");
+  await requireRevenueCatUser(authUserId ?? null, "restorePurchases(user_action)");
   // Android: sync from Google Play first
   if (platform === "android") {
     try {
@@ -499,10 +511,13 @@ export async function restorePurchases(authUserId?: string | null): Promise<bool
 /** 檢查目前 entitlement 狀態 — 唯一可信的 PRO 判斷依據 */
 export async function checkEntitlements(authUserId?: string | null): Promise<boolean> {
   if (!isNativePlatform()) return false;
+  if (!authUserId) {
+    console.warn("[Billing][DIAG] checkEntitlements blocked: missing authUserId; cached anonymous entitlement ignored");
+    return false;
+  }
   try {
     await ensureConfigured();
-    const loginInfo = await ensureRevenueCatLogin(authUserId ?? null);
-    console.log("[Billing][DIAG] checkEntitlements login:", JSON.stringify({ authUserId: authUserId ?? null, ...loginInfo }));
+    await requireRevenueCatUser(authUserId, "checkEntitlements");
     const { customerInfo } = await Purchases.getCustomerInfo();
     await logCustomerInfoDiagnostics("getCustomerInfo (check)", customerInfo);
     const ok = enforceActiveProEntitlement(customerInfo, "getCustomerInfo (check)");
