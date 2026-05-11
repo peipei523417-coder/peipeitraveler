@@ -197,8 +197,8 @@ export default function Index() {
   const handleCreateProjectClick = () => {
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
     if (totalProjectCount >= limit) {
-      setUpgradeDialogType("project");
-      setUpgradeDialogOpen(true);
+      // Free-stable build: hard stop, no upgrade flow
+      toast.error(PROJECT_LIMIT_MESSAGE, { duration: 5000 });
       return;
     }
     setDialogOpen(true);
@@ -207,19 +207,17 @@ export default function Index() {
   const handleCreateProject = async (data: ProjectFormData, coverFile?: File) => {
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
     if (totalProjectCount >= limit) {
-      setUpgradeDialogType("project");
-      setUpgradeDialogOpen(true);
+      toast.error(PROJECT_LIMIT_MESSAGE, { duration: 5000 });
       return;
     }
 
     const startDate = new Date(data.startDate);
     const endDate = new Date(data.endDate);
     const dayCount = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    
+
     const dayLimit = isPro ? PRO_DAY_LIMIT : FREE_DAY_LIMIT;
     if (dayCount > dayLimit) {
-      setUpgradeDialogType("day");
-      setUpgradeDialogOpen(true);
+      toast.error(DAY_LIMIT_MESSAGE, { duration: 5000 });
       return;
     }
 
