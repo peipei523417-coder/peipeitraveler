@@ -150,6 +150,17 @@ export async function ensureRevenueCatLogin(authUserId: string | null | undefine
     console.log("[Billing][DIAG] ensureRevenueCatLogin: appUserID already matches authUserId =", authUserId);
     return { before, after: before, loggedIn: false };
   }
+  // If currently signed in as a different identity (anonymous $RCAnonymousID or previous user),
+  // log out first so we don't merge prior cached entitlements into the new account.
+  if (before && before !== authUserId) {
+    try {
+      console.log("[Billing][DIAG] ensureRevenueCatLogin: logging out previous RC identity before switching:", before, "->", authUserId);
+      await Purchases.logOut();
+      await invalidateCustomerInfo("before switching RC identity");
+    } catch (e: any) {
+      console.warn("[Billing][DIAG] pre-switch Purchases.logOut failed:", e?.message || e);
+    }
+  }
   try {
     const result = await Purchases.logIn({ appUserID: authUserId });
     console.log("[Billing][DIAG] Purchases.logIn called", JSON.stringify({
