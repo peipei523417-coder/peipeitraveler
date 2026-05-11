@@ -65,8 +65,6 @@ export default function Index() {
   const [editingProject, setEditingProject] = useState<TravelProject | null>(null);
   const [deletingProject, setDeletingProject] = useState<TravelProject | null>(null);
   const [shareProject, setShareProject] = useState<TravelProject | null>(null);
-  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
-  const [upgradeDialogType, setUpgradeDialogType] = useState<"project" | "day">("project");
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
   const [expiryDaysRemaining, setExpiryDaysRemaining] = useState(0);
