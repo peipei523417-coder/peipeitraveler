@@ -16,24 +16,28 @@ import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ShareDialog } from "@/components/ShareDialog";
 import { AuthButton } from "@/components/AuthButton";
-import { UpgradeProDialog } from "@/components/UpgradeProDialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { ProjectActionSheet } from "@/components/ProjectActionSheet";
 import { Button } from "@/components/ui/button";
-import { Plane, Plus, Crown, Zap, Users } from "lucide-react";
+import { Plane, Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePro } from "@/contexts/ProContext";
 import { LoginDialog } from "@/components/LoginDialog";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 import { getJoinedProjects, leaveSharedProject } from "@/lib/join-project";
+import {
+  ENABLE_PRO_FEATURES,
+  FREE_PROJECT_LIMIT,
+  FREE_DAY_LIMIT,
+  PRO_PROJECT_LIMIT,
+  PRO_DAY_LIMIT,
+  PROJECT_RETENTION_DAYS,
+} from "@/config/featureFlags";
 
-// Tier limits
-const FREE_PROJECT_LIMIT = 3;
-const FREE_DAY_LIMIT = 3;
-const PRO_PROJECT_LIMIT = 20;
-const PRO_DAY_LIMIT = 20;
+// Free-stable build copy (PRO disabled — never opens purchase flow)
+const PROJECT_LIMIT_MESSAGE = "你的旅行清單快塞滿啦 🧳\n最多可保存 4 個旅程～";
+const DAY_LIMIT_MESSAGE = "單一行程最多可安排 15 天喔～";
 
 export default function Index() {
   const navigate = useNavigate();
