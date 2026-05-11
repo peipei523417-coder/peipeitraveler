@@ -214,6 +214,35 @@ async function requireRevenueCatUser(authUserId: string | null | undefined, sour
 }
 
 // ── Helpers ─────────────────────────────────────────────────
+function snapshotCustomerInfo(info: CustomerInfo | undefined | null) {
+  const active = info?.entitlements?.active || {};
+  const allPurchased: string[] = (info as any)?.allPurchasedProductIdentifiers ?? [];
+  const nonSubsRaw = (info as any)?.nonSubscriptionTransactions ?? [];
+  const nonSubsCount = Array.isArray(nonSubsRaw) ? nonSubsRaw.length : 0;
+  const parseDate = (d: any): number => {
+    if (!d) return 0;
+    const t = typeof d === "string" || typeof d === "number" ? new Date(d).getTime() : 0;
+    return Number.isFinite(t) ? t : 0;
+  };
+  let latestPurchaseDateMs = 0;
+  for (const k of Object.keys(active)) {
+    latestPurchaseDateMs = Math.max(latestPurchaseDateMs, parseDate((active as any)[k]?.latestPurchaseDate));
+  }
+  if (Array.isArray(nonSubsRaw)) {
+    for (const t of nonSubsRaw) {
+      latestPurchaseDateMs = Math.max(latestPurchaseDateMs, parseDate((t as any)?.purchaseDate));
+    }
+  }
+  const proLatestPurchaseDateMs = parseDate((active as any)?.[ENTITLEMENT_ID]?.latestPurchaseDate);
+  return {
+    activeEntitlements: Object.keys(active),
+    allPurchased,
+    nonSubsCount,
+    latestPurchaseDateMs,
+    proLatestPurchaseDateMs,
+  };
+}
+
 function entitlementActive(info: CustomerInfo | undefined | null): boolean {
   const ent = info?.entitlements?.active?.[ENTITLEMENT_ID];
   return !!ent;
