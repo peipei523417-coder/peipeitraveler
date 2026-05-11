@@ -326,11 +326,10 @@ export default function Index() {
   };
 
   const handleDuplicateProject = async (project: TravelProject) => {
-    // Same limit as creating a new project: free=3, pro=20
+    // Duplicates count toward the same free-tier limit (4 owned projects)
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
     if (totalProjectCount >= limit) {
-      setUpgradeDialogType("project");
-      setUpgradeDialogOpen(true);
+      toast.error(PROJECT_LIMIT_MESSAGE, { duration: 5000 });
       return;
     }
 
