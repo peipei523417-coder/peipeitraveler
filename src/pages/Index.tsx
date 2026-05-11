@@ -44,7 +44,7 @@ export default function Index() {
   const location = useLocation();
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
-  const { isPro } = usePro();
+  const isPro = ENABLE_PRO_FEATURES ? false : false; // PRO disabled in this build
   const {
     projects: cachedProjects,
     isLoaded,
