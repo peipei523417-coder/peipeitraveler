@@ -235,7 +235,8 @@ function ProjectDetailInner() {
     if (isInitialLoad && loaded.endDate) {
       const endDate = new Date(loaded.endDate);
       const deleteDate = new Date(endDate);
-      deleteDate.setDate(deleteDate.getDate() + 30);
+      // 7-day retention (free-stable build)
+      deleteDate.setDate(deleteDate.getDate() + 7);
       const now = new Date();
       const msRemaining = deleteDate.getTime() - now.getTime();
       const daysLeft = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
