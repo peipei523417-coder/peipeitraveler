@@ -150,6 +150,17 @@ export async function ensureRevenueCatLogin(authUserId: string | null | undefine
     console.log("[Billing][DIAG] ensureRevenueCatLogin: appUserID already matches authUserId =", authUserId);
     return { before, after: before, loggedIn: false };
   }
+  // If currently signed in as a different identity (anonymous $RCAnonymousID or previous user),
+  // log out first so we don't merge prior cached entitlements into the new account.
+  if (before && before !== authUserId) {
+    try {
+      console.log("[Billing][DIAG] ensureRevenueCatLogin: logging out previous RC identity before switching:", before, "->", authUserId);
+      await Purchases.logOut();
+      await invalidateCustomerInfo("before switching RC identity");
+    } catch (e: any) {
+      console.warn("[Billing][DIAG] pre-switch Purchases.logOut failed:", e?.message || e);
+    }
+  }
   try {
     const result = await Purchases.logIn({ appUserID: authUserId });
     console.log("[Billing][DIAG] Purchases.logIn called", JSON.stringify({
@@ -203,6 +214,35 @@ async function requireRevenueCatUser(authUserId: string | null | undefined, sour
 }
 
 // ── Helpers ─────────────────────────────────────────────────
+function snapshotCustomerInfo(info: CustomerInfo | undefined | null) {
+  const active = info?.entitlements?.active || {};
+  const allPurchased: string[] = (info as any)?.allPurchasedProductIdentifiers ?? [];
+  const nonSubsRaw = (info as any)?.nonSubscriptionTransactions ?? [];
+  const nonSubsCount = Array.isArray(nonSubsRaw) ? nonSubsRaw.length : 0;
+  const parseDate = (d: any): number => {
+    if (!d) return 0;
+    const t = typeof d === "string" || typeof d === "number" ? new Date(d).getTime() : 0;
+    return Number.isFinite(t) ? t : 0;
+  };
+  let latestPurchaseDateMs = 0;
+  for (const k of Object.keys(active)) {
+    latestPurchaseDateMs = Math.max(latestPurchaseDateMs, parseDate((active as any)[k]?.latestPurchaseDate));
+  }
+  if (Array.isArray(nonSubsRaw)) {
+    for (const t of nonSubsRaw) {
+      latestPurchaseDateMs = Math.max(latestPurchaseDateMs, parseDate((t as any)?.purchaseDate));
+    }
+  }
+  const proLatestPurchaseDateMs = parseDate((active as any)?.[ENTITLEMENT_ID]?.latestPurchaseDate);
+  return {
+    activeEntitlements: Object.keys(active),
+    allPurchased,
+    nonSubsCount,
+    latestPurchaseDateMs,
+    proLatestPurchaseDateMs,
+  };
+}
+
 function entitlementActive(info: CustomerInfo | undefined | null): boolean {
   const ent = info?.entitlements?.active?.[ENTITLEMENT_ID];
   return !!ent;
@@ -345,10 +385,20 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUser
 
   const pkg = await getProPackage();
   if (pkg) {
-    // Log entitlements BEFORE purchase to detect pre-existing entitlement state
+    // Snapshot BEFORE purchase to verify a real new store transaction occurred
+    const purchaseStartedAt = Date.now();
+    let beforeSnap = {
+      activeEntitlements: [] as string[],
+      allPurchased: [] as string[],
+      nonSubsCount: 0,
+      latestPurchaseDateMs: 0,
+      proLatestPurchaseDateMs: 0,
+    };
     try {
       const { customerInfo: ciBefore } = await Purchases.getCustomerInfo();
       await logCustomerInfoDiagnostics("BEFORE purchasePackage", ciBefore);
+      beforeSnap = snapshotCustomerInfo(ciBefore);
+      console.log("[Billing][DIAG] beforeSnap:", JSON.stringify({ ...beforeSnap, purchaseStartedAt }));
     } catch (e: any) {
       console.warn("[Billing][DIAG] getCustomerInfo (before purchase) failed:", e?.message || e);
     }
@@ -357,7 +407,8 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUser
       pkg: pkg.identifier,
       product: pkg.product?.identifier,
       offering: (pkg as any).offeringIdentifier,
-      timestamp: new Date().toISOString(),
+      purchaseStartedAt,
+      timestamp: new Date(purchaseStartedAt).toISOString(),
     }));
     try {
       const purchaseResult = await Purchases.purchasePackage({ aPackage: pkg });
@@ -367,9 +418,49 @@ export async function purchasePro(opts?: { onAlreadyOwned?: () => void; authUser
       }));
       const { customerInfo } = purchaseResult;
       await logCustomerInfoDiagnostics("AFTER purchasePackage success", customerInfo);
-      const ok = enforceActiveProEntitlement(customerInfo, "purchasePackage success");
-      return ok;
+      const afterSnap = snapshotCustomerInfo(customerInfo);
+      console.log("[Billing][DIAG] afterSnap:", JSON.stringify(afterSnap));
+
+      const entitlementActiveNow = enforceActiveProEntitlement(customerInfo, "purchasePackage success");
+
+      // Verify a REAL new transaction occurred during this purchase
+      const newProInPurchased =
+        afterSnap.allPurchased.includes(PRODUCT_ID) &&
+        !beforeSnap.allPurchased.includes(PRODUCT_ID);
+      const nonSubsIncreased = afterSnap.nonSubsCount > beforeSnap.nonSubsCount;
+      const proPurchaseDateAdvanced =
+        afterSnap.proLatestPurchaseDateMs > 0 &&
+        afterSnap.proLatestPurchaseDateMs >= purchaseStartedAt - 5000;
+      const anyPurchaseDateAdvanced =
+        afterSnap.latestPurchaseDateMs > 0 &&
+        afterSnap.latestPurchaseDateMs > beforeSnap.latestPurchaseDateMs &&
+        afterSnap.latestPurchaseDateMs >= purchaseStartedAt - 5000;
+
+      const verifiedPurchase =
+        entitlementActiveNow &&
+        (newProInPurchased || nonSubsIncreased || proPurchaseDateAdvanced || anyPurchaseDateAdvanced);
+
+      console.log("[Billing][DIAG] purchase verification:", JSON.stringify({
+        entitlementActiveNow,
+        newProInPurchased,
+        nonSubsIncreased,
+        proPurchaseDateAdvanced,
+        anyPurchaseDateAdvanced,
+        purchaseStartedAt,
+        verifiedPurchase,
+      }));
+
+      if (!verifiedPurchase) {
+        console.warn("[Billing][DIAG] purchasePackage resolved but NO new store transaction detected — refusing to unlock PRO");
+        throw new BillingError(
+          "未偵測到本次 App Store / Google Play 交易，不會解鎖 PRO。如先前已購買請使用「恢復購買」。",
+          "NO_NEW_STORE_TRANSACTION"
+        );
+      }
+      return true;
     } catch (err: any) {
+      // Re-throw our own verification error untouched
+      if (err instanceof BillingError && err.code === "NO_NEW_STORE_TRANSACTION") throw err;
       // Code 6 = PRODUCT_ALREADY_PURCHASED_ERROR, Code 7 = RECEIPT_ALREADY_IN_USE
       // Also catch ITEM_ALREADY_OWNED string codes from Google Play
       const code = err?.code ?? err?.errorCode;
