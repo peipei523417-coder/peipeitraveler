@@ -513,9 +513,6 @@ export default function Index() {
                 >
                   <Plus className="w-4 h-4" />
                   {t("newProject")}
-                  {!isPro && projects.length >= FREE_PROJECT_LIMIT && (
-                    <Crown className="w-3 h-3 text-amber-300" />
-                  )}
                 </Button>
               </div>
             </div>
