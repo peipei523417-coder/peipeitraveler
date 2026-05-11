@@ -20,12 +20,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogIn, LogOut, User, RefreshCw, FileText, Trash2 } from "lucide-react";
+import { LogIn, LogOut, User, FileText, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePro } from "@/contexts/ProContext";
 import { LoginDialog } from "@/components/LoginDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ENABLE_PRO_FEATURES } from "@/config/featureFlags";
 
 export function AuthButton() {
   const { t } = useTranslation();
