@@ -20,6 +20,14 @@ export function useProStatus() {
     initBilling().catch((e) => console.warn("[useProStatus] initBilling:", e?.message || e));
   }, []);
 
+  useEffect(() => {
+    console.log("[Billing][DIAG] auth user changed; clearing in-memory PRO before entitlement check", {
+      authUserId: user?.id ?? null,
+    });
+    setIsPro(false);
+    setLoading(true);
+  }, [user?.id]);
+
   const fetchProStatus = useCallback(async () => {
     if (!user) {
       setIsPro(false);
@@ -54,6 +62,11 @@ export function useProStatus() {
           .upsert({ user_id: user.id, is_pro: hasEntitlement }, { onConflict: "user_id" });
       }
 
+      console.log("[Billing][DIAG] entitlement active source = fetchProStatus", {
+        authUserId: user.id,
+        dbMirrorBefore: data?.is_pro ?? false,
+        revenueCatEntitlementActive: hasEntitlement,
+      });
       setIsPro(hasEntitlement);
     } catch (error) {
       console.error("Error in fetchProStatus:", error);
@@ -86,6 +99,7 @@ export function useProStatus() {
       throw error;
     }
     if (success) {
+      console.log("[Billing][DIAG] entitlement active source = purchasePackage customerInfo");
       setIsPro(true);
       if (user) {
         await supabase
@@ -117,6 +131,7 @@ export function useProStatus() {
       throw error;
     }
     if (restored) {
+      console.log("[Billing][DIAG] entitlement active source = manual restorePurchases");
       setIsPro(true);
       await supabase
         .from("user_profiles")
