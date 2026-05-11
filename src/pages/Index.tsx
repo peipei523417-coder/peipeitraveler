@@ -145,16 +145,17 @@ export default function Index() {
     let soonestDays = Infinity;
 
     for (const p of projects) {
+      // Use local-date arithmetic so users don't get cut off early by UTC offset
       const endDate = new Date(p.endDate);
       const deleteDate = new Date(endDate);
-      deleteDate.setDate(deleteDate.getDate() + 30);
+      deleteDate.setDate(deleteDate.getDate() + PROJECT_RETENTION_DAYS);
       const daysLeft = Math.ceil((deleteDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysLeft > 0 && daysLeft <= 7 && daysLeft < soonestDays) {
+      if (daysLeft > 0 && daysLeft <= PROJECT_RETENTION_DAYS && daysLeft < soonestDays) {
         soonestDays = daysLeft;
       }
     }
 
-    if (soonestDays <= 7) {
+    if (soonestDays <= PROJECT_RETENTION_DAYS) {
       setExpiryDaysRemaining(soonestDays);
       setExpiryWarningOpen(true);
       localStorage.setItem(LAST_KEY, today);
