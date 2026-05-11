@@ -212,6 +212,7 @@ function enforceActiveProEntitlement(customerInfo: CustomerInfo | undefined | nu
   const active = entitlementActive(customerInfo);
   const activeKeys = Object.keys(customerInfo?.entitlements?.active || {});
   console.log("[Billing][DIAG]", source, "active entitlements:", activeKeys.join(",") || "(none)", "pro=", active);
+  console.log("[Billing][DIAG] entitlement active source =", active ? source : "none", "pro=", active);
   return active;
 }
 
@@ -470,8 +471,8 @@ export async function restorePurchases(authUserId?: string | null): Promise<bool
   if (!isNativePlatform()) return false;
   await ensureConfigured();
   const platform = getPlatform();
-  const loginInfo = await ensureRevenueCatLogin(authUserId ?? null);
-  console.log("[Billing][DIAG] restorePurchases entry:", JSON.stringify({ platform, authUserId: authUserId ?? null, ...loginInfo }));
+  console.log("[Billing][DIAG] restore trigger source = user_action");
+  await requireRevenueCatUser(authUserId ?? null, "restorePurchases(user_action)");
   // Android: sync from Google Play first
   if (platform === "android") {
     try {
@@ -510,10 +511,13 @@ export async function restorePurchases(authUserId?: string | null): Promise<bool
 /** 檢查目前 entitlement 狀態 — 唯一可信的 PRO 判斷依據 */
 export async function checkEntitlements(authUserId?: string | null): Promise<boolean> {
   if (!isNativePlatform()) return false;
+  if (!authUserId) {
+    console.warn("[Billing][DIAG] checkEntitlements blocked: missing authUserId; cached anonymous entitlement ignored");
+    return false;
+  }
   try {
     await ensureConfigured();
-    const loginInfo = await ensureRevenueCatLogin(authUserId ?? null);
-    console.log("[Billing][DIAG] checkEntitlements login:", JSON.stringify({ authUserId: authUserId ?? null, ...loginInfo }));
+    await requireRevenueCatUser(authUserId, "checkEntitlements");
     const { customerInfo } = await Purchases.getCustomerInfo();
     await logCustomerInfoDiagnostics("getCustomerInfo (check)", customerInfo);
     const ok = enforceActiveProEntitlement(customerInfo, "getCustomerInfo (check)");
