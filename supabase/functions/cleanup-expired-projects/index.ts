@@ -17,8 +17,11 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Find projects where end_date + 7 days has passed (free-stable build)
+    // Safety buffer: actually delete only after end_date + 8 full days have passed.
+    // UI still says "7 days" — the extra day prevents UTC/local-date drift from
+    // deleting a user's data 1 day earlier than promised in any timezone.
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 7);
+    cutoffDate.setDate(cutoffDate.getDate() - 8);
     const cutoffStr = cutoffDate.toISOString().split("T")[0];
 
     const { data: expiredProjects, error: fetchError } = await supabase

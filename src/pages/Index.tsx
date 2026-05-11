@@ -252,7 +252,17 @@ export default function Index() {
 
   const handleEditProject = async (data: ProjectFormData, coverFile?: File) => {
     if (!editingProject) return;
-    
+
+    // Same 15-day cap on edit (free-stable build) — matches DB trigger check_free_tier_limits_update
+    const editStart = new Date(data.startDate);
+    const editEnd = new Date(data.endDate);
+    const editDayCount = Math.ceil((editEnd.getTime() - editStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const editDayLimit = isPro ? PRO_DAY_LIMIT : FREE_DAY_LIMIT;
+    if (editDayCount > editDayLimit) {
+      toast.error(DAY_LIMIT_MESSAGE, { duration: 5000 });
+      return;
+    }
+
     try {
       let coverImageUrl = data.coverImageUrl;
       
