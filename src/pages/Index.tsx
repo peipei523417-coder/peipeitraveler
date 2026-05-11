@@ -649,11 +649,7 @@ export default function Index() {
         }}
       />
 
-      <UpgradeProDialog
-        open={upgradeDialogOpen}
-        onOpenChange={setUpgradeDialogOpen}
-        type={upgradeDialogType}
-      />
+      {/* UpgradeProDialog disabled — PRO purchase flow off in this build */}
 
       <ExpiryWarningDialog
         open={expiryWarningOpen}
