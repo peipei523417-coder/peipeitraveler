@@ -64,7 +64,7 @@ i18n
   .init({
     resources: translations,
     lng: getInitialLanguage(),
-    fallbackLng: "en",
+    fallbackLng: isNativeIOS() ? "zh-TW" : "en",
     interpolation: {
       escapeValue: false,
     },
