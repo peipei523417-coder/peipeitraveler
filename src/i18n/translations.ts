@@ -15,18 +15,18 @@ export const translations = {
       success: "成功",
       
       // Navigation
-      myProjects: "我的專案",
+      myProjects: "我的行程",
       settings: "設定",
       share: "分享",
       language: "語言",
       
       // Project
       newProject: "新專案",
-      projectName: "專案名稱",
+      projectName: "行程名稱",
       startDate: "開始日期",
       endDate: "結束日期",
       coverImage: "封面圖片",
-      createProject: "建立專案",
+      createProject: "建立行程",
       editProject: "編輯專案",
       deleteProject: "刪除專案",
       duplicateProject: "複製專案",
@@ -157,14 +157,14 @@ export const translations = {
       private: "私人",
       
       // Project Dialog
-      projectCover: "專案封面",
+      projectCover: "行程封面",
       uploadCover: "上傳封面",
       projectNamePlaceholder: "例如：東京美食之旅",
-      travelDate: "旅遊日期",
+      travelDate: "旅行日期",
       selectDateRange: "選擇日期區間",
       dayTrip: "天行程",
-      projectVisibility: "專案狀態",
-      createProjectBtn: "建立專案",
+      projectVisibility: "行程可見性",
+      createProjectBtn: "建立行程",
       saveChanges: "儲存變更",
       confirmPublicTitle: "確定要公開此專案嗎？",
       confirmPublicDescription: "設定後有連結的人將可檢視內容。",
