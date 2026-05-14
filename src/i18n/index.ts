@@ -2,8 +2,22 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { translations, languageNames, SupportedLanguage } from "./translations";
 
+// Detect native iOS (Capacitor) — App Store reviewers may use English devices,
+// but this app is primarily for Traditional Chinese users in Taiwan.
+// Force zh-TW default on iOS to keep UI + permission prompts consistent.
+function isNativeIOS(): boolean {
+  try {
+    const cap = (window as any).Capacitor;
+    return !!(cap?.isNativePlatform?.() && cap?.getPlatform?.() === "ios");
+  } catch {
+    return false;
+  }
+}
+
 // Smart language detection with region awareness
 function getDefaultLanguage(): SupportedLanguage {
+  if (isNativeIOS()) return "zh-TW";
+
   const browserLang = navigator.language || "en";
   
   // Check for exact match first (e.g., zh-TW)
@@ -34,6 +48,10 @@ function getDefaultLanguage(): SupportedLanguage {
 
 // Get stored language or detect from browser
 function getInitialLanguage(): SupportedLanguage {
+  // On native iOS, always force zh-TW so App Review (English device) sees
+  // a fully Traditional Chinese experience consistent with permission prompts.
+  if (isNativeIOS()) return "zh-TW";
+
   const stored = localStorage.getItem("i18nextLng");
   if (stored && Object.keys(languageNames).includes(stored)) {
     return stored as SupportedLanguage;
@@ -46,7 +64,7 @@ i18n
   .init({
     resources: translations,
     lng: getInitialLanguage(),
-    fallbackLng: "en",
+    fallbackLng: isNativeIOS() ? "zh-TW" : "en",
     interpolation: {
       escapeValue: false,
     },
