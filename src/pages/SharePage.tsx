@@ -172,6 +172,7 @@ export default function SharePage() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { user, loading: authLoading } = useAuth();
+  const { invalidateJoinedCache } = useProjectCache();
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
