@@ -147,6 +147,14 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
     joinedFetchedAtRef.current = Date.now();
   }, []);
 
+  // Precise invalidation: only marks joined cache as stale so the lobby
+  // refetches joined/shared projects on next mount. Keeps current list
+  // visible to avoid flicker; does NOT touch owned projects cache.
+  const invalidateJoinedCache = useCallback(() => {
+    joinedFetchedAtRef.current = 0;
+    setIsJoinedLoaded(false);
+  }, []);
+
   return (
     <ProjectCacheContext.Provider value={{
       projects,
