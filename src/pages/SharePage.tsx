@@ -657,9 +657,9 @@ export default function SharePage() {
               </div>
 
 
-              {/* Action Buttons — both options JOIN the project; only role differs */}
+              {/* Action Buttons — exactly two options. Both JOIN the project; only role differs. */}
               <div className="flex flex-col gap-3">
-                {/* Join as Editor */}
+                {/* Join as Editor (requires edit password if set) */}
                 <Button
                   onClick={() => handleJoinProject("editor")}
                   className="w-full gap-2"
@@ -668,8 +668,6 @@ export default function SharePage() {
                 >
                   {joining ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : isMobileWeb ? (
-                    <Smartphone className="w-4 h-4" />
                   ) : (
                     <Edit2 className="w-4 h-4" />
                   )}
@@ -684,27 +682,11 @@ export default function SharePage() {
                   size="lg"
                   disabled={joining}
                 >
-                  {isMobileWeb ? (
-                    <Smartphone className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  <Eye className="w-4 h-4" />
                   {t("joinAsViewer")}
                 </Button>
-
-                {/* Legacy password unlock — only when project has an edit password set */}
-                {hasEditPassword && !canEdit && (
-                  <Button
-                    variant="secondary"
-                    className="w-full gap-2"
-                    size="lg"
-                    onClick={() => setShowPasswordPrompt(true)}
-                  >
-                    <Lock className="w-4 h-4" />
-                    {t("wantToEdit")}
-                  </Button>
-                )}
               </div>
+
 
             </CardContent>
           </Card>
