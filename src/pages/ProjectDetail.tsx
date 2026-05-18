@@ -405,6 +405,8 @@ function ProjectDetailInner() {
   // Defensive: itinerary could be empty/undefined for malformed data — never crash.
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   const currentDay = itinerary.find((d) => d?.dayNumber === activeDay);
+  // Viewer-joined collaborators must not be able to mutate the project.
+  const isViewer = project.joinedRole === "viewer";
   
   // Get suggested start time based on last item's end time
   const getNextSuggestedTime = (): string | undefined => {
