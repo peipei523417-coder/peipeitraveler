@@ -96,15 +96,17 @@ export async function getJoinedProjects() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user?.email) return [];
 
-  // Get projects where user is a collaborator
+  // Get projects where user is a collaborator (include role)
   const { data: collabs, error: collabError } = await supabase
     .from("project_collaborators")
-    .select("project_id")
+    .select("project_id, role")
     .eq("email", user.email);
 
   if (collabError || !collabs || collabs.length === 0) return [];
 
   const projectIds = collabs.map(c => c.project_id);
+  const roleByProject = new Map<string, "editor" | "viewer">();
+  collabs.forEach(c => roleByProject.set(c.project_id, (c.role as "editor" | "viewer") || "viewer"));
 
   // Fetch those projects (RLS policy allows collaborator access)
   const { data: projects, error: projError } = await supabase
