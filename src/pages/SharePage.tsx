@@ -20,6 +20,7 @@ import dogTravelNew from "@/assets/dog-travel-new.png";
 import { useSignedImageUrl } from "@/hooks/useSignedImageUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import { joinProject } from "@/lib/join-project";
+import { useProjectCache } from "@/contexts/ProjectCacheContext";
 
 // Helper function to convert database rows to TravelProject
 function dbRowToProject(row: any, items: any[] = []): TravelProject {
