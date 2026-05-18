@@ -417,7 +417,7 @@ export default function SharePage() {
     if (user && showLoginDialog) {
       setShowLoginDialog(false);
       // Small delay to let auth settle
-      setTimeout(() => handleWebJoin(), 500);
+      setTimeout(() => handleWebJoin(pendingJoinRole), 500);
     }
   }, [user]);
 
