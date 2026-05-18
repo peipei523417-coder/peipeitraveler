@@ -170,6 +170,7 @@ export function ProjectCacheProvider({ children }: { children: ReactNode }) {
       removeJoinedProjectFromCache,
       isJoinedFresh,
       markJoinedFetched,
+      invalidateJoinedCache,
     }}>
       {children}
     </ProjectCacheContext.Provider>
