@@ -673,11 +673,11 @@ export default function SharePage() {
               </div>
 
 
-              {/* Action Buttons — all in one block */}
+              {/* Action Buttons — both options JOIN the project; only role differs */}
               <div className="flex flex-col gap-3">
-                {/* Join project — deep links to native app on mobile */}
-                <Button 
-                  onClick={handleJoinProject} 
+                {/* Join as Editor */}
+                <Button
+                  onClick={() => handleJoinProject("editor")}
                   className="w-full gap-2"
                   size="lg"
                   disabled={joining}
@@ -687,23 +687,28 @@ export default function SharePage() {
                   ) : isMobileWeb ? (
                     <Smartphone className="w-4 h-4" />
                   ) : (
-                    <UserPlus className="w-4 h-4" />
+                    <Edit2 className="w-4 h-4" />
                   )}
-                  {joining ? t("joiningProject") : isMobileWeb ? t("openInAppAndJoin") : t("joinProject")}
+                  {joining ? t("joiningProject") : t("joinAsEditor")}
                 </Button>
 
-                {/* View / Edit button */}
-                <Button 
-                  onClick={() => setShowItinerary(true)} 
+                {/* Join as Viewer */}
+                <Button
+                  onClick={() => handleJoinProject("viewer")}
                   variant="outline"
                   className="w-full gap-2"
                   size="lg"
+                  disabled={joining}
                 >
-                  <Eye className="w-4 h-4" />
-                  {canEdit ? t("viewAndEdit") : t("viewOnly")}
+                  {isMobileWeb ? (
+                    <Smartphone className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                  {t("joinAsViewer")}
                 </Button>
 
-                {/* Unlock edit — only when password exists and not yet unlocked */}
+                {/* Legacy password unlock — only when project has an edit password set */}
                 {hasEditPassword && !canEdit && (
                   <Button
                     variant="secondary"
