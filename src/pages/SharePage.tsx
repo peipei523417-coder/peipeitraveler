@@ -234,21 +234,31 @@ export default function SharePage() {
 
   const loadProject = async () => {
     if (!shareCode) return;
-    
+
     setLoading(true);
     setError(null);
 
-    try {
-      // First try: use share_code to look up via RPC function
-      const { data: sharedData } = await supabase
-        .rpc("get_shared_project_by_code", { p_share_code: shareCode });
+    // Sanitize the shareCode — strip whitespace, trailing slashes, and any
+    // accidental URL-encoded chars that some Android deep-link intents add.
+    let cleanCode = shareCode.trim().replace(/\/+$/, "");
+    try { cleanCode = decodeURIComponent(cleanCode); } catch { /* ignore */ }
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const looksLikeUuid = UUID_RE.test(cleanCode);
 
+    console.log("[SharePage] loadProject", { rawShareCode: shareCode, cleanCode, looksLikeUuid });
+
+    try {
       let projectId: string | null = null;
       let projectName: string | null = null;
       let startDate: string | null = null;
       let endDate: string | null = null;
       let coverImageUrl: string | null = null;
       let requiresPassword = false;
+
+      // Strategy 1: treat as share_code via RPC (works for share_links rows)
+      const { data: sharedData, error: rpcErr } = await supabase
+        .rpc("get_shared_project_by_code", { p_share_code: cleanCode });
+      if (rpcErr) console.warn("[SharePage] RPC error:", rpcErr.message);
 
       if (sharedData && sharedData.length > 0) {
         const row = sharedData[0];
@@ -258,29 +268,31 @@ export default function SharePage() {
         endDate = row.end_date;
         coverImageUrl = row.cover_image_url;
         requiresPassword = row.requires_password;
-      } else {
-        // Fallback: try shareCode as direct project ID
-        const { data: publicData } = await supabase
+      }
+
+      // Strategy 2: treat as direct project UUID against the public view.
+      // This is the path used by current ShareDialog ("/share/<project.id>").
+      // Run it whenever we still don't have a project AND the code parses as UUID.
+      if (!projectId && looksLikeUuid) {
+        const { data: publicData, error: viewErr } = await supabase
           .from("public_travel_projects")
-          .select("id, name, start_date, end_date, cover_image_url, is_public, has_edit_password, created_at, updated_at")
-          .eq("id", shareCode)
+          .select("id, name, start_date, end_date, cover_image_url, is_public, has_edit_password")
+          .eq("id", cleanCode)
           .maybeSingle();
+        if (viewErr) console.warn("[SharePage] public view error:", viewErr.message);
 
-        if (!publicData || !publicData.is_public) {
-          setError(t("privateTrip"));
-          setLoading(false);
-          return;
+        if (publicData && publicData.is_public) {
+          projectId = publicData.id;
+          projectName = publicData.name;
+          startDate = publicData.start_date;
+          endDate = publicData.end_date;
+          coverImageUrl = publicData.cover_image_url;
+          requiresPassword = publicData.has_edit_password || false;
         }
-
-        projectId = publicData.id;
-        projectName = publicData.name;
-        startDate = publicData.start_date;
-        endDate = publicData.end_date;
-        coverImageUrl = publicData.cover_image_url;
-        requiresPassword = publicData.has_edit_password || false;
       }
 
       if (!projectId) {
+        console.warn("[SharePage] No public project found for code", cleanCode);
         setError(t("privateTrip"));
         setLoading(false);
         return;
@@ -288,11 +300,12 @@ export default function SharePage() {
 
       setHasEditPassword(requiresPassword);
 
-      // Fetch itinerary items from public view
-      const { data: items } = await supabase
+      // Fetch itinerary items from public view (anon-accessible)
+      const { data: items, error: itemsErr } = await supabase
         .from("public_itinerary_items")
         .select("*")
         .eq("project_id", projectId);
+      if (itemsErr) console.warn("[SharePage] items error:", itemsErr.message);
 
       const projectRow = {
         id: projectId,
@@ -307,7 +320,8 @@ export default function SharePage() {
 
       const loadedProject = dbRowToProject(projectRow, items || []);
       setProject(loadedProject);
-    } catch {
+    } catch (e) {
+      console.error("[SharePage] loadProject exception:", e);
       setError(t("privateTrip"));
     }
 
