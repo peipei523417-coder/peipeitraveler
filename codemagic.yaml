@@ -104,8 +104,8 @@ workflows:
                 config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
-                config.build_settings['MARKETING_VERSION'] = '6.1.14'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '51'  # ⭐ TestFlight build 51 — share flow logout/lobby unlock fix
+                config.build_settings['MARKETING_VERSION'] = '6.1.15'
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '52'  # ⭐ TestFlight build 52 — version bump for new pre-release train 6.1.15
               end
             end
           end
