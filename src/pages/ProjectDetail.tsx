@@ -520,12 +520,11 @@ function ProjectDetailInner() {
         {currentDay && (
           <ItineraryList
             day={currentDay}
-            onAddItem={() => setDialogOpen(true)}
-            onEditItem={(item) => {
-              setEditingItem(item);
-            }}
-            onDeleteItem={handleDeleteItem}
-            onUpdateItemIcon={handleUpdateItemIcon}
+            onAddItem={() => { if (!isViewer) setDialogOpen(true); }}
+            onEditItem={(item) => { if (!isViewer) setEditingItem(item); }}
+            onDeleteItem={isViewer ? () => {} : handleDeleteItem}
+            onUpdateItemIcon={isViewer ? undefined : handleUpdateItemIcon}
+            readOnly={isViewer}
           />
         )}
       </main>
