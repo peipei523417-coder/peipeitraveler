@@ -106,6 +106,8 @@ export const translations = {
       
       // Join & Smart Link
       joinProject: "加入專案",
+      joinAsEditor: "加入並可編輯",
+      joinAsViewer: "加入但僅查看",
       viewOnly: "僅查看",
       viewAndEdit: "查看並編輯",
       viewItinerary: "查看行程",
@@ -327,6 +329,8 @@ export const translations = {
       
       // Join & Smart Link
       joinProject: "Join Project",
+      joinAsEditor: "Join & Edit",
+      joinAsViewer: "Join as Viewer",
       viewOnly: "View Only",
       viewAndEdit: "View & Edit",
       viewItinerary: "View Itinerary",
@@ -548,6 +552,8 @@ export const translations = {
       
       // Join & Smart Link
       joinProject: "Unirse al Proyecto",
+      joinAsEditor: "Unirse y Editar",
+      joinAsViewer: "Unirse Solo Lectura",
       viewOnly: "Solo Ver",
       viewAndEdit: "Ver y Editar",
       viewItinerary: "Ver Itinerario",
@@ -769,6 +775,8 @@ export const translations = {
       
       // Join & Smart Link
       joinProject: "프로젝트 참여",
+      joinAsEditor: "참여하고 편집",
+      joinAsViewer: "참여하고 보기만",
       viewOnly: "보기만",
       viewAndEdit: "보기 및 편집",
       viewItinerary: "일정 보기",
@@ -990,6 +998,8 @@ export const translations = {
       
       // Join & Smart Link
       joinProject: "プロジェクトに参加",
+      joinAsEditor: "参加して編集",
+      joinAsViewer: "参加して閲覧のみ",
       viewOnly: "閲覧のみ",
       viewAndEdit: "閲覧＆編集",
       viewItinerary: "旅程を見る",
@@ -1205,6 +1215,8 @@ export const translations = {
       
       // Join & Smart Link
       joinProject: "Rejoindre le Projet",
+      joinAsEditor: "Rejoindre et Modifier",
+      joinAsViewer: "Rejoindre en Lecture Seule",
       viewOnly: "Voir Seulement",
       viewAndEdit: "Voir et Modifier",
       viewItinerary: "Voir l'Itinéraire",
@@ -1420,6 +1432,8 @@ export const translations = {
       
       // Join & Smart Link
       joinProject: "Projekt Beitreten",
+      joinAsEditor: "Beitreten und Bearbeiten",
+      joinAsViewer: "Beitreten nur Ansehen",
       viewOnly: "Nur Ansehen",
       viewAndEdit: "Ansehen & Bearbeiten",
       viewItinerary: "Reiseroute Ansehen",

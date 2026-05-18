@@ -345,25 +345,23 @@ export default function SharePage() {
     return isMobile && !isNativeApp;
   })();
 
-  const handleJoinProject = async () => {
+  const handleJoinProject = async (role: "editor" | "viewer" = "editor") => {
     if (!project) return;
 
-    // On mobile web, ALWAYS try to open the native travel app via deep link
+    // On mobile web, ALWAYS try to open the native travel app via deep link.
+    // Role is preserved via query string so the native app can pick it up.
     if (isMobileWeb) {
-      const deepLink = `com.peitravel.smartplanner://share/${project.id}`;
-      
-      // Track if we successfully left the page (app opened)
+      const deepLink = `com.peitravel.smartplanner://share/${project.id}?role=${role}`;
+
       let didLeave = false;
       const onBlur = () => { didLeave = true; };
       window.addEventListener("blur", onBlur);
-      
+
       window.location.href = deepLink;
-      
-      // Wait to see if the app opened
+
       setTimeout(() => {
         window.removeEventListener("blur", onBlur);
         if (!didLeave) {
-          // App not installed — redirect to store
           const ua = navigator.userAgent;
           if (/iPhone|iPad|iPod/i.test(ua)) {
             window.location.href = "https://apps.apple.com/app/peipeigotravel";
@@ -376,21 +374,25 @@ export default function SharePage() {
     }
 
     // Inside native app or desktop — do web join
-    await handleWebJoin();
+    await handleWebJoin(role);
   };
 
-  const handleWebJoin = async () => {
+  // Remember which role the user picked so post-login auto-join uses it.
+  const [pendingJoinRole, setPendingJoinRole] = useState<"editor" | "viewer">("editor");
+
+  const handleWebJoin = async (role: "editor" | "viewer" = "editor") => {
     if (!project) return;
 
     if (!user) {
+      setPendingJoinRole(role);
       setShowLoginDialog(true);
       return;
     }
 
     setJoining(true);
     try {
-      const result = await joinProject(project.id);
-      
+      const result = await joinProject(project.id, role);
+
       if (result.alreadyOwner) {
         toast.info(t("alreadyOwner"));
         navigate(`/project/${project.id}`);
@@ -415,7 +417,7 @@ export default function SharePage() {
     if (user && showLoginDialog) {
       setShowLoginDialog(false);
       // Small delay to let auth settle
-      setTimeout(() => handleWebJoin(), 500);
+      setTimeout(() => handleWebJoin(pendingJoinRole), 500);
     }
   }, [user]);
 
@@ -671,11 +673,11 @@ export default function SharePage() {
               </div>
 
 
-              {/* Action Buttons — all in one block */}
+              {/* Action Buttons — both options JOIN the project; only role differs */}
               <div className="flex flex-col gap-3">
-                {/* Join project — deep links to native app on mobile */}
-                <Button 
-                  onClick={handleJoinProject} 
+                {/* Join as Editor */}
+                <Button
+                  onClick={() => handleJoinProject("editor")}
                   className="w-full gap-2"
                   size="lg"
                   disabled={joining}
@@ -685,23 +687,28 @@ export default function SharePage() {
                   ) : isMobileWeb ? (
                     <Smartphone className="w-4 h-4" />
                   ) : (
-                    <UserPlus className="w-4 h-4" />
+                    <Edit2 className="w-4 h-4" />
                   )}
-                  {joining ? t("joiningProject") : isMobileWeb ? t("openInAppAndJoin") : t("joinProject")}
+                  {joining ? t("joiningProject") : t("joinAsEditor")}
                 </Button>
 
-                {/* View / Edit button */}
-                <Button 
-                  onClick={() => setShowItinerary(true)} 
+                {/* Join as Viewer */}
+                <Button
+                  onClick={() => handleJoinProject("viewer")}
                   variant="outline"
                   className="w-full gap-2"
                   size="lg"
+                  disabled={joining}
                 >
-                  <Eye className="w-4 h-4" />
-                  {canEdit ? t("viewAndEdit") : t("viewOnly")}
+                  {isMobileWeb ? (
+                    <Smartphone className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                  {t("joinAsViewer")}
                 </Button>
 
-                {/* Unlock edit — only when password exists and not yet unlocked */}
+                {/* Legacy password unlock — only when project has an edit password set */}
                 {hasEditPassword && !canEdit && (
                   <Button
                     variant="secondary"
@@ -789,7 +796,7 @@ export default function SharePage() {
               {!canEdit && user && (
                 <Button
                   size="sm"
-                  onClick={handleJoinProject}
+                  onClick={() => handleJoinProject("editor")}
                   disabled={joining}
                   className="gap-1.5"
                 >

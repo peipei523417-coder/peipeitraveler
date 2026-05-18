@@ -10,6 +10,8 @@ export interface TravelProject {
   isPublic?: boolean;
   /** True when this project belongs to another user and the current user joined as collaborator. */
   isJoined?: boolean;
+  /** Role of the current user on a joined project. Owner projects leave this undefined. */
+  joinedRole?: 'editor' | 'viewer';
 }
 
 export interface DayItinerary {

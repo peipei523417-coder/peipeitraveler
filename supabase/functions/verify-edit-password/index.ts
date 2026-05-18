@@ -250,7 +250,7 @@ serve(async (req) => {
   }
 
   try {
-    const { projectId, password, action, shareCode, itemData, itemId, dayNumber, imageBase64, imageFileName, iconType } = await req.json();
+    const { projectId, password, action, shareCode, itemData, itemId, dayNumber, imageBase64, imageFileName, iconType, role: requestedRole } = await req.json();
 
     // Service role client for database operations
     const supabase = createClient(
@@ -747,25 +747,28 @@ serve(async (req) => {
       // Check if already a collaborator
       const { data: existing } = await supabase
         .from("project_collaborators")
-        .select("id")
+        .select("id, role")
         .eq("project_id", projectIdResult.value)
         .eq("email", user.email)
         .maybeSingle();
 
       if (existing) {
         return new Response(
-          JSON.stringify({ success: true, alreadyJoined: true }),
+          JSON.stringify({ success: true, alreadyJoined: true, role: existing.role }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Add as collaborator with editor role
+      // Determine role (default editor). Only editor/viewer allowed.
+      const role = requestedRole === "viewer" ? "viewer" : "editor";
+
+      // Add as collaborator
       const { error: insertError } = await supabase
         .from("project_collaborators")
         .insert({
           project_id: projectIdResult.value,
           email: user.email,
-          role: "editor",
+          role,
           invited_by: project.user_id,
         });
 
@@ -778,7 +781,7 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, joined: true }),
+        JSON.stringify({ success: true, joined: true, role }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

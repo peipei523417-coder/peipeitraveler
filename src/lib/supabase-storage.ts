@@ -111,8 +111,28 @@ export async function getProject(id: string): Promise<TravelProject | undefined>
     .from("itinerary_items")
     .select("*")
     .eq("project_id", id);
-  
-  return dbRowToProject(project, items || []);
+
+  const result = dbRowToProject(project, items || []);
+
+  // If the current user is NOT the owner, look up their collaborator role so
+  // the UI can enforce viewer/editor permissions client-side.
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email && project.user_id && project.user_id !== user.id) {
+      const { data: collab } = await supabase
+        .from("project_collaborators")
+        .select("role")
+        .eq("project_id", id)
+        .eq("email", user.email)
+        .maybeSingle();
+      if (collab) {
+        result.isJoined = true;
+        result.joinedRole = (collab.role as "editor" | "viewer") || "viewer";
+      }
+    }
+  } catch { /* ignore — role enforcement falls back to RLS */ }
+
+  return result;
 }
 
 // Helper function to format date as local YYYY-MM-DD (fixes timezone offset bug)
