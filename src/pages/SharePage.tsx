@@ -331,12 +331,14 @@ export default function SharePage() {
       setShowPasswordPrompt(false);
       setPasswordInput("");
       toast.success(t("editUnlocked"));
-      // Jump directly into editable itinerary
-      setShowItinerary(true);
+      // After password verified, join project as editor and go to lobby/project
+      setPendingJoinRole("editor");
+      await handleWebJoin("editor");
     } else {
       toast.error(t("passwordIncorrect"));
     }
   };
+
 
   const isMobileWeb = (() => {
     const ua = navigator.userAgent;
