@@ -331,12 +331,14 @@ export default function SharePage() {
       setShowPasswordPrompt(false);
       setPasswordInput("");
       toast.success(t("editUnlocked"));
-      // Jump directly into editable itinerary
-      setShowItinerary(true);
+      // After password verified, join project as editor and go to lobby/project
+      setPendingJoinRole("editor");
+      await handleWebJoin("editor");
     } else {
       toast.error(t("passwordIncorrect"));
     }
   };
+
 
   const isMobileWeb = (() => {
     const ua = navigator.userAgent;
@@ -348,34 +350,16 @@ export default function SharePage() {
   const handleJoinProject = async (role: "editor" | "viewer" = "editor") => {
     if (!project) return;
 
-    // On mobile web, ALWAYS try to open the native travel app via deep link.
-    // Role is preserved via query string so the native app can pick it up.
-    if (isMobileWeb) {
-      const deepLink = `com.peitravel.smartplanner://share/${project.id}?role=${role}`;
-
-      let didLeave = false;
-      const onBlur = () => { didLeave = true; };
-      window.addEventListener("blur", onBlur);
-
-      window.location.href = deepLink;
-
-      setTimeout(() => {
-        window.removeEventListener("blur", onBlur);
-        if (!didLeave) {
-          const ua = navigator.userAgent;
-          if (/iPhone|iPad|iPod/i.test(ua)) {
-            window.location.href = "https://apps.apple.com/app/peipeigotravel";
-          } else {
-            window.location.href = "https://play.google.com/store/apps/details?id=com.peitravel.smartplanner";
-          }
-        }
-      }, 1500);
+    // Editor join requires password verification first (if project has one set)
+    if (role === "editor" && hasEditPassword && !canEdit) {
+      setShowPasswordPrompt(true);
       return;
     }
 
-    // Inside native app or desktop — do web join
+    // Inside native app or desktop — do web join directly
     await handleWebJoin(role);
   };
+
 
   // Remember which role the user picked so post-login auto-join uses it.
   const [pendingJoinRole, setPendingJoinRole] = useState<"editor" | "viewer">("editor");
@@ -673,9 +657,9 @@ export default function SharePage() {
               </div>
 
 
-              {/* Action Buttons — both options JOIN the project; only role differs */}
+              {/* Action Buttons — exactly two options. Both JOIN the project; only role differs. */}
               <div className="flex flex-col gap-3">
-                {/* Join as Editor */}
+                {/* Join as Editor (requires edit password if set) */}
                 <Button
                   onClick={() => handleJoinProject("editor")}
                   className="w-full gap-2"
@@ -684,8 +668,6 @@ export default function SharePage() {
                 >
                   {joining ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : isMobileWeb ? (
-                    <Smartphone className="w-4 h-4" />
                   ) : (
                     <Edit2 className="w-4 h-4" />
                   )}
@@ -700,27 +682,11 @@ export default function SharePage() {
                   size="lg"
                   disabled={joining}
                 >
-                  {isMobileWeb ? (
-                    <Smartphone className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  <Eye className="w-4 h-4" />
                   {t("joinAsViewer")}
                 </Button>
-
-                {/* Legacy password unlock — only when project has an edit password set */}
-                {hasEditPassword && !canEdit && (
-                  <Button
-                    variant="secondary"
-                    className="w-full gap-2"
-                    size="lg"
-                    onClick={() => setShowPasswordPrompt(true)}
-                  >
-                    <Lock className="w-4 h-4" />
-                    {t("wantToEdit")}
-                  </Button>
-                )}
               </div>
+
 
             </CardContent>
           </Card>
