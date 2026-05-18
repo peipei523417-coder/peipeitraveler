@@ -433,7 +433,7 @@ export function ItineraryItemDialog({
           </div>
           
 
-          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-4 border-t border-border bg-background">
+          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-3 sm:py-4 border-t border-border bg-background">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
