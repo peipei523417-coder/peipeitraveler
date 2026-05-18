@@ -495,7 +495,7 @@ export default function Index() {
 
       {/* Main Content - Scrollable */}
       <main className="container max-w-6xl px-6 py-12">
-        {projects.length === 0 && !loading ? (
+        {projects.length === 0 && cachedJoined.length === 0 && !loading ? (
           <EmptyState
             title={t("noProjects")}
             description={t("createFirstProject")}
@@ -504,19 +504,65 @@ export default function Index() {
           />
         ) : (
           <>
-            {/* Section Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <Plane className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-semibold text-foreground">
-                  {t("myProjects")}
-                </h2>
-                <span className="text-sm text-muted-foreground font-normal">
-                  ({projects.length})
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2">
+            {/* Owned projects — only render section when user has any */}
+            {projects.length > 0 && (
+              <>
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <Plane className="w-5 h-5 text-primary" />
+                    <h2 className="text-xl font-semibold text-foreground">
+                      {t("myProjects")}
+                    </h2>
+                    <span className="text-sm text-muted-foreground font-normal">
+                      ({projects.length})
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={handleCreateProjectClick}
+                      className="gap-2 rounded-xl"
+                    >
+                      <Plus className="w-4 h-4" />
+                      {t("newProject")}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {projects.map((project) => (
+                    <div
+                      key={project.id}
+                      onTouchStart={() => handleTouchStart(project)}
+                      onTouchEnd={handleTouchEnd}
+                      onTouchCancel={handleTouchCancel}
+                      onTouchMove={handleTouchMove}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setActionSheetProject(project);
+                      }}
+                    >
+                      <ProjectCard
+                        project={project}
+                        onClick={handleProjectClick}
+                        onEdit={(p) => setEditingProject(p)}
+                        onDelete={(p) => {
+                          setDeletingProject(p);
+                          setDeleteDialogOpen(true);
+                        }}
+                        onDuplicate={handleDuplicateProject}
+                        onShare={handleShareProject}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* When the user has NO owned projects but DOES have shared ones,
+                still surface the "New project" CTA so they aren't stuck. */}
+            {projects.length === 0 && cachedJoined.length > 0 && (
+              <div className="flex items-center justify-end mb-8">
                 <Button
                   onClick={handleCreateProjectClick}
                   className="gap-2 rounded-xl"
@@ -525,41 +571,13 @@ export default function Index() {
                   {t("newProject")}
                 </Button>
               </div>
-            </div>
+            )}
 
-            {/* Project Grid - Scrollable, no limit */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  onTouchStart={() => handleTouchStart(project)}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchCancel={handleTouchCancel}
-                  onTouchMove={handleTouchMove}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setActionSheetProject(project);
-                  }}
-                >
-                  <ProjectCard
-                    project={project}
-                    onClick={handleProjectClick}
-                    onEdit={(p) => setEditingProject(p)}
-                    onDelete={(p) => {
-                      setDeletingProject(p);
-                      setDeleteDialogOpen(true);
-                    }}
-                    onDuplicate={handleDuplicateProject}
-                    onShare={handleShareProject}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Joined Projects Section */}
+            {/* Joined Projects Section — always render when any exist,
+                independent of owned-project count. */}
             {cachedJoined.length > 0 && (
               <>
-                <div className="flex items-center gap-3 mt-12 mb-8">
+                <div className={`flex items-center gap-3 mb-8 ${projects.length > 0 ? "mt-12" : ""}`}>
                   <Users className="w-5 h-5 text-primary" />
                   <h2 className="text-xl font-semibold text-foreground">
                     {t("sharedWithMe")}
