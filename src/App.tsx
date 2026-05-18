@@ -59,9 +59,10 @@ function DeepLinkHandler() {
       console.log("[DeepLink] Received:", url);
 
       // ── Share links ──
-      const shareMatch = url.match(/\/share\/([^?#]+)/);
+      const shareMatch = url.match(/\/share\/([^?#\s]+)/);
       if (shareMatch) {
-        navigate(`/share/${shareMatch[1]}`);
+        const code = shareMatch[1].replace(/\/+$/, "");
+        navigate(`/share/${code}`);
         return;
       }
 
