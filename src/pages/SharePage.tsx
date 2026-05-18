@@ -345,25 +345,23 @@ export default function SharePage() {
     return isMobile && !isNativeApp;
   })();
 
-  const handleJoinProject = async () => {
+  const handleJoinProject = async (role: "editor" | "viewer" = "editor") => {
     if (!project) return;
 
-    // On mobile web, ALWAYS try to open the native travel app via deep link
+    // On mobile web, ALWAYS try to open the native travel app via deep link.
+    // Role is preserved via query string so the native app can pick it up.
     if (isMobileWeb) {
-      const deepLink = `com.peitravel.smartplanner://share/${project.id}`;
-      
-      // Track if we successfully left the page (app opened)
+      const deepLink = `com.peitravel.smartplanner://share/${project.id}?role=${role}`;
+
       let didLeave = false;
       const onBlur = () => { didLeave = true; };
       window.addEventListener("blur", onBlur);
-      
+
       window.location.href = deepLink;
-      
-      // Wait to see if the app opened
+
       setTimeout(() => {
         window.removeEventListener("blur", onBlur);
         if (!didLeave) {
-          // App not installed — redirect to store
           const ua = navigator.userAgent;
           if (/iPhone|iPad|iPod/i.test(ua)) {
             window.location.href = "https://apps.apple.com/app/peipeigotravel";
@@ -376,21 +374,25 @@ export default function SharePage() {
     }
 
     // Inside native app or desktop — do web join
-    await handleWebJoin();
+    await handleWebJoin(role);
   };
 
-  const handleWebJoin = async () => {
+  // Remember which role the user picked so post-login auto-join uses it.
+  const [pendingJoinRole, setPendingJoinRole] = useState<"editor" | "viewer">("editor");
+
+  const handleWebJoin = async (role: "editor" | "viewer" = "editor") => {
     if (!project) return;
 
     if (!user) {
+      setPendingJoinRole(role);
       setShowLoginDialog(true);
       return;
     }
 
     setJoining(true);
     try {
-      const result = await joinProject(project.id);
-      
+      const result = await joinProject(project.id, role);
+
       if (result.alreadyOwner) {
         toast.info(t("alreadyOwner"));
         navigate(`/project/${project.id}`);
