@@ -796,7 +796,7 @@ export default function SharePage() {
               {!canEdit && user && (
                 <Button
                   size="sm"
-                  onClick={handleJoinProject}
+                  onClick={() => handleJoinProject("editor")}
                   disabled={joining}
                   className="gap-1.5"
                 >
