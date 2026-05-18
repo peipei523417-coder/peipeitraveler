@@ -218,6 +218,18 @@ export default function SharePage() {
     }
   }, [shareCode]);
 
+  // If the user signs out while on a share page, return to lobby so they
+  // are not trapped inside the collaboration flow.
+  const wasUserRef = useMemo(() => ({ wasUser: false }), []);
+  useEffect(() => {
+    if (user) {
+      wasUserRef.wasUser = true;
+    } else if (wasUserRef.wasUser && !authLoading) {
+      wasUserRef.wasUser = false;
+      navigate("/", { replace: true });
+    }
+  }, [user, authLoading, navigate, wasUserRef]);
+
   const loadProject = async () => {
     if (!shareCode) return;
     
