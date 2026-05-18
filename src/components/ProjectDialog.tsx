@@ -307,15 +307,16 @@ export function ProjectDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md rounded-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="pb-2">
+        <DialogContent className="sm:max-w-md rounded-2xl max-h-[85dvh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+          <DialogHeader className="shrink-0 px-6 pt-6 pb-3 border-b border-border bg-background">
             <DialogTitle className="text-xl flex items-center justify-center gap-2">
               <img src={pencilIcon} alt="" className="w-8 h-8 object-contain" />
               {mode === "create" ? t("createProject") : t("editProject")}
             </DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-5 py-4">
+
+          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4">
+            <div className="space-y-5">
             {/* Cover Image Upload */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t("projectCover")}</Label>
@@ -375,7 +376,7 @@ export function ProjectDialog({
                 </Button>
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="name" className="text-sm font-medium">
                 {t("projectName")}
@@ -385,10 +386,10 @@ export function ProjectDialog({
                 placeholder={t("projectNamePlaceholder")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="rounded-xl h-11"
+                className="rounded-xl h-11 text-base"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t("travelDate")}</Label>
               <Popover>
@@ -428,7 +429,7 @@ export function ProjectDialog({
                   />
                 </PopoverContent>
               </Popover>
-              
+
               {days > 0 && (
                 <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                   <Plane className="w-4 h-4" />
@@ -469,20 +470,21 @@ export function ProjectDialog({
                 {isPublic ? t("publicDescription") : t("privateDescription")}
               </p>
             </div>
+            </div>
           </div>
-          
-          <DialogFooter className="gap-2 sm:gap-2">
+
+          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-4 border-t border-border bg-background">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="rounded-xl"
+              className="rounded-xl min-h-[44px]"
             >
               {t("cancel")}
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={!name.trim() || !dateRange?.from || !dateRange?.to}
-              className="samoyed-button rounded-xl"
+              className="samoyed-button rounded-xl min-h-[44px]"
             >
               {mode === "create" ? t("createProjectBtn") : t("saveChanges")}
             </Button>

@@ -268,14 +268,15 @@ export function ItineraryItemDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md rounded-2xl max-h-[90vh] overflow-y-auto overscroll-contain touch-manipulation">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md rounded-2xl max-h-[85dvh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 touch-manipulation">
+          <DialogHeader className="shrink-0 px-6 pt-6 pb-3 border-b border-border bg-background">
             <DialogTitle className="text-xl">
               {mode === "create" ? t("addItem") : t("editItem")}
             </DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-5 py-4">
+
+          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4">
+            <div className="space-y-5">
             {/* Time Toggle and Range - First priority */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -319,7 +320,7 @@ export function ItineraryItemDialog({
                 placeholder="例如：一蘭拉麵本店"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="rounded-xl min-h-[80px] resize-none"
+                className="rounded-xl min-h-[80px] resize-none text-base"
               />
             </div>
             
@@ -335,7 +336,7 @@ export function ItineraryItemDialog({
                   placeholder={t("price")}
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  className="rounded-xl w-28"
+                  className="rounded-xl w-28 text-base"
                   min="0"
                 />
                 <span className="text-foreground font-bold">/</span>
@@ -344,7 +345,7 @@ export function ItineraryItemDialog({
                   placeholder="1"
                   value={persons}
                   onChange={(e) => setPersons(e.target.value)}
-                  className="rounded-xl w-16"
+                  className="rounded-xl w-16 text-base"
                   min="1"
                 />
                 <span className="text-sm text-muted-foreground">人</span>
@@ -428,10 +429,11 @@ export function ItineraryItemDialog({
                 </div>
               )}
             </div>
+            </div>
           </div>
           
 
-          <DialogFooter className="gap-2 sm:gap-2 pt-2">
+          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-4 border-t border-border bg-background">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
