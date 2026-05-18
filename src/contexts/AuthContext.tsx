@@ -88,6 +88,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
+
+    // Clear share-related transient state so logout never leaves the user
+    // stuck inside a /share/... route or with stale edit-password tokens.
+    try {
+      // Clear all per-share-code edit passwords from sessionStorage
+      const ssKeys: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith("edit-password-")) ssKeys.push(k);
+      }
+      ssKeys.forEach((k) => sessionStorage.removeItem(k));
+      sessionStorage.removeItem("launch_url_handled");
+
+      // Clear any legacy/native auth scratch flags
+      localStorage.removeItem("native_oauth_pending");
+      localStorage.removeItem("native_oauth_provider");
+      localStorage.removeItem("oauth_returning");
+    } catch { /* ignore */ }
+
+    // Force navigation back to the lobby/login entry — never stay on /share/...
+    try {
+      if (typeof window !== "undefined") {
+        const hash = window.location.hash || "";
+        if (hash.startsWith("#/share") || hash.startsWith("#/project")) {
+          window.location.hash = "#/";
+        }
+      }
+    } catch { /* ignore */ }
   };
 
   return (
