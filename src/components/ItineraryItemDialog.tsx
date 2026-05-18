@@ -268,15 +268,15 @@ export function ItineraryItemDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md rounded-2xl max-h-[85dvh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 touch-manipulation">
-          <DialogHeader className="shrink-0 px-6 pt-6 pb-3 border-b border-border bg-background">
+        <DialogContent className="sm:max-w-md rounded-2xl max-h-[92dvh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 touch-manipulation">
+          <DialogHeader className="shrink-0 px-6 pt-4 pb-2 sm:pt-6 sm:pb-3 border-b border-border bg-background">
             <DialogTitle className="text-xl">
               {mode === "create" ? t("addItem") : t("editItem")}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4">
-            <div className="space-y-5">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-3 sm:py-4">
+            <div className="space-y-3 sm:space-y-5">
             {/* Time Toggle and Range - First priority */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -433,7 +433,7 @@ export function ItineraryItemDialog({
           </div>
           
 
-          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-4 border-t border-border bg-background">
+          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-3 sm:py-4 border-t border-border bg-background">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}

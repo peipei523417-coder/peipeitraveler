@@ -307,21 +307,21 @@ export function ProjectDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md rounded-2xl max-h-[85dvh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
-          <DialogHeader className="shrink-0 px-6 pt-6 pb-3 border-b border-border bg-background">
+        <DialogContent className="sm:max-w-md rounded-2xl max-h-[92dvh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+          <DialogHeader className="shrink-0 px-6 pt-4 pb-2 sm:pt-6 sm:pb-3 border-b border-border bg-background">
             <DialogTitle className="text-xl flex items-center justify-center gap-2">
               <img src={pencilIcon} alt="" className="w-8 h-8 object-contain" />
               {mode === "create" ? t("createProject") : t("editProject")}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4">
-            <div className="space-y-5">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-3 sm:py-4">
+            <div className="space-y-3 sm:space-y-5">
             {/* Cover Image Upload */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t("projectCover")}</Label>
               <div className="relative">
-                <div className="h-32 rounded-xl overflow-hidden bg-secondary border-2 border-dashed border-border">
+                <div className="h-24 sm:h-32 rounded-xl overflow-hidden bg-secondary border-2 border-dashed border-border">
                   {coverPreview ? (
                     <img
                       src={coverPreview}
@@ -473,7 +473,7 @@ export function ProjectDialog({
             </div>
           </div>
 
-          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-4 border-t border-border bg-background">
+          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-3 sm:py-4 border-t border-border bg-background">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
