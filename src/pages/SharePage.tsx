@@ -350,34 +350,16 @@ export default function SharePage() {
   const handleJoinProject = async (role: "editor" | "viewer" = "editor") => {
     if (!project) return;
 
-    // On mobile web, ALWAYS try to open the native travel app via deep link.
-    // Role is preserved via query string so the native app can pick it up.
-    if (isMobileWeb) {
-      const deepLink = `com.peitravel.smartplanner://share/${project.id}?role=${role}`;
-
-      let didLeave = false;
-      const onBlur = () => { didLeave = true; };
-      window.addEventListener("blur", onBlur);
-
-      window.location.href = deepLink;
-
-      setTimeout(() => {
-        window.removeEventListener("blur", onBlur);
-        if (!didLeave) {
-          const ua = navigator.userAgent;
-          if (/iPhone|iPad|iPod/i.test(ua)) {
-            window.location.href = "https://apps.apple.com/app/peipeigotravel";
-          } else {
-            window.location.href = "https://play.google.com/store/apps/details?id=com.peitravel.smartplanner";
-          }
-        }
-      }, 1500);
+    // Editor join requires password verification first (if project has one set)
+    if (role === "editor" && hasEditPassword && !canEdit) {
+      setShowPasswordPrompt(true);
       return;
     }
 
-    // Inside native app or desktop — do web join
+    // Inside native app or desktop — do web join directly
     await handleWebJoin(role);
   };
+
 
   // Remember which role the user picked so post-login auto-join uses it.
   const [pendingJoinRole, setPendingJoinRole] = useState<"editor" | "viewer">("editor");
