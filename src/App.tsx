@@ -195,11 +195,20 @@ function DeepLinkHandler() {
         }
         listenerHandle = handle;
 
-        // Cold-start: check if app was opened via a deep link
+        // Cold-start: check if app was opened via a deep link.
+        // Guard against Capacitor returning the SAME launch URL on every
+        // cold start (which would re-trap the user on /share/... forever).
         const launchUrl = await CapApp.getLaunchUrl();
         if (!cancelled && launchUrl?.url) {
-          console.log("[DeepLink] Launch URL:", launchUrl.url);
-          await handleDeepLink({ url: launchUrl.url });
+          let lastHandled: string | null = null;
+          try { lastHandled = sessionStorage.getItem("launch_url_handled"); } catch { /* ignore */ }
+          if (lastHandled === launchUrl.url) {
+            console.log("[DeepLink] Launch URL already handled this session, skip:", launchUrl.url);
+          } else {
+            try { sessionStorage.setItem("launch_url_handled", launchUrl.url); } catch { /* ignore */ }
+            console.log("[DeepLink] Launch URL:", launchUrl.url);
+            await handleDeepLink({ url: launchUrl.url });
+          }
         }
       } catch {
         // Not native
