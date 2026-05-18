@@ -41,10 +41,14 @@ export async function leaveSharedProject(projectId: string): Promise<{ success: 
   }
 }
 
-export async function joinProject(projectId: string): Promise<{
+export async function joinProject(
+  projectId: string,
+  role: "editor" | "viewer" = "editor"
+): Promise<{
   success: boolean;
   alreadyJoined?: boolean;
   alreadyOwner?: boolean;
+  role?: "editor" | "viewer";
   error?: string;
 }> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -66,6 +70,7 @@ export async function joinProject(projectId: string): Promise<{
         body: JSON.stringify({
           action: "join-project",
           projectId,
+          role,
         }),
       }
     );
@@ -80,6 +85,7 @@ export async function joinProject(projectId: string): Promise<{
       success: data.success || false,
       alreadyJoined: data.alreadyJoined || false,
       alreadyOwner: data.alreadyOwner || false,
+      role: data.role,
     };
   } catch {
     return { success: false, error: "Network error" };
