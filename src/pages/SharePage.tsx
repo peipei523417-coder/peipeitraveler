@@ -383,9 +383,14 @@ export default function SharePage() {
         toast.info(t("alreadyOwner"));
         navigate(`/project/${project.id}`);
       } else if (result.alreadyJoined) {
+        // Already a collaborator — still invalidate so lobby reflects it
+        invalidateJoinedCache();
         toast.info(t("alreadyJoined"));
         navigate(`/project/${project.id}`);
       } else if (result.success) {
+        // Precise refresh: mark joined cache stale so lobby refetches
+        // joined projects on next mount (owned cache untouched).
+        invalidateJoinedCache();
         toast.success(t("joinSuccess"));
         navigate(`/project/${project.id}`);
       } else {
