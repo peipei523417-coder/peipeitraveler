@@ -165,6 +165,7 @@ export async function getJoinedProjects() {
       updatedAt: new Date(row.updated_at),
       itinerary,
       isJoined: true,
+      joinedRole: roleByProject.get(row.id) || "viewer",
     };
   });
 }
