@@ -20,6 +20,7 @@ import dogTravelNew from "@/assets/dog-travel-new.png";
 import { useSignedImageUrl } from "@/hooks/useSignedImageUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import { joinProject } from "@/lib/join-project";
+import { useProjectCache } from "@/contexts/ProjectCacheContext";
 
 // Helper function to convert database rows to TravelProject
 function dbRowToProject(row: any, items: any[] = []): TravelProject {
@@ -171,6 +172,7 @@ export default function SharePage() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { user, loading: authLoading } = useAuth();
+  const { invalidateJoinedCache } = useProjectCache();
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -381,9 +383,14 @@ export default function SharePage() {
         toast.info(t("alreadyOwner"));
         navigate(`/project/${project.id}`);
       } else if (result.alreadyJoined) {
+        // Already a collaborator — still invalidate so lobby reflects it
+        invalidateJoinedCache();
         toast.info(t("alreadyJoined"));
         navigate(`/project/${project.id}`);
       } else if (result.success) {
+        // Precise refresh: mark joined cache stale so lobby refetches
+        // joined projects on next mount (owned cache untouched).
+        invalidateJoinedCache();
         toast.success(t("joinSuccess"));
         navigate(`/project/${project.id}`);
       } else {
