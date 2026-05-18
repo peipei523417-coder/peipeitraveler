@@ -18,6 +18,7 @@ interface ProjectCacheContextType {
   removeJoinedProjectFromCache: (id: string) => void;
   isJoinedFresh: () => boolean;
   markJoinedFetched: () => void;
+  invalidateJoinedCache: () => void;
 }
 
 const ProjectCacheContext = createContext<ProjectCacheContextType | undefined>(undefined);
