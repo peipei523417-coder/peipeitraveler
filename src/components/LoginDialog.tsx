@@ -318,6 +318,30 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
               {t("cancel")}
             </Button>
           </div>
+        ) : inAppBrowserBlocked ? (
+          <div className="flex flex-col gap-3 pt-4">
+            <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm space-y-2">
+              <p className="font-medium">
+                請使用 Safari 或 Chrome 開啟後再使用 Google 登入
+              </p>
+              <p className="text-muted-foreground">
+                {getInAppBrowserInstructions().zh}
+              </p>
+              <p className="text-xs text-muted-foreground/80">
+                {getInAppBrowserInstructions().en}
+              </p>
+              <p className="text-xs text-muted-foreground/80 pt-1">
+                已安裝 PeiTravel App 的使用者，建議改用 App 登入。
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setInAppBrowserBlocked(null)}
+            >
+              {t("cancel")}
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-col gap-3 pt-4">
             <Button
