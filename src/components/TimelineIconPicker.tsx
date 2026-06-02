@@ -18,6 +18,7 @@ interface TimelineIconPickerProps {
   value: TimelineIconType;
   onChange: (value: TimelineIconType) => void;
   disabled?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 // UNIFIED ICON ARRAY - All 8 icons treated identically
