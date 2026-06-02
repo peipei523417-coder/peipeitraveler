@@ -496,6 +496,7 @@ export async function insertItineraryItem(
     price: item.price || null,
     persons: item.persons || 1,
     icon_type: item.iconType || "default",
+    sort_order: typeof item.sortOrder === "number" ? item.sortOrder : 0,
   };
   console.log("[itinerary] insert payload", { project_id: projectId, day_number: dayNumber });
   const { data, error } = await supabase
