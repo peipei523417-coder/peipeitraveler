@@ -159,7 +159,7 @@ export function ItineraryList({ day, onAddItem, onEditItem, onDeleteItem, onUpda
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                openGoogleMaps(item.googleMapsUrl!);
+                                openGoogleMaps(item.googleMapsUrl!, item.description);
                               }}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
                             >
