@@ -9,14 +9,14 @@ interface HighlightColorPickerProps {
 
 export function HighlightColorPicker({ value, onChange }: HighlightColorPickerProps) {
   return (
-    <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1">
+    <div className="flex flex-nowrap gap-1">
       {HIGHLIGHT_COLORS.map((color) => (
         <button
           key={color.value}
           type="button"
           onClick={() => onChange(color.value)}
           className={cn(
-            "w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all",
+            "w-[34px] h-[34px] rounded-lg border-2 flex items-center justify-center transition-all",
             color.value === 'none' 
               ? "bg-background border-dashed border-border" 
               : color.class + " border-transparent",
