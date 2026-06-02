@@ -14,7 +14,7 @@ import { toast } from "@/hooks/use-toast";
 
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
@@ -288,16 +288,31 @@ export function ItineraryList({
   const signedImageUrls = useSignedImageUrls(imageUrls);
   const dayTotal = useMemo(() => calculateDayTotal(orderedAll), [orderedAll]);
 
-  // Long-press sensors: a press needs to be held briefly before drag starts,
-  // so normal taps (icon-picker, Maps button, edit, delete) are not stolen.
+  // Desktop: MouseSensor with small distance threshold — drag starts immediately
+  // on mouse-move (no long-press required), but a pure click still passes through
+  // to buttons (Maps / edit / delete / icon picker).
+  // Mobile: TouchSensor with long-press delay so page scrolling doesn't steal
+  // into a drag.
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { delay: 250, tolerance: 6 },
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 6 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 300, tolerance: 8 },
+      activationConstraint: { delay: 280, tolerance: 8 },
     }),
   );
+
+  // One-time sensor debug log (helps verify Desktop vs Mobile setup).
+  if (typeof window !== "undefined" && !(window as unknown as { __dndLogged?: boolean }).__dndLogged) {
+    (window as unknown as { __dndLogged?: boolean }).__dndLogged = true;
+    console.log("[DND_SENSORS]", {
+      hasMouseSensor: true,
+      hasTouchSensor: true,
+      hasPointerSensor: false,
+      isDesktop: !("ontouchstart" in window),
+      isMobile: "ontouchstart" in window,
+    });
+  }
 
   const handleIconPickerOpenChange = (open: boolean) => {
     // Multiple pickers can broadcast at once; count opens so we only mark
