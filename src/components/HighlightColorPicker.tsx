@@ -9,7 +9,7 @@ interface HighlightColorPickerProps {
 
 export function HighlightColorPicker({ value, onChange }: HighlightColorPickerProps) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1">
       {HIGHLIGHT_COLORS.map((color) => (
         <button
           key={color.value}
