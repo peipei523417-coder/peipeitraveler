@@ -434,6 +434,7 @@ export type Database = {
           persons: number | null
           price: number | null
           project_id: string | null
+          sort_order: number | null
           start_time: string | null
           updated_at: string | null
         }
