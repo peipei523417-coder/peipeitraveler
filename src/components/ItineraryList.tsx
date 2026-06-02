@@ -137,7 +137,7 @@ export function ItineraryList({ day, onAddItem, onEditItem, onDeleteItem, onUpda
                         )}
                         
                         {/* Description */}
-                        <p className="text-foreground font-bold mb-3">
+                        <p className="text-foreground font-bold mb-3 whitespace-pre-line">
                           {item.description}
                         </p>
                         

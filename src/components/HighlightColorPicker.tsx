@@ -1,6 +1,7 @@
 import { HighlightColor, HIGHLIGHT_COLORS } from "@/types/travel";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface HighlightColorPickerProps {
   value: HighlightColor;
