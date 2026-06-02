@@ -454,6 +454,60 @@ function ProjectDetailInner() {
     setTimeout(() => { isLocalUpdateRef.current = false; }, 1000);
   };
 
+  /**
+   * Persist manual drag-to-reorder of no-time items within a single day.
+   * `orderedIds` is the new top-to-bottom order of NO-TIME items for `dayNumber`.
+   * Items with a startTime are untouched (they keep auto-sorting by time).
+   */
+  const handleReorderNoTimeItems = async (dayNumber: number, orderedIds: string[]) => {
+    if (!project) return;
+    isLocalUpdateRef.current = true;
+
+    // Snapshot for rollback.
+    const previous = project;
+
+    // Build new sortOrder values (multiples of 10 to leave room for future inserts).
+    const idToOrder = new Map<string, number>();
+    orderedIds.forEach((id, idx) => idToOrder.set(id, (idx + 1) * 10));
+
+    // Optimistic update.
+    setProject(prev => {
+      if (!prev) return prev;
+      const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+      return {
+        ...prev,
+        itinerary: base.map(day => {
+          if (day?.dayNumber !== dayNumber) return day;
+          return {
+            ...day,
+            items: (Array.isArray(day?.items) ? day.items : []).map(i =>
+              idToOrder.has(i.id) ? { ...i, sortOrder: idToOrder.get(i.id)! } : i
+            ),
+          };
+        }),
+      };
+    });
+    showSaveIndicator();
+
+    const updates = orderedIds
+      // Only persist real DB ids (skip optimistic temp- ids if any).
+      .filter(id => !id.startsWith("temp-"))
+      .map(id => ({ id, sortOrder: idToOrder.get(id)! }));
+
+    const ok = await reorderItineraryItems(updates);
+    if (!ok) {
+      setProject(previous);
+      toast.error(t("saveFailed"));
+    } else {
+      setProject(prev => {
+        if (prev) updateProjectInCache(prev);
+        return prev;
+      });
+    }
+
+    setTimeout(() => { isLocalUpdateRef.current = false; }, 1000);
+  };
+
   const showSaveIndicator = () => {
     setSaved(true);
     toast.success(t("save"), {
