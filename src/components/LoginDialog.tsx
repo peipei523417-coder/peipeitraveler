@@ -30,6 +30,9 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState<"google" | "apple" | null>(null);
   const [takingTooLong, setTakingTooLong] = useState(false);
+  const [inAppBrowserBlocked, setInAppBrowserBlocked] = useState<
+    "facebook" | "messenger" | "instagram" | "line" | "other" | null
+  >(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-close loading overlay when user is signed in (deep link processed)
