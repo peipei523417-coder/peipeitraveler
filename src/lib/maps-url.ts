@@ -131,8 +131,9 @@ export async function openGoogleMaps(
   console.log("[maps] open", {
     platform,
     original_maps_url: original,
-    normalized_maps_url: normalized,
+    normalized_maps_url: textNormalized || normalized,
     final_open_url: final,
+    shortUrlFallback,
   });
 
   try {
