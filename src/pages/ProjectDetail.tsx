@@ -2,11 +2,11 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { TravelProject, ItineraryItem, TimelineIconType } from "@/types/travel";
-import { 
-  getProject, 
-  addItineraryItem, 
-  updateItineraryItem, 
-  deleteItineraryItem,
+import {
+  getProject,
+  insertItineraryItem,
+  patchItineraryItem,
+  removeItineraryItem,
   updateItineraryItemIcon,
   uploadProjectImage
 } from "@/lib/supabase-storage";
@@ -249,110 +249,177 @@ function ProjectDetailInner() {
 
   const handleAddItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project) return;
-    
+
     isLocalUpdateRef.current = true;
-    
+
     // Upload image to Storage if a file was provided
     let finalItem = { ...item };
     if (imageFile) {
       const storagePath = await uploadProjectImage(project.id, imageFile);
-      if (storagePath) {
-        finalItem.imageUrl = storagePath;
-      }
+      if (storagePath) finalItem.imageUrl = storagePath;
     }
-    
-    // Optimistic UI: add item to state immediately with a temp ID
-    const tempId = `temp-${Date.now()}`;
+
+    // Optimistic UI: add a temp item; we'll swap its id with the real one on success.
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const targetDay = activeDay;
     const optimisticItem: ItineraryItem = { ...finalItem, id: tempId } as ItineraryItem;
-    const baseItinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
-    const optimisticProject = {
-      ...project,
-      itinerary: baseItinerary.map(day =>
-        day?.dayNumber === activeDay
-          ? { ...day, items: [...(Array.isArray(day?.items) ? day.items : []), optimisticItem] }
-          : day
-      ),
-    };
-    setProject(optimisticProject);
+    setProject(prev => {
+      if (!prev) return prev;
+      const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+      return {
+        ...prev,
+        itinerary: base.map(day =>
+          day?.dayNumber === targetDay
+            ? { ...day, items: [...(Array.isArray(day?.items) ? day.items : []), optimisticItem] }
+            : day
+        ),
+      };
+    });
     showSaveIndicator();
-    
-    // Background sync
-    const updated = await addItineraryItem(project.id, activeDay, finalItem);
-    if (updated) {
-      setProject(updated);
-      updateProjectInCache(updated);
+
+    // Insert -> only on confirmed success, swap temp id with real id. On failure rollback.
+    const inserted = await insertItineraryItem(project.id, targetDay, finalItem);
+    if (!inserted) {
+      setProject(prev => {
+        if (!prev) return prev;
+        const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+        return {
+          ...prev,
+          itinerary: base.map(day => ({
+            ...day,
+            items: (Array.isArray(day?.items) ? day.items : []).filter(i => i.id !== tempId),
+          })),
+        };
+      });
+      toast.error(t("saveFailed"));
+    } else {
+      setProject(prev => {
+        if (!prev) return prev;
+        const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+        const next = {
+          ...prev,
+          itinerary: base.map(day => ({
+            ...day,
+            items: (Array.isArray(day?.items) ? day.items : []).map(i =>
+              i.id === tempId ? { ...i, id: inserted.id } : i
+            ),
+          })),
+        };
+        updateProjectInCache(next);
+        return next;
+      });
     }
-    
+
     setTimeout(() => { isLocalUpdateRef.current = false; }, 1000);
   };
 
   const handleEditItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project || !editingItem) return;
-    
+
     isLocalUpdateRef.current = true;
-    
-    // Upload image to Storage if a file was provided
+
     let finalItem = { ...item };
     if (imageFile) {
       const storagePath = await uploadProjectImage(project.id, imageFile);
-      if (storagePath) {
-        finalItem.imageUrl = storagePath;
-      }
+      if (storagePath) finalItem.imageUrl = storagePath;
     } else if (!item.imageUrl && editingItem.imageUrl) {
-      // Image was explicitly removed (was present, now cleared)
-      // Pass empty string so updateItineraryItem knows to set image_url = null
       finalItem.imageUrl = "";
     }
-    
-    // Optimistic UI: update item in state immediately
-    const baseItineraryEdit = Array.isArray(project.itinerary) ? project.itinerary : [];
-    const optimisticProject = {
-      ...project,
-      itinerary: baseItineraryEdit.map(day => ({
-        ...day,
-        items: (Array.isArray(day?.items) ? day.items : []).map(i =>
-          i.id === editingItem.id ? { ...i, ...finalItem } : i
-        ),
-      })),
-    };
-    setProject(optimisticProject);
+
+    // Snapshot the original for rollback.
+    const previous = editingItem;
+    setProject(prev => {
+      if (!prev) return prev;
+      const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+      return {
+        ...prev,
+        itinerary: base.map(day => ({
+          ...day,
+          items: (Array.isArray(day?.items) ? day.items : []).map(i =>
+            i.id === previous.id ? { ...i, ...finalItem } : i
+          ),
+        })),
+      };
+    });
     setEditingItem(null);
     showSaveIndicator();
-    
-    // Background sync
-    const updated = await updateItineraryItem(project.id, editingItem.id, finalItem);
-    if (updated) {
-      setProject(updated);
-      updateProjectInCache(updated);
+
+    const ok = await patchItineraryItem(previous.id, finalItem);
+    if (!ok) {
+      setProject(prev => {
+        if (!prev) return prev;
+        const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+        return {
+          ...prev,
+          itinerary: base.map(day => ({
+            ...day,
+            items: (Array.isArray(day?.items) ? day.items : []).map(i =>
+              i.id === previous.id ? previous : i
+            ),
+          })),
+        };
+      });
+      toast.error(t("saveFailed"));
+    } else {
+      setProject(prev => {
+        if (prev) updateProjectInCache(prev);
+        return prev;
+      });
     }
-    
+
     setTimeout(() => { isLocalUpdateRef.current = false; }, 1000);
   };
 
   const handleDeleteItem = async (itemId: string) => {
     if (!project) return;
-    
+
     isLocalUpdateRef.current = true;
-    
-    // Optimistic UI: remove item from state immediately
-    const baseItineraryDel = Array.isArray(project.itinerary) ? project.itinerary : [];
-    const optimisticProject = {
-      ...project,
-      itinerary: baseItineraryDel.map(day => ({
-        ...day,
-        items: (Array.isArray(day?.items) ? day.items : []).filter(i => i.id !== itemId),
-      })),
-    };
-    setProject(optimisticProject);
-    showSaveIndicator();
-    
-    // Background sync
-    const updated = await deleteItineraryItem(project.id, itemId);
-    if (updated) {
-      setProject(updated);
-      updateProjectInCache(updated);
+
+    // Snapshot for rollback.
+    const baseItinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
+    let removed: ItineraryItem | undefined;
+    let removedDay = 0;
+    for (const day of baseItinerary) {
+      const found = (day?.items || []).find(i => i.id === itemId);
+      if (found) { removed = found; removedDay = day.dayNumber; break; }
     }
-    
+
+    setProject(prev => {
+      if (!prev) return prev;
+      const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+      return {
+        ...prev,
+        itinerary: base.map(day => ({
+          ...day,
+          items: (Array.isArray(day?.items) ? day.items : []).filter(i => i.id !== itemId),
+        })),
+      };
+    });
+    showSaveIndicator();
+
+    const ok = await removeItineraryItem(itemId);
+    if (!ok && removed) {
+      // Rollback restore.
+      setProject(prev => {
+        if (!prev) return prev;
+        const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+        return {
+          ...prev,
+          itinerary: base.map(day =>
+            day?.dayNumber === removedDay
+              ? { ...day, items: [...(Array.isArray(day?.items) ? day.items : []), removed!] }
+              : day
+          ),
+        };
+      });
+      toast.error(t("saveFailed"));
+    } else {
+      setProject(prev => {
+        if (prev) updateProjectInCache(prev);
+        return prev;
+      });
+    }
+
     setTimeout(() => { isLocalUpdateRef.current = false; }, 1000);
   };
 

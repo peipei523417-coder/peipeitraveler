@@ -456,28 +456,49 @@ export async function addItineraryItem(
   dayNumber: number,
   item: Omit<ItineraryItem, "id">
 ): Promise<TravelProject | undefined> {
-  const { error } = await supabase
-    .from("itinerary_items")
-    .insert({
-      project_id: projectId,
-      day_number: dayNumber,
-      start_time: item.startTime || null,
-      end_time: item.endTime || null,
-      description: item.description,
-      google_maps_url: item.googleMapsUrl || null,
-      image_url: item.imageUrl || null,
-      highlight_color: item.highlightColor || null,
-      price: item.price || null,
-      persons: item.persons || 1,
-      icon_type: item.iconType || 'default',
-    });
-  
-  if (error) {
-    console.error("Error adding itinerary item:", error);
-    return undefined;
-  }
-  
+  // Legacy wrapper kept for duplicateProject() — performs insert + full refetch.
+  const inserted = await insertItineraryItem(projectId, dayNumber, item);
+  if (!inserted) return undefined;
   return getProject(projectId);
+}
+
+/**
+ * Per-item insert that returns the inserted row (id + day_number).
+ * Use this from the UI to swap an optimistic temp id with the real one
+ * WITHOUT refetching the entire project — that refetch was racing concurrent
+ * inserts and silently dropping recently added items.
+ */
+export async function insertItineraryItem(
+  projectId: string,
+  dayNumber: number,
+  item: Omit<ItineraryItem, "id">
+): Promise<{ id: string; dayNumber: number } | null> {
+  const payload = {
+    project_id: projectId,
+    day_number: dayNumber,
+    start_time: item.startTime || null,
+    end_time: item.endTime || null,
+    description: item.description,
+    google_maps_url: item.googleMapsUrl || null,
+    image_url: item.imageUrl || null,
+    highlight_color: item.highlightColor || null,
+    price: item.price || null,
+    persons: item.persons || 1,
+    icon_type: item.iconType || "default",
+  };
+  console.log("[itinerary] insert payload", { project_id: projectId, day_number: dayNumber });
+  const { data, error } = await supabase
+    .from("itinerary_items")
+    .insert(payload)
+    .select("id, day_number")
+    .single();
+
+  if (error || !data) {
+    console.error("[itinerary] insert error", { project_id: projectId, day_number: dayNumber, error });
+    return null;
+  }
+  console.log("[itinerary] insert success", { id: data.id, day_number: data.day_number });
+  return { id: data.id, dayNumber: data.day_number };
 }
 
 export async function updateItineraryItem(
@@ -485,6 +506,16 @@ export async function updateItineraryItem(
   itemId: string,
   updates: Partial<Omit<ItineraryItem, "id">>
 ): Promise<TravelProject | undefined> {
+  const ok = await patchItineraryItem(itemId, updates);
+  if (!ok) return undefined;
+  return getProject(projectId);
+}
+
+/** Per-item update returning success boolean (no full-project refetch). */
+export async function patchItineraryItem(
+  itemId: string,
+  updates: Partial<Omit<ItineraryItem, "id">>
+): Promise<boolean> {
   const updateData: any = {};
   if (updates.startTime !== undefined) updateData.start_time = updates.startTime || null;
   if (updates.endTime !== undefined) updateData.end_time = updates.endTime || null;
@@ -494,36 +525,42 @@ export async function updateItineraryItem(
   if (updates.highlightColor !== undefined) updateData.highlight_color = updates.highlightColor || null;
   if (updates.price !== undefined) updateData.price = updates.price || null;
   if (updates.persons !== undefined) updateData.persons = updates.persons || 1;
-  if (updates.iconType !== undefined) updateData.icon_type = updates.iconType || 'default';
-  
+  if (updates.iconType !== undefined) updateData.icon_type = updates.iconType || "default";
+
   const { error } = await supabase
     .from("itinerary_items")
     .update(updateData)
     .eq("id", itemId);
-  
+
   if (error) {
-    console.error("Error updating itinerary item:", error);
-    return undefined;
+    console.error("[itinerary] update error", { itemId, error });
+    return false;
   }
-  
-  return getProject(projectId);
+  console.log("[itinerary] update success", { itemId });
+  return true;
 }
 
 export async function deleteItineraryItem(
   projectId: string,
   itemId: string
 ): Promise<TravelProject | undefined> {
+  const ok = await removeItineraryItem(itemId);
+  if (!ok) return undefined;
+  return getProject(projectId);
+}
+
+/** Per-item delete returning success boolean (no full-project refetch). */
+export async function removeItineraryItem(itemId: string): Promise<boolean> {
   const { error } = await supabase
     .from("itinerary_items")
     .delete()
     .eq("id", itemId);
-  
   if (error) {
-    console.error("Error deleting itinerary item:", error);
-    return undefined;
+    console.error("[itinerary] delete error", { itemId, error });
+    return false;
   }
-  
-  return getProject(projectId);
+  console.log("[itinerary] delete success", { itemId });
+  return true;
 }
 
 // Update only the icon_type field for an itinerary item

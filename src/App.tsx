@@ -18,6 +18,7 @@ import SharePage from "./pages/SharePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 import { BillingDebugOverlay } from "@/components/BillingDebugOverlay";
+import { ForceUpdateGate } from "@/components/ForceUpdateGate";
 import "@fontsource/nunito/400.css";
 import "@fontsource/nunito/600.css";
 import "@fontsource/nunito/700.css";
@@ -291,7 +292,9 @@ const App = () => (
               <Toaster />
               <Sonner position="top-center" />
               <BillingDebugOverlay />
-              <AppContent />
+              <ForceUpdateGate>
+                <AppContent />
+              </ForceUpdateGate>
             </TooltipProvider>
           </LoadingProvider>
         </ProjectCacheProvider>
