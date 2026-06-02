@@ -14,7 +14,7 @@ import { toast } from "@/hooks/use-toast";
 
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
