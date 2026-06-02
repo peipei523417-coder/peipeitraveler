@@ -17,20 +17,16 @@ jobs:
           SUPABASE_URL: https://prnbldqlgslmqagnhpvu.supabase.co
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
-            "${SUPABASE_URL}/rest/v1/app_config?select=id,updated_at&limit=1" \
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${SUPABASE_URL}/rest/v1/app_config?select=id&limit=1" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
 
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-
           echo "HTTP Status: ${HTTP_CODE}"
-          echo "Response Body: ${BODY}"
 
           if [ "${HTTP_CODE}" -ne 200 ]; then
-            echo "❌ Keep-alive request failed with status ${HTTP_CODE}"
+            echo "Keep-alive request failed."
             exit 1
           fi
 
-          echo "✅ Keep-alive request succeeded. Supabase project is active."
+          echo "Keep-alive request succeeded. Supabase project is active."
