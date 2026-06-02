@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_config: {
+        Row: {
+          app_store_url: string
+          force_update_enabled: boolean
+          force_update_message: string
+          id: string
+          latest_android_version: string
+          latest_ios_version: string
+          min_android_version: string
+          min_android_version_code: number
+          min_ios_build: number
+          min_ios_version: string
+          play_store_url: string
+          updated_at: string
+        }
+        Insert: {
+          app_store_url?: string
+          force_update_enabled?: boolean
+          force_update_message?: string
+          id?: string
+          latest_android_version?: string
+          latest_ios_version?: string
+          min_android_version?: string
+          min_android_version_code?: number
+          min_ios_build?: number
+          min_ios_version?: string
+          play_store_url?: string
+          updated_at?: string
+        }
+        Update: {
+          app_store_url?: string
+          force_update_enabled?: boolean
+          force_update_message?: string
+          id?: string
+          latest_android_version?: string
+          latest_ios_version?: string
+          min_android_version?: string
+          min_android_version_code?: number
+          min_ios_build?: number
+          min_ios_version?: string
+          play_store_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       frequent_collaborators: {
         Row: {
           collaborator_email: string
