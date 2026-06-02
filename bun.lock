@@ -7,6 +7,7 @@
       "dependencies": {
         "@capacitor/android": "7.0.0",
         "@capacitor/app": "7.0.0",
+        "@capacitor/app-launcher": "7",
         "@capacitor/browser": "7.0.0",
         "@capacitor/camera": "7",
         "@capacitor/cli": "7.0.0",
@@ -110,6 +111,8 @@
     "@capacitor/android": ["@capacitor/android@7.0.0", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/android/-/android-7.0.0.tgz", { "peerDependencies": { "@capacitor/core": "^7.0.0" } }, "sha512-T7WMJPGlzEzNFI3s3lA8F2H6XyYzQM8OwgIfPKOAbawc6Fq669ABKIpfNPzsQHR1kVxH3cMHYSkDaPMgJyDdXQ=="],
 
     "@capacitor/app": ["@capacitor/app@7.0.0", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/app/-/app-7.0.0.tgz", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-/UFwfPFsw/Jen6vjrV0lfTBOQWSaDDdmrYXKpYg4Xn8hwj0xrrRPXxC43j7VmPoj9AFMVPA+hx94ygqjChPASQ=="],
+
+    "@capacitor/app-launcher": ["@capacitor/app-launcher@7.0.4", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/app-launcher/-/app-launcher-7.0.4.tgz", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-epTJ0g2K/wgfyqdQXtwTn12aVyAwnexzSCIh/Rh0VmUonTOT7SFMFoIOl5x5edv+4HDrYZstyTHPBVnXVTVtCA=="],
 
     "@capacitor/browser": ["@capacitor/browser@7.0.0", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/browser/-/browser-7.0.0.tgz", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-wM2gclpulyOAvno9HDKI1X6Vxd0qXviO1zFeY5dplsNSR4tm6k6BtVGW7jEqUbQCFXbnDmhKLQgLr39JUwjzcA=="],
 
