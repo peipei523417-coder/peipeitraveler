@@ -45,15 +45,24 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
       iconType: item.icon_type || 'default',
       price: item.price || undefined,
       persons: item.persons || 1,
+      sortOrder: typeof item.sort_order === 'number' ? item.sort_order : 0,
     });
   });
   
   const itinerary: DayItinerary[] = Array.from({ length: days }, (_, i) => ({
     dayNumber: i + 1,
     date: addDays(startDate, i),
-    items: (itemsByDay[i + 1] || []).sort((a, b) => 
-      a.startTime.localeCompare(b.startTime)
-    ),
+    items: (itemsByDay[i + 1] || []).sort((a, b) => {
+      const aHas = !!a.startTime;
+      const bHas = !!b.startTime;
+      if (aHas && bHas) return a.startTime.localeCompare(b.startTime);
+      if (aHas) return -1;
+      if (bHas) return 1;
+      const ao = a.sortOrder ?? 0;
+      const bo = b.sortOrder ?? 0;
+      if (ao !== bo) return ao - bo;
+      return a.id.localeCompare(b.id);
+    }),
   }));
   
   return {
