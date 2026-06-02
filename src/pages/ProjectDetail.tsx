@@ -646,6 +646,7 @@ function ProjectDetailInner() {
             onEditItem={(item) => { if (!isViewer) setEditingItem(item); }}
             onDeleteItem={isViewer ? () => {} : handleDeleteItem}
             onUpdateItemIcon={isViewer ? undefined : handleUpdateItemIcon}
+            onReorderNoTimeItems={isViewer ? undefined : handleReorderNoTimeItems}
             readOnly={isViewer}
           />
         )}
