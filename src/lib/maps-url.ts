@@ -90,13 +90,29 @@ export function normalizeMapsUrl(original: string | undefined | null): string | 
   return null;
 }
 
-/** Open a Google Maps URL externally (system browser / Maps app). */
-export async function openGoogleMaps(originalUrl: string): Promise<void> {
+/** Open a Google Maps URL externally (system browser / Maps app).
+ *  `placeText` is an optional fallback (title / location / address / place_name)
+ *  used to build a stable search URL when the original is a short link.
+ */
+export async function openGoogleMaps(
+  originalUrl: string,
+  placeText?: string,
+): Promise<void> {
   const original = (originalUrl || "").trim();
   if (!original) return;
 
   const normalized = normalizeMapsUrl(original);
-  const final = normalized || original;
+  const shortUrlFallback = !normalized && isShortLink(original);
+  const placeQuery = (placeText || "").trim();
+
+  // Prefer a text-based search URL for short links when we have a place name —
+  // raw maps.app.goo.gl / goo.gl/maps links occasionally fail to resolve.
+  const textNormalized =
+    shortUrlFallback && placeQuery
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(placeQuery)}`
+      : null;
+
+  const final = textNormalized || normalized || original;
 
   // Hard guard: only allow http(s) — never custom schemes from untrusted input.
   if (!/^https?:\/\//i.test(final)) {
