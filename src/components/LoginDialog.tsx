@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/contexts/AuthContext";
+import { detectInAppBrowser, getInAppBrowserInstructions } from "@/lib/in-app-browser";
 
 import { toast } from "sonner";
 
