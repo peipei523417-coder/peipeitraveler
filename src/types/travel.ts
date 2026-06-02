@@ -31,6 +31,7 @@ export interface ItineraryItem {
   price?: number; // Budget price in local currency
   persons?: number; // Number of persons (default 1)
   iconType?: TimelineIconType; // Custom timeline marker icon
+  sortOrder?: number; // Manual order for items without a time (drag-to-reorder)
 }
 
 export type TimelineIconType = 

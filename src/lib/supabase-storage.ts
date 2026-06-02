@@ -26,16 +26,27 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
       price: item.price || undefined,
       persons: item.persons || 1,
       iconType: item.icon_type || 'default',
+      sortOrder: typeof item.sort_order === 'number' ? item.sort_order : 0,
     });
   });
   
-  // Create itinerary for all days
+  // Create itinerary for all days. Items with a start_time auto-sort by time;
+  // items without a time fall to the bottom and sort by manual sort_order
+  // (drag-to-reorder), then by id as a stable tiebreaker.
   const itinerary: DayItinerary[] = Array.from({ length: days }, (_, i) => ({
     dayNumber: i + 1,
     date: addDays(startDate, i),
-    items: (itemsByDay[i + 1] || []).sort((a, b) => 
-      a.startTime.localeCompare(b.startTime)
-    ),
+    items: (itemsByDay[i + 1] || []).sort((a, b) => {
+      const aHas = !!a.startTime;
+      const bHas = !!b.startTime;
+      if (aHas && bHas) return a.startTime.localeCompare(b.startTime);
+      if (aHas) return -1;
+      if (bHas) return 1;
+      const ao = a.sortOrder ?? 0;
+      const bo = b.sortOrder ?? 0;
+      if (ao !== bo) return ao - bo;
+      return a.id.localeCompare(b.id);
+    }),
   }));
   
   return {
@@ -485,6 +496,7 @@ export async function insertItineraryItem(
     price: item.price || null,
     persons: item.persons || 1,
     icon_type: item.iconType || "default",
+    sort_order: typeof item.sortOrder === "number" ? item.sortOrder : 0,
   };
   console.log("[itinerary] insert payload", { project_id: projectId, day_number: dayNumber });
   const { data, error } = await supabase
@@ -526,6 +538,7 @@ export async function patchItineraryItem(
   if (updates.price !== undefined) updateData.price = updates.price || null;
   if (updates.persons !== undefined) updateData.persons = updates.persons || 1;
   if (updates.iconType !== undefined) updateData.icon_type = updates.iconType || "default";
+  if (updates.sortOrder !== undefined) updateData.sort_order = typeof updates.sortOrder === "number" ? updates.sortOrder : 0;
 
   const { error } = await supabase
     .from("itinerary_items")
@@ -537,6 +550,29 @@ export async function patchItineraryItem(
     return false;
   }
   console.log("[itinerary] update success", { itemId });
+  return true;
+}
+
+/**
+ * Bulk-update sort_order for a list of itinerary items (used after drag-to-reorder
+ * of no-time items within a single day). Issues parallel per-row updates so RLS
+ * stays simple; small list (typically <20) so this is fine.
+ */
+export async function reorderItineraryItems(
+  updates: Array<{ id: string; sortOrder: number }>
+): Promise<boolean> {
+  if (!updates.length) return true;
+  const results = await Promise.all(
+    updates.map(({ id, sortOrder }) =>
+      supabase.from("itinerary_items").update({ sort_order: sortOrder }).eq("id", id)
+    )
+  );
+  const failed = results.find(r => r.error);
+  if (failed?.error) {
+    console.error("[itinerary] reorder error", failed.error);
+    return false;
+  }
+  console.log("[itinerary] reorder success", { count: updates.length });
   return true;
 }
 
