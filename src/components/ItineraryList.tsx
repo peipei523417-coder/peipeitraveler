@@ -166,6 +166,32 @@ function ItemRow({
                       }
                       const success = await openGoogleMapsUrl(normalizedUrl);
                       console.log("[MAP_OPEN_RESULT]", { success, normalizedUrl });
+
+                      // After any open attempt on native, show a hint toast
+                      // so the user can fall back to the web version if the
+                      // Google Maps app shows "unsupported link".
+                      try {
+                        const { Capacitor } = await import("@capacitor/core");
+                        if (Capacitor.isNativePlatform()) {
+                          console.log("[MAP_OPEN_UNSUPPORTED_HINT_SHOWN]", { normalizedUrl });
+                          toast({
+                            title: "如果 Google Maps 顯示不支援",
+                            description: "請改用網頁版開啟。",
+                            action: (
+                              <ToastAction
+                                altText="用網頁開啟"
+                                onClick={() => {
+                                  void openGoogleMapsInBrowserOnly(normalizedUrl);
+                                }}
+                              >
+                                用網頁開啟
+                              </ToastAction>
+                            ),
+                          });
+                        }
+                      } catch {
+                        /* web — no hint needed */
+                      }
                     }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
                   >
