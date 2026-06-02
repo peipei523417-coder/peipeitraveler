@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import { useSignedImageUrls } from "@/hooks/useSignedImageUrl";
 import { TimelineIconPicker } from "@/components/TimelineIconPicker";
-import { openGoogleMaps } from "@/lib/maps-url";
+import { normalizeGoogleMapsUrl, openGoogleMapsUrl } from "@/lib/maps-url";
+import { toast } from "@/hooks/use-toast";
 
 interface ItineraryListProps {
   day: DayItinerary;
@@ -156,10 +157,25 @@ export function ItineraryList({ day, onAddItem, onEditItem, onDeleteItem, onUpda
                           {item.googleMapsUrl && (
                             <button
                               type="button"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                openGoogleMaps(item.googleMapsUrl!, item.description);
+                                const normalizedUrl = normalizeGoogleMapsUrl(item.googleMapsUrl);
+                                console.log("[MAP_OPEN]", {
+                                  title: item.description,
+                                  google_maps_url: item.googleMapsUrl,
+                                  normalizedUrl,
+                                });
+                                if (!normalizedUrl) {
+                                  toast({
+                                    title: "尚未填入 Google Maps 連結",
+                                    description: "請編輯行程並貼上 Google Maps 連結後再開啟地圖。",
+                                  });
+                                  console.log("[MAP_OPEN_RESULT]", { success: false, normalizedUrl });
+                                  return;
+                                }
+                                const success = await openGoogleMapsUrl(normalizedUrl);
+                                console.log("[MAP_OPEN_RESULT]", { success, normalizedUrl });
                               }}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
                             >
