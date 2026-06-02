@@ -142,6 +142,7 @@ export async function openGoogleMapsUrl(url: string): Promise<boolean> {
   });
 
   if (platform === "ios" || platform === "android") {
+    console.log("[MAP_OPEN_APP_ATTEMPT]", { platform, normalizedUrl });
     const appOk = await tryOpenInApp(platform, normalizedUrl);
     if (appOk) return true;
 
