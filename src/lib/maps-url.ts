@@ -184,6 +184,36 @@ export async function openGoogleMaps(
   await openGoogleMapsUrl(originalUrl);
 }
 
+/**
+ * Browser-only fallback. Skips Google Maps app deep link entirely and
+ * opens the normalized https URL in the in-app browser (or window.location
+ * on web). Used when the Google Maps app shows "unsupported link" so the
+ * user can immediately fall back to the web version.
+ */
+export async function openGoogleMapsInBrowserOnly(url: string): Promise<boolean> {
+  const normalizedUrl = normalizeGoogleMapsUrl(url);
+  if (!normalizedUrl) {
+    console.warn("[MAP_OPEN_INVALID]", { url });
+    return false;
+  }
+  const platform = await detectPlatform();
+  console.log("[MAP_OPEN_BROWSER_ONLY]", { platform, normalizedUrl });
+
+  if (platform === "ios" || platform === "android") {
+    const browserOk = await openInBrowser(normalizedUrl);
+    if (browserOk) return true;
+    return openInWindowLocation(normalizedUrl);
+  }
+
+  try {
+    const w = window.open(normalizedUrl, "_blank", "noopener,noreferrer");
+    if (w) return true;
+  } catch (e) {
+    console.warn("[MAP_OPEN_WINDOW_OPEN_FAIL]", e);
+  }
+  return openInWindowLocation(normalizedUrl);
+}
+
 export function normalizeMapsUrl(raw: string | undefined | null): string | null {
   return normalizeGoogleMapsUrl(raw);
 }
