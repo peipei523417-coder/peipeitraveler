@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import { useSignedImageUrls } from "@/hooks/useSignedImageUrl";
 import { TimelineIconPicker } from "@/components/TimelineIconPicker";
+import { openGoogleMaps } from "@/lib/maps-url";
 
 interface ItineraryListProps {
   day: DayItinerary;
@@ -64,10 +65,11 @@ export function ItineraryList({ day, onAddItem, onEditItem, onDeleteItem, onUpda
   // Calculate daily total
   const dayTotal = useMemo(() => calculateDayTotal(sortedItems), [sortedItems]);
 
-  // Function to open Google Maps on mobile - redirects to app
-  const openGoogleMapsMobile = (url: string) => {
-    window.location.href = url;
-  };
+  // All Maps open paths route through openGoogleMaps:
+  //  - normalizes long google.com/maps URLs to a stable maps/search?api=1 form
+  //  - leaves short links (maps.app.goo.gl / goo.gl/maps) as-is so the OS resolves them
+  //  - opens externally via Capacitor Browser on native, window.open on web
+
 
   if (sortedItems.length === 0) {
     return (
@@ -152,31 +154,19 @@ export function ItineraryList({ day, onAddItem, onEditItem, onDeleteItem, onUpda
                         {/* Attachments */}
                         <div className="flex flex-wrap gap-2">
                           {item.googleMapsUrl && (
-                            (() => {
-                              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                              return isMobile ? (
-                                <button
-                                  type="button"
-                                  onClick={() => openGoogleMapsMobile(item.googleMapsUrl!)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
-                                >
-                                  <MapPin className="w-3.5 h-3.5" />
-                                  Google Maps
-                                  <ExternalLink className="w-3 h-3" />
-                                </button>
-                              ) : (
-                                <a
-                                  href={item.googleMapsUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
-                                >
-                                  <MapPin className="w-3.5 h-3.5" />
-                                  Google Maps
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              );
-                            })()
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openGoogleMaps(item.googleMapsUrl!);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
+                            >
+                              <MapPin className="w-3.5 h-3.5" />
+                              Google Maps
+                              <ExternalLink className="w-3 h-3" />
+                            </button>
                           )}
                           
                           {signedImageUrl && (
