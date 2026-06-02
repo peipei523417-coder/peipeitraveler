@@ -104,15 +104,28 @@ workflows:
                 config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
-                config.build_settings['MARKETING_VERSION'] = '6.1.22'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '59'  # ⭐ bump for new pre-release train 6.1.22
+                config.build_settings['MARKETING_VERSION'] = '6.1.25'
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '63'  # ⭐ must be > 59 (previously uploaded build)
               end
             end
           end
 
           project.save
-          puts "Build Number: 25"
+          puts "MARKETING_VERSION: 6.1.25"
+          puts "CURRENT_PROJECT_VERSION: 63"
           RUBY
+
+      - name: Verify Info.plist and build settings versions
+        script: |
+          cd ios/App
+          PLIST=App/Info.plist
+          echo "=== Info.plist raw values ==="
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST" || true
+          echo "=== Resolved xcodebuild settings ==="
+          xcodebuild -workspace App.xcworkspace -scheme App -showBuildSettings 2>/dev/null \
+            | grep -E "MARKETING_VERSION|CURRENT_PROJECT_VERSION|CFBundleShortVersionString|CFBundleVersion" \
+            | head -20
 
       - name: Install CocoaPods
         script: |
