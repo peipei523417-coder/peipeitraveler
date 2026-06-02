@@ -183,6 +183,19 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
 
   const handleOAuthLogin = async (provider: "google" | "apple") => {
     if (loading) return;
+
+    // Web-only: block Google OAuth inside Facebook / Messenger / Instagram / LINE in-app browsers
+    // (Google returns 403 disallowed_useragent). Native Capacitor app uses its own flow and is unaffected.
+    const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+    if (!isNative && provider === "google") {
+      const kind = detectInAppBrowser();
+      if (kind) {
+        setInAppBrowserBlocked(kind);
+        console.info("[LoginDialog] Blocked Google OAuth in in-app browser", { kind });
+        return;
+      }
+    }
+
     setLoading(provider);
     setTakingTooLong(false);
     // Show "taking longer than expected" hint after 10s
@@ -190,7 +203,6 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
     timeoutRef.current = setTimeout(() => setTakingTooLong(true), 10_000);
 
     try {
-      const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
 
       if (isNative) {
         localStorage.setItem("native_oauth_pending", "1");
