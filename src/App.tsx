@@ -276,6 +276,7 @@ function AppContent() {
         <Route path="/project/:id" element={<ProjectDetail />} />
         <Route path="/share/:shareCode" element={<SharePage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/download" element={<Download />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
