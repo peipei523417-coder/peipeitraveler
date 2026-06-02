@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/contexts/AuthContext";
+import { detectInAppBrowser, getInAppBrowserInstructions } from "@/lib/in-app-browser";
 
 import { toast } from "sonner";
 
@@ -29,6 +30,9 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState<"google" | "apple" | null>(null);
   const [takingTooLong, setTakingTooLong] = useState(false);
+  const [inAppBrowserBlocked, setInAppBrowserBlocked] = useState<
+    "facebook" | "messenger" | "instagram" | "line" | "other" | null
+  >(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-close loading overlay when user is signed in (deep link processed)
@@ -45,6 +49,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
     if (!open) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       setTakingTooLong(false);
+      setInAppBrowserBlocked(null);
     }
   }, [open]);
 
@@ -182,6 +187,19 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
 
   const handleOAuthLogin = async (provider: "google" | "apple") => {
     if (loading) return;
+
+    // Web-only: block Google OAuth inside Facebook / Messenger / Instagram / LINE in-app browsers
+    // (Google returns 403 disallowed_useragent). Native Capacitor app uses its own flow and is unaffected.
+    const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+    if (!isNative && provider === "google") {
+      const kind = detectInAppBrowser();
+      if (kind) {
+        setInAppBrowserBlocked(kind);
+        console.info("[LoginDialog] Blocked Google OAuth in in-app browser", { kind });
+        return;
+      }
+    }
+
     setLoading(provider);
     setTakingTooLong(false);
     // Show "taking longer than expected" hint after 10s
@@ -189,7 +207,6 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
     timeoutRef.current = setTimeout(() => setTakingTooLong(true), 10_000);
 
     try {
-      const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
 
       if (isNative) {
         localStorage.setItem("native_oauth_pending", "1");
@@ -297,6 +314,30 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
                 localStorage.removeItem("native_oauth_pending");
                 localStorage.removeItem("native_oauth_provider");
               }}
+            >
+              {t("cancel")}
+            </Button>
+          </div>
+        ) : inAppBrowserBlocked ? (
+          <div className="flex flex-col gap-3 pt-4">
+            <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm space-y-2">
+              <p className="font-medium">
+                請使用 Safari 或 Chrome 開啟後再使用 Google 登入
+              </p>
+              <p className="text-muted-foreground">
+                {getInAppBrowserInstructions().zh}
+              </p>
+              <p className="text-xs text-muted-foreground/80">
+                {getInAppBrowserInstructions().en}
+              </p>
+              <p className="text-xs text-muted-foreground/80 pt-1">
+                已安裝 PeiTravel App 的使用者，建議改用 App 登入。
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setInAppBrowserBlocked(null)}
             >
               {t("cancel")}
             </Button>
