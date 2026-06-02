@@ -43,10 +43,16 @@ const MENU_WIDTH = 220;
 const MENU_HEIGHT = 140;
 const MENU_OFFSET = 12;
 
-export function TimelineIconPicker({ value, onChange, disabled = false }: TimelineIconPickerProps) {
+export function TimelineIconPicker({ value, onChange, disabled = false, onOpenChange }: TimelineIconPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+    if (isOpen) console.log("[ICON_PICKER_OPEN]", { value });
+  }, [isOpen, onOpenChange, value]);
+  
   
   // Track if user has made a selection that's pending DB update
   const [pendingValue, setPendingValue] = useState<TimelineIconType | null>(null);
