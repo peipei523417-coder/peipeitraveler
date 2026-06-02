@@ -49,6 +49,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
     if (!open) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       setTakingTooLong(false);
+      setInAppBrowserBlocked(null);
     }
   }, [open]);
 
