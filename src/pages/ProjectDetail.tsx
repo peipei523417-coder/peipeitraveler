@@ -8,7 +8,8 @@ import {
   patchItineraryItem,
   removeItineraryItem,
   updateItineraryItemIcon,
-  uploadProjectImage
+  uploadProjectImage,
+  reorderItineraryItems
 } from "@/lib/supabase-storage";
 import { useProjectCache } from "@/contexts/ProjectCacheContext";
 import { Button } from "@/components/ui/button";
