@@ -470,6 +470,12 @@ export function ProjectDialog({
                 {isPublic ? t("publicDescription") : t("privateDescription")}
               </p>
             </div>
+
+            {/* Retention reminder */}
+            <p className="text-[11px] leading-relaxed text-muted-foreground/80 pt-1">
+              📌 已結束的行程將保留 7 天，若有需要保存的內容，請記得提前備份。
+            </p>
+
             </div>
           </div>
 
