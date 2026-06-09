@@ -471,11 +471,6 @@ export function ProjectDialog({
               </p>
             </div>
 
-            {/* Retention reminder */}
-            <p className="text-xs leading-relaxed text-muted-foreground pt-1">
-              📌 已結束的行程將於 7 天後自動清除，如需保留資料請提前備份。
-            </p>
-
             </div>
           </div>
 
@@ -495,6 +490,10 @@ export function ProjectDialog({
               {mode === "create" ? t("createProjectBtn") : t("saveChanges")}
             </Button>
           </DialogFooter>
+
+          <p className="text-center text-[10px] text-muted-foreground/60 px-6 pb-2 sm:pb-3 -mt-1">
+            已結束的行程將於 7 天後自動清除，如需保留資料請提前備份。
+          </p>
         </DialogContent>
       </Dialog>
 
