@@ -376,7 +376,7 @@ export function ItineraryList({
           </Button>
         )}
         {isLastDay && (
-          <p className="text-[10px] text-muted-foreground/60 text-center pt-6">
+          <p className="text-[10px] text-muted-foreground/60 text-center pt-6 whitespace-pre-line">
             {t("lastDayBackupHint")}
           </p>
         )}
@@ -472,7 +472,7 @@ export function ItineraryList({
       )}
 
       {isLastDay && (
-        <p className="text-[10px] text-muted-foreground/60 text-center pt-3">
+        <p className="text-[10px] text-muted-foreground/60 text-center pt-3 whitespace-pre-line">
           {t("lastDayBackupHint")}
         </p>
       )}
