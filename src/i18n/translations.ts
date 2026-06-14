@@ -725,6 +725,7 @@ export const translations = {
       noItems: "이 날의 일정이 없습니다",
       tripOverview: "여행 개요",
       overviewExpiryNotice: "만료된 프로젝트 데이터는 7일간 보관된 후 자동으로 삭제됩니다. 필요한 정보는 미리 저장해 주세요.",
+      lastDayBackupHint: "종료된 일정은 7일 후 자동으로 삭제됩니다. 보관이 필요하면 미리 백업해 주세요.",
       addFirstItem: "첫 일정을 추가하세요!",
       itemDeleted: "일정 삭제됨",
       itemCreated: "일정 추가됨",
