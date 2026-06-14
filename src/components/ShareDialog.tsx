@@ -47,17 +47,20 @@ export function ShareDialog({
 
   const loadProjectSettings = async () => {
     if (!project) return;
-    
+
     const { supabase } = await import("@/integrations/supabase/client");
-    const { data } = await supabase
-      .from("travel_projects")
-      .select("is_public, edit_password_hash")
-      .eq("id", project.id)
-      .single();
-    
+    const [{ data }, { data: hasPwd }] = await Promise.all([
+      supabase
+        .from("travel_projects")
+        .select("is_public")
+        .eq("id", project.id)
+        .single(),
+      supabase.rpc("project_has_edit_password", { p_project_id: project.id }),
+    ]);
+
     if (data) {
       setIsPublic(data.is_public || false);
-      setHasExistingPassword(!!data.edit_password_hash);
+      setHasExistingPassword(!!hasPwd);
       setEditPassword("");
     }
   };
