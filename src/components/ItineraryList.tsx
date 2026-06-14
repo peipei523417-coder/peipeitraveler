@@ -272,6 +272,7 @@ export function ItineraryList({
   onUpdateItemIcon,
   onReorderNoTimeItems,
   readOnly = false,
+  isLastDay = false,
 }: ItineraryListProps) {
   const { t } = useTranslation();
   const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null);
