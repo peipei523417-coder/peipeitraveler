@@ -127,17 +127,14 @@ export function GoogleMapsInput({ value, onChange, placeName, onPlaceNameChange 
         <Input
           value={inputValue}
           onChange={handleInputChange}
-          placeholder="貼上地圖分享連結..."
-          className="pl-10 pr-10 rounded-xl h-11"
+          placeholder="支援 Google Maps、Naver Map、高德地圖"
+          className="pl-10 pr-10 rounded-xl h-11 placeholder:text-[11px]"
         />
         {parseResult.isValid && (
           <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground pl-1">
-        支援 Google Maps、Naver Map、高德地圖
-      </p>
 
       {/* Status indicator */}
       {inputValue && (
