@@ -135,7 +135,6 @@ export function GoogleMapsInput({ value, onChange, placeName, onPlaceNameChange 
         )}
       </div>
 
-
       {/* Status indicator */}
       {inputValue && (
         <div className="flex items-center gap-2 text-sm">
