@@ -949,6 +949,7 @@ export const translations = {
       noItems: "この日の予定はありません",
       tripOverview: "旅行概要",
       overviewExpiryNotice: "期限切れのプロジェクトデータは7日間保持され、その後自動的に削除されます。必要な情報は事前に保存してください。",
+      lastDayBackupHint: "終了した旅程は7日後に自動的に削除されます。残したいデータは事前にバックアップしてください。",
       addFirstItem: "最初の予定を追加しましょう！",
       itemDeleted: "予定を削除しました",
       itemCreated: "予定を追加しました",
