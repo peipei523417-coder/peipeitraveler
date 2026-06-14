@@ -40,6 +40,7 @@ interface ItineraryListProps {
   onUpdateItemIcon?: (itemId: string, iconType: TimelineIconType) => void;
   onReorderNoTimeItems?: (dayNumber: number, orderedIds: string[]) => void;
   readOnly?: boolean;
+  isLastDay?: boolean;
 }
 
 function getHighlightClass(color?: string): string {
