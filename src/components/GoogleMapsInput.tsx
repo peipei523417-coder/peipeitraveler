@@ -111,7 +111,7 @@ export function GoogleMapsInput({ value, onChange, onPlaceNameChange }: GoogleMa
           ) : (
             <>
               <MapPin className="w-4 h-4 text-amber-500" />
-              <span className="text-amber-600">請貼上有效的地圖分享連結</span>
+              <span className="text-amber-600">找不到有效地圖連結</span>
             </>
           )}
         </div>
