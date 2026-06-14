@@ -40,9 +40,9 @@ export async function createShareLink(
   projectId: string,
   expiresAt?: Date,
   password?: string
-): Promise<{ id: string; share_code: string; expires_at: string | null; password_hash: string | null } | null> {
+): Promise<{ id: string; share_code: string; expires_at: string | null; has_password: boolean } | null> {
   const shareCode = generateShareCode();
-  
+
   // Hash password server-side using bcrypt
   let passwordHash: string | null = null;
   if (password) {
@@ -61,26 +61,25 @@ export async function createShareLink(
       expires_at: expiresAt?.toISOString() || null,
       password_hash: passwordHash,
     })
-    .select()
+    .select("id, share_code, expires_at")
     .single();
 
-  if (error) {
+  if (error || !data) {
     console.error("Error creating share link:", error);
     return null;
   }
 
-  return data;
+  return { ...data, has_password: !!passwordHash };
 }
 
 export async function getShareLinks(projectId: string): Promise<Array<{
   id: string;
   share_code: string;
   expires_at: string | null;
-  password_hash: string | null;
 }>> {
   const { data, error } = await supabase
     .from("share_links")
-    .select("*")
+    .select("id, share_code, expires_at")
     .eq("project_id", projectId);
 
   if (error) {
