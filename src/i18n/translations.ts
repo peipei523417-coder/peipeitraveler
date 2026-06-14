@@ -1391,6 +1391,7 @@ export const translations = {
       noItems: "Keine Elemente für diesen Tag",
       tripOverview: "Reiseübersicht",
       overviewExpiryNotice: "Abgelaufene Projektdaten werden 7 Tage aufbewahrt und danach automatisch gelöscht. Bitte speichern Sie benötigte Informationen im Voraus.",
+      lastDayBackupHint: "Beendete Reisen werden nach 7 Tagen automatisch gelöscht. Sichern Sie vorher, was Sie behalten möchten.",
       addFirstItem: "Füge dein erstes Element hinzu!",
       itemDeleted: "Element gelöscht",
       itemCreated: "Element hinzugefügt",
