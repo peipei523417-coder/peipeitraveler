@@ -277,6 +277,7 @@ export const translations = {
       noItems: "No items for this day",
       tripOverview: "Trip Overview",
       overviewExpiryNotice: "Expired project data will be retained for 7 days, after which the system will automatically delete it. Please save any needed information in advance.",
+      lastDayBackupHint: "Completed trips will be auto-deleted after 7 days. Please back up anything you'd like to keep.",
       addFirstItem: "Add your first item!",
       itemDeleted: "Item deleted",
       itemCreated: "Item added",
