@@ -373,7 +373,7 @@ export function ItineraryItemDialog({
             <div className="space-y-2">
               <Label className="text-sm font-bold flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                {t("location")} (選填)
+                地點連結（選填）
               </Label>
               <GoogleMapsInput
                 value={googleMapsUrl}
