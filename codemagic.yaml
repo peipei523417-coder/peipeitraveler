@@ -111,8 +111,8 @@ workflows:
           end
 
           project.save
-          puts "MARKETING_VERSION: 6.1.31"
-          puts "CURRENT_PROJECT_VERSION: 69"
+          puts "MARKETING_VERSION: 6.1.32"
+          puts "CURRENT_PROJECT_VERSION: 70"
 
           RUBY
 
