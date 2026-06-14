@@ -53,6 +53,7 @@ export const translations = {
       noItems: "這天還沒有行程",
       tripOverview: "行程總覽",
       overviewExpiryNotice: "已結束的行程將於七天後自動清除，如需保留資料請提前備份",
+      lastDayBackupHint: "已結束的行程將於 7 天後自動清除，如需保留請提前備份喔",
       addFirstItem: "新增第一個行程吧！",
       itemDeleted: "行程已刪除",
       itemCreated: "行程已新增",
