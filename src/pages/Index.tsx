@@ -37,7 +37,7 @@ import {
 
 // Free-stable build copy (PRO disabled — never opens purchase flow)
 const PROJECT_LIMIT_MESSAGE = "你的旅行清單快塞滿啦\n最多可保存 4 個旅程～";
-const DAY_LIMIT_MESSAGE = "單一行程最多安排 15 天喔～";
+const DAY_LIMIT_MESSAGE = "單一行程最多安排 20 天喔～";
 
 export default function Index() {
   const navigate = useNavigate();

@@ -10,7 +10,7 @@ export const ENABLE_PRO_FEATURES = false;
 
 /** Free-tier limits (current "stable free" build). */
 export const FREE_PROJECT_LIMIT = 4;
-export const FREE_DAY_LIMIT = 15;
+export const FREE_DAY_LIMIT = 20;
 
 /** PRO-tier limits (kept for future re-enable). */
 export const PRO_PROJECT_LIMIT = 20;

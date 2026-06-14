@@ -79,8 +79,8 @@ export function TripOverviewDialog({ open, onOpenChange, project }: TripOverview
           </div>
 
           {/* Expiry notice */}
-          <div className="px-5 py-3 border-t border-border/30 bg-muted/20">
-            <p className="text-[11px] text-muted-foreground/70 text-center leading-relaxed">
+          <div className="px-3 py-3 border-t border-border/30 bg-muted/20">
+            <p className="text-[10px] text-muted-foreground/60 text-center whitespace-nowrap">
               {t("overviewExpiryNotice")}
             </p>
           </div>
