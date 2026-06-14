@@ -466,6 +466,12 @@ export function ItineraryList({
         </div>
       )}
 
+      {isLastDay && (
+        <p className="text-[10px] text-muted-foreground/60 text-center pt-3">
+          {t("lastDayBackupHint")}
+        </p>
+      )}
+
       <ImagePreviewDialog
         open={previewImageIndex !== null}
         onOpenChange={(open) => !open && setPreviewImageIndex(null)}
