@@ -648,6 +648,7 @@ function ProjectDetailInner() {
             onUpdateItemIcon={isViewer ? undefined : handleUpdateItemIcon}
             onReorderNoTimeItems={isViewer ? undefined : handleReorderNoTimeItems}
             readOnly={isViewer}
+            isLastDay={itinerary.length > 0 && currentDay.dayNumber === itinerary[itinerary.length - 1]?.dayNumber}
           />
         )}
       </main>
