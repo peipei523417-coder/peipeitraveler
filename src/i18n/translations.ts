@@ -501,6 +501,7 @@ export const translations = {
       noItems: "No hay elementos para este día",
       tripOverview: "Resumen del Viaje",
       overviewExpiryNotice: "Los datos del proyecto expirado se conservarán durante 7 días, después el sistema los eliminará automáticamente. Guarde la información necesaria con anticipación.",
+      lastDayBackupHint: "Los viajes finalizados se eliminarán automáticamente después de 7 días. Haz una copia de seguridad de lo que quieras conservar.",
       addFirstItem: "¡Añade tu primer elemento!",
       itemDeleted: "Elemento eliminado",
       itemCreated: "Elemento añadido",
