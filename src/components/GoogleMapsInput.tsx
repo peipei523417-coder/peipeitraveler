@@ -60,9 +60,10 @@ export function GoogleMapsInput({ value, onChange, onPlaceNameChange }: GoogleMa
         if (name) onPlaceNameChange?.(name);
       }
     } else {
-      // Keep the raw text in upstream state so the field doesn't appear cleared,
-      // but the save layer should rely on sanitizeMapUrl() before persisting.
-      onChange(raw);
+      // No valid https URL detected — do NOT persist the raw text (which may
+      // contain place names/addresses/newlines). Clear upstream value; the
+      // user sees an inline error and the raw text stays only in local state.
+      onChange("");
     }
   };
 
@@ -110,7 +111,7 @@ export function GoogleMapsInput({ value, onChange, onPlaceNameChange }: GoogleMa
           ) : (
             <>
               <MapPin className="w-4 h-4 text-amber-500" />
-              <span className="text-amber-600">請貼上有效的地圖分享連結</span>
+              <span className="text-amber-600">找不到有效地圖連結</span>
             </>
           )}
         </div>

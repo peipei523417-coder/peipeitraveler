@@ -40,6 +40,7 @@ interface ItineraryListProps {
   onUpdateItemIcon?: (itemId: string, iconType: TimelineIconType) => void;
   onReorderNoTimeItems?: (dayNumber: number, orderedIds: string[]) => void;
   readOnly?: boolean;
+  isLastDay?: boolean;
 }
 
 function getHighlightClass(color?: string): string {
@@ -271,6 +272,7 @@ export function ItineraryList({
   onUpdateItemIcon,
   onReorderNoTimeItems,
   readOnly = false,
+  isLastDay = false,
 }: ItineraryListProps) {
   const { t } = useTranslation();
   const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null);
@@ -373,6 +375,11 @@ export function ItineraryList({
             {t("addItem")}
           </Button>
         )}
+        {isLastDay && (
+          <p className="text-[10px] text-muted-foreground/60 text-center pt-6">
+            {t("lastDayBackupHint")}
+          </p>
+        )}
       </div>
     );
   }
@@ -462,6 +469,12 @@ export function ItineraryList({
             {t("addItem")}
           </Button>
         </div>
+      )}
+
+      {isLastDay && (
+        <p className="text-[10px] text-muted-foreground/60 text-center pt-3">
+          {t("lastDayBackupHint")}
+        </p>
       )}
 
       <ImagePreviewDialog
