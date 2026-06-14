@@ -2,6 +2,12 @@ import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MapPin, ExternalLink, Check, Link2 } from "lucide-react";
+import {
+  sanitizeMapUrl,
+  detectMapProvider,
+  getMapProviderLabel,
+} from "@/utils/mapLink";
+import { openMapUrl } from "@/lib/maps-url";
 
 interface GoogleMapsInputProps {
   value: string;
@@ -10,115 +16,64 @@ interface GoogleMapsInputProps {
   onPlaceNameChange?: (name: string) => void;
 }
 
-// Smart parser for map share URLs (Google Maps / Naver Map / 高德地圖).
-// Returns whether the URL is a recognized supported map URL, and (only for
-// Google Maps) attempts to extract a human-readable place name.
-function parseGoogleMapsUrl(url: string): { isValid: boolean; placeName?: string } {
-  if (!url || url.trim() === "") {
-    return { isValid: false };
-  }
-
-  const trimmedUrl = url.trim();
-
-  // Google Maps
-  const googleMapsPatterns = [
-    /google\.(com|com\.tw|co\.[a-z]+)\/maps/i,
-    /maps\.google\.(com|com\.tw|co\.[a-z]+)/i,
-    /goo\.gl\/maps/i,
-    /maps\.app\.goo\.gl/i,
-  ];
-  const isGoogleMapsUrl = googleMapsPatterns.some((p) => p.test(trimmedUrl));
-
-  // Naver Map — official share hosts
-  const isNaverUrl = /(?:^|\/\/)(?:m\.)?map\.naver\.com\//i.test(trimmedUrl)
-    || /(?:^|\/\/)naver\.me\//i.test(trimmedUrl);
-
-  // 高德地圖 (Amap) — official share hosts
-  const isAmapUrl = /(?:^|\/\/)(?:www\.)?(?:amap|gaode)\.com\//i.test(trimmedUrl)
-    || /(?:^|\/\/)(?:ditu|uri|surl)\.amap\.com\//i.test(trimmedUrl);
-
-  const isSupported = isGoogleMapsUrl || isNaverUrl || isAmapUrl;
-
-  if (!isSupported) {
-    return { isValid: false };
-  }
-
-  
-  // Place name extraction is only attempted for Google Maps URLs to avoid
-  // mis-parsing Naver / Amap URL formats. Naver/Amap simply show "連結有效".
-  let placeName: string | undefined;
-
-  if (isGoogleMapsUrl) {
-    // Pattern 1: /place/PlaceName/ format
-    const placeMatch = trimmedUrl.match(/\/place\/([^/@]+)/);
-    if (placeMatch) {
-      placeName = decodeURIComponent(placeMatch[1].replace(/\+/g, " "));
-    }
-
-    // Pattern 2: ?q=PlaceName or query=PlaceName
-    if (!placeName) {
-      const queryMatch = trimmedUrl.match(/[?&](?:q|query)=([^&]+)/);
-      if (queryMatch) {
-        placeName = decodeURIComponent(queryMatch[1].replace(/\+/g, " "));
-      }
-    }
-
-    // Pattern 3: /search/PlaceName/
-    if (!placeName) {
-      const searchMatch = trimmedUrl.match(/\/search\/([^/@]+)/);
-      if (searchMatch) {
-        placeName = decodeURIComponent(searchMatch[1].replace(/\+/g, " "));
-      }
-    }
-  }
-
-  return {
-    isValid: true,
-    placeName: placeName || undefined,
-  };
+// Best-effort place-name extraction. Only attempted for Google Maps; Naver/Amap
+// share URLs don't expose stable place-name segments so we skip them.
+function extractGooglePlaceName(url: string): string | undefined {
+  const place = url.match(/\/place\/([^/@]+)/);
+  if (place) return decodeURIComponent(place[1].replace(/\+/g, " "));
+  const q = url.match(/[?&](?:q|query)=([^&]+)/);
+  if (q) return decodeURIComponent(q[1].replace(/\+/g, " "));
+  const search = url.match(/\/search\/([^/@]+)/);
+  if (search) return decodeURIComponent(search[1].replace(/\+/g, " "));
+  return undefined;
 }
 
-
-export function GoogleMapsInput({ value, onChange, placeName, onPlaceNameChange }: GoogleMapsInputProps) {
+export function GoogleMapsInput({ value, onChange, onPlaceNameChange }: GoogleMapsInputProps) {
+  // We keep two states: the raw text the user sees (may include pasted
+  // address/newlines), and the sanitized URL that gets stored upstream.
   const [inputValue, setInputValue] = useState(value);
-  const [parseResult, setParseResult] = useState<{ isValid: boolean; placeName?: string }>({ isValid: false });
+  const [sanitized, setSanitized] = useState<string | null>(sanitizeMapUrl(value));
 
   useEffect(() => {
     setInputValue(value);
-    if (value) {
-      const result = parseGoogleMapsUrl(value);
-      setParseResult(result);
-    }
+    setSanitized(sanitizeMapUrl(value));
   }, [value]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setInputValue(newValue);
-    
-    if (newValue.trim() === "") {
-      setParseResult({ isValid: false });
+    const raw = e.target.value;
+    setInputValue(raw);
+
+    if (raw.trim() === "") {
+      setSanitized(null);
       onChange("");
       return;
     }
-    
-    const result = parseGoogleMapsUrl(newValue);
-    setParseResult(result);
-    
-    if (result.isValid) {
-      onChange(newValue);
-      if (result.placeName) {
-        onPlaceNameChange?.(result.placeName);
+
+    const clean = sanitizeMapUrl(raw);
+    setSanitized(clean);
+
+    if (clean) {
+      // Persist ONLY the clean URL upstream — never the surrounding text.
+      onChange(clean);
+      if (detectMapProvider(clean) === "google") {
+        const name = extractGooglePlaceName(clean);
+        if (name) onPlaceNameChange?.(name);
       }
     } else {
-      onChange(newValue);
+      // Keep the raw text in upstream state so the field doesn't appear cleared,
+      // but the save layer should rely on sanitizeMapUrl() before persisting.
+      onChange(raw);
     }
   };
 
   const openLink = () => {
-    if (inputValue && parseResult.isValid) {
-      window.open(inputValue, "_blank", "noopener,noreferrer");
+    if (sanitized) {
+      // Always open the sanitized URL — never the raw input.
+      openMapUrl(sanitized);
     }
   };
+
+  const providerLabel = sanitized ? getMapProviderLabel(sanitized) : null;
 
   return (
     <div className="space-y-2">
@@ -128,22 +83,19 @@ export function GoogleMapsInput({ value, onChange, placeName, onPlaceNameChange 
           value={inputValue}
           onChange={handleInputChange}
           placeholder="支援 Google Maps、Naver Map、高德地圖"
-          className="pl-10 pr-10 rounded-xl h-11 placeholder:text-[11px]"
+          className="pl-10 pr-10 rounded-xl h-11 placeholder:text-xs"
         />
-        {parseResult.isValid && (
+        {sanitized && (
           <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
         )}
       </div>
 
-      {/* Status indicator */}
       {inputValue && (
         <div className="flex items-center gap-2 text-sm">
-          {parseResult.isValid ? (
+          {sanitized && providerLabel ? (
             <>
               <Check className="w-4 h-4 text-green-500" />
-              <span className="text-green-600">
-                連結有效 {parseResult.placeName && `- ${parseResult.placeName}`}
-              </span>
+              <span className="text-green-600">{providerLabel}連結有效</span>
               <Button
                 type="button"
                 variant="ghost"
