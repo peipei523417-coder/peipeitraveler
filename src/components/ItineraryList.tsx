@@ -375,6 +375,11 @@ export function ItineraryList({
             {t("addItem")}
           </Button>
         )}
+        {isLastDay && (
+          <p className="text-[10px] text-muted-foreground/60 text-center pt-6">
+            {t("lastDayBackupHint")}
+          </p>
+        )}
       </div>
     );
   }
