@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import { useSignedImageUrls } from "@/hooks/useSignedImageUrl";
 import { TimelineIconPicker } from "@/components/TimelineIconPicker";
-import { normalizeGoogleMapsUrl, openGoogleMapsUrl } from "@/lib/maps-url";
+import { normalizeMapUrl, openMapUrl } from "@/lib/maps-url";
 import { toast } from "@/hooks/use-toast";
 
 
@@ -150,26 +150,26 @@ function ItemRow({
                     onClick={async (e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      const normalizedUrl = normalizeGoogleMapsUrl(item.googleMapsUrl);
+                      const normalizedUrl = normalizeMapUrl(item.googleMapsUrl);
                       console.log("[MAP_OPEN]", {
                         title: item.description,
-                        google_maps_url: item.googleMapsUrl,
+                        map_url: item.googleMapsUrl,
                         normalizedUrl,
                       });
                       if (!normalizedUrl) {
                         toast({
-                          title: "尚未填入 Google Maps 連結",
-                          description: "請編輯行程並貼上 Google Maps 連結後再開啟地圖。",
+                          title: "尚未填入地圖連結",
+                          description: "請編輯行程並貼上 Google Maps、Naver Map 或高德地圖連結後再開啟。",
                         });
                         console.log("[MAP_OPEN_RESULT]", { success: false, normalizedUrl });
                         return;
                       }
-                      const success = await openGoogleMapsUrl(normalizedUrl);
+                      const success = await openMapUrl(normalizedUrl);
                       console.log("[MAP_OPEN_RESULT]", { success, normalizedUrl });
 
-                      // Silent fallback: openGoogleMapsUrl already cascades
-                      // app -> Browser.open -> window.location.href. Only
-                      // surface an error if every attempt failed.
+                      // Silent fallback: openMapUrl already cascades through
+                      // app → Browser.open → window.location.href. Only surface
+                      // an error if every attempt failed.
                       if (!success) {
                         toast({
                           title: "無法開啟地圖，請稍後再試。",

@@ -10,58 +10,74 @@ interface GoogleMapsInputProps {
   onPlaceNameChange?: (name: string) => void;
 }
 
-// Smart parser for Google Maps URLs - extracts place name
+// Smart parser for map share URLs (Google Maps / Naver Map / 高德地圖).
+// Returns whether the URL is a recognized supported map URL, and (only for
+// Google Maps) attempts to extract a human-readable place name.
 function parseGoogleMapsUrl(url: string): { isValid: boolean; placeName?: string } {
   if (!url || url.trim() === "") {
     return { isValid: false };
   }
-  
+
   const trimmedUrl = url.trim();
-  
-  // Check if it's a valid Google Maps URL
+
+  // Google Maps
   const googleMapsPatterns = [
     /google\.(com|com\.tw|co\.[a-z]+)\/maps/i,
     /maps\.google\.(com|com\.tw|co\.[a-z]+)/i,
     /goo\.gl\/maps/i,
     /maps\.app\.goo\.gl/i,
   ];
-  
-  const isGoogleMapsUrl = googleMapsPatterns.some(pattern => pattern.test(trimmedUrl));
-  
-  if (!isGoogleMapsUrl) {
+  const isGoogleMapsUrl = googleMapsPatterns.some((p) => p.test(trimmedUrl));
+
+  // Naver Map — official share hosts
+  const isNaverUrl = /(?:^|\/\/)(?:m\.)?map\.naver\.com\//i.test(trimmedUrl)
+    || /(?:^|\/\/)naver\.me\//i.test(trimmedUrl);
+
+  // 高德地圖 (Amap) — official share hosts
+  const isAmapUrl = /(?:^|\/\/)(?:www\.)?(?:amap|gaode)\.com\//i.test(trimmedUrl)
+    || /(?:^|\/\/)(?:ditu|uri|surl)\.amap\.com\//i.test(trimmedUrl);
+
+  const isSupported = isGoogleMapsUrl || isNaverUrl || isAmapUrl;
+
+  if (!isSupported) {
     return { isValid: false };
   }
+
   
-  // Try to extract place name from various URL formats
+  // Place name extraction is only attempted for Google Maps URLs to avoid
+  // mis-parsing Naver / Amap URL formats. Naver/Amap simply show "連結有效".
   let placeName: string | undefined;
-  
-  // Pattern 1: /place/PlaceName/ format
-  const placeMatch = trimmedUrl.match(/\/place\/([^/@]+)/);
-  if (placeMatch) {
-    placeName = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
-  }
-  
-  // Pattern 2: ?q=PlaceName or query=PlaceName
-  if (!placeName) {
-    const queryMatch = trimmedUrl.match(/[?&](?:q|query)=([^&]+)/);
-    if (queryMatch) {
-      placeName = decodeURIComponent(queryMatch[1].replace(/\+/g, ' '));
+
+  if (isGoogleMapsUrl) {
+    // Pattern 1: /place/PlaceName/ format
+    const placeMatch = trimmedUrl.match(/\/place\/([^/@]+)/);
+    if (placeMatch) {
+      placeName = decodeURIComponent(placeMatch[1].replace(/\+/g, " "));
+    }
+
+    // Pattern 2: ?q=PlaceName or query=PlaceName
+    if (!placeName) {
+      const queryMatch = trimmedUrl.match(/[?&](?:q|query)=([^&]+)/);
+      if (queryMatch) {
+        placeName = decodeURIComponent(queryMatch[1].replace(/\+/g, " "));
+      }
+    }
+
+    // Pattern 3: /search/PlaceName/
+    if (!placeName) {
+      const searchMatch = trimmedUrl.match(/\/search\/([^/@]+)/);
+      if (searchMatch) {
+        placeName = decodeURIComponent(searchMatch[1].replace(/\+/g, " "));
+      }
     }
   }
-  
-  // Pattern 3: /search/PlaceName/
-  if (!placeName) {
-    const searchMatch = trimmedUrl.match(/\/search\/([^/@]+)/);
-    if (searchMatch) {
-      placeName = decodeURIComponent(searchMatch[1].replace(/\+/g, ' '));
-    }
-  }
-  
-  return { 
-    isValid: true, 
-    placeName: placeName || undefined 
+
+  return {
+    isValid: true,
+    placeName: placeName || undefined,
   };
 }
+
 
 export function GoogleMapsInput({ value, onChange, placeName, onPlaceNameChange }: GoogleMapsInputProps) {
   const [inputValue, setInputValue] = useState(value);
@@ -111,14 +127,18 @@ export function GoogleMapsInput({ value, onChange, placeName, onPlaceNameChange 
         <Input
           value={inputValue}
           onChange={handleInputChange}
-          placeholder="貼上 Google Maps 連結..."
+          placeholder="貼上地圖分享連結..."
           className="pl-10 pr-10 rounded-xl h-11"
         />
         {parseResult.isValid && (
           <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
         )}
       </div>
-      
+
+      <p className="text-xs text-muted-foreground pl-1">
+        支援 Google Maps、Naver Map、高德地圖
+      </p>
+
       {/* Status indicator */}
       {inputValue && (
         <div className="flex items-center gap-2 text-sm">
@@ -142,7 +162,7 @@ export function GoogleMapsInput({ value, onChange, placeName, onPlaceNameChange 
           ) : (
             <>
               <MapPin className="w-4 h-4 text-amber-500" />
-              <span className="text-amber-600">請貼上有效的 Google Maps 連結</span>
+              <span className="text-amber-600">請貼上有效的地圖分享連結</span>
             </>
           )}
         </div>
