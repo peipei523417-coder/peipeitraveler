@@ -10,6 +10,7 @@ import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import { useSignedImageUrls } from "@/hooks/useSignedImageUrl";
 import { TimelineIconPicker } from "@/components/TimelineIconPicker";
 import { normalizeMapUrl, openMapUrl } from "@/lib/maps-url";
+import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { toast } from "@/hooks/use-toast";
 
 
@@ -150,10 +151,14 @@ function ItemRow({
                     onClick={async (e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      const normalizedUrl = normalizeMapUrl(item.googleMapsUrl);
+                      // Sanitize first (handles mixed text from Naver/Amap share),
+                      // then normalize via the existing whitelist before opening.
+                      const sanitized = sanitizeMapUrl(item.googleMapsUrl);
+                      const normalizedUrl = normalizeMapUrl(sanitized || item.googleMapsUrl);
                       console.log("[MAP_OPEN]", {
                         title: item.description,
                         map_url: item.googleMapsUrl,
+                        sanitized,
                         normalizedUrl,
                       });
                       if (!normalizedUrl) {
@@ -167,9 +172,6 @@ function ItemRow({
                       const success = await openMapUrl(normalizedUrl);
                       console.log("[MAP_OPEN_RESULT]", { success, normalizedUrl });
 
-                      // Silent fallback: openMapUrl already cascades through
-                      // app → Browser.open → window.location.href. Only surface
-                      // an error if every attempt failed.
                       if (!success) {
                         toast({
                           title: "無法開啟地圖，請稍後再試。",
@@ -179,7 +181,7 @@ function ItemRow({
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
                   >
                     <MapPin className="w-3.5 h-3.5" />
-                    Google Maps
+                    {getMapProviderLabel(sanitizeMapUrl(item.googleMapsUrl) || item.googleMapsUrl)}
                     <ExternalLink className="w-3 h-3" />
                   </button>
                 )}
