@@ -23,7 +23,7 @@ import {
 } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import type { TravelProject, ItineraryItem, DayItinerary, TimelineIconType } from "@/types/travel";
-import { sanitizeMapUrl } from "@/utils/mapLink";
+import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { getSignedImageUrl } from "@/lib/supabase-storage";
 
 // ---------- Constants ----------
