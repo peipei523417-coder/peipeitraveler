@@ -663,42 +663,7 @@ function ProjectDetailInner() {
             readOnly={isViewer}
             isLastDay={itinerary.length > 0 && currentDay.dayNumber === itinerary[itinerary.length - 1]?.dayNumber}
             exportingPdf={exportingPdf}
-            onExportPdf={async () => {
-              if (exportingPdf || !project) return;
-              setExportingPdf(true);
-              const loadingId = toast.loading(t("exportingPdf"));
-              let fontFallbackToastShown = false;
-              try {
-                console.info("[pdf-export] start export click");
-                const { exportProjectToPdf, deliverPdf, buildPdfFilename } = await withTimeout(
-                  import("@/lib/pdf-export"),
-                  8000,
-                  "PDF module import",
-                );
-                const bytes = await withTimeout(
-                  exportProjectToPdf(project, {
-                    onWarning: (warning) => {
-                      if (warning === "font-fallback" && !fontFallbackToastShown) {
-                        fontFallbackToastShown = true;
-                        toast.warning("字型載入較慢，已改用備援字型繼續產生 PDF");
-                      }
-                    },
-                  }),
-                  60000,
-                  "PDF generation",
-                );
-                const filename = buildPdfFilename(project.name, new Date());
-                await withTimeout(deliverPdf(bytes, filename), 15000, "PDF share/download");
-                toast.dismiss(loadingId);
-                toast.success(t("exportPdfSuccess"));
-              } catch (e) {
-                console.error("[pdf-export] failed", e);
-                toast.dismiss(loadingId);
-                toast.error(t("exportPdfFailed"));
-              } finally {
-                setExportingPdf(false);
-              }
-            }}
+            onExportPdf={handleExportPdf}
           />
         )}
       </main>
