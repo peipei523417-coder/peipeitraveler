@@ -861,10 +861,7 @@ async function drawItemCard(
 
   ctx.y = cardBottom - 10;
 }
-  }
 
-  ctx.y = cardBottom - 10;
-}
 
 // ---------- Save / share ----------
 export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"shared" | "downloaded"> {
