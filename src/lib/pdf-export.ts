@@ -824,7 +824,12 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"
     console.info("[pdf-export] share/download fail", { mode: "share", error: e });
   }
   // Fallback: anchor download
-  triggerDownload();
-  console.info("[pdf-export] share/download success", { mode: "download" });
-  return "downloaded";
+  try {
+    triggerDownload();
+    console.info("[pdf-export] share/download success", { mode: "download" });
+    return "downloaded";
+  } catch (e) {
+    console.info("[pdf-export] share/download fail", { mode: "download", error: e });
+    throw e;
+  }
 }
