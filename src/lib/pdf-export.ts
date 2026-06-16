@@ -170,14 +170,21 @@ interface LoadedImage {
   type: "png" | "jpg";
 }
 
-async function loadImage(url: string): Promise<LoadedImage | null> {
+async function loadImage(
+  url: string,
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+): Promise<LoadedImage | null> {
   try {
     let resolved = url;
     if (url.includes("/project-images/") && !url.includes("token=")) {
-      const signed = await getSignedImageUrl(url, 3600);
+      const signed = await withTimeout(getSignedImageUrl(url, 3600), SIGNED_URL_TIMEOUT_MS, "signed URL");
       if (signed) resolved = signed;
     }
-    const res = await fetch(resolved, { cache: "force-cache" });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
+    const res = await fetch(resolved, { cache: "force-cache", signal: controller.signal }).finally(() => {
+      clearTimeout(timer);
+    });
     if (!res.ok) return null;
     const buf = await res.arrayBuffer();
     // Sniff
@@ -186,6 +193,25 @@ async function loadImage(url: string): Promise<LoadedImage | null> {
     return { bytes: buf, type: isPng ? "png" : "jpg" };
   } catch (e) {
     console.warn("[pdf-export] image load failed", e);
+    onWarning?.("image-skipped", e);
+    return null;
+  }
+}
+
+async function embedLoadedImage(
+  doc: PDFDocument,
+  img: LoadedImage,
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+): Promise<PDFImage | null> {
+  try {
+    return await withTimeout(
+      img.type === "png" ? doc.embedPng(img.bytes) : doc.embedJpg(img.bytes),
+      IMAGE_EMBED_TIMEOUT_MS,
+      "image embed",
+    );
+  } catch (e) {
+    console.warn("[pdf-export] image embed failed", e);
+    onWarning?.("image-skipped", e);
     return null;
   }
 }
