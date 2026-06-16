@@ -659,51 +659,66 @@ async function drawItemCard(
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
 ) {
   const { page, font, fontBold, doc } = ctx;
-  const padX = 14;
-  const padY = 12;
-  const innerW = CONTENT_W - padX * 2;
+  const padX = 16;
+  const padY = 14;
+  const iconColW = 26; // colored badge column on the left of the text
+  const accentW = 5;
+  const textX = MARGIN + accentW + padX + iconColW;
+  const innerW = CONTENT_W - accentW - padX * 2 - iconColW;
 
-  // Precompute content height
-  const timeStr = item.startTime ? `${item.startTime} - ${item.endTime || item.startTime}` : "未設定時間";
-  const descLines = wrapText(item.description || "", font, 11, innerW);
+  // ---- Data prep ----
+  const timeStr = item.startTime
+    ? `${item.startTime}${item.endTime ? " - " + item.endTime : ""}`
+    : "未設定時間";
+  const description = (item.description || "").trim();
+  const descSize = 12.5;
+  const descLineH = 17;
+  const descLines = description ? wrapText(description, fontBold, descSize, innerW) : [];
   const hasPrice = !!item.price && item.price > 0;
+  const persons = item.persons || 1;
+  const perPersonValue = hasPrice ? Math.round(item.price! / persons) : 0;
   const priceLine = hasPrice
-    ? `$${item.price!.toLocaleString()} / ${item.persons || 1} 人`
+    ? `$${item.price!.toLocaleString()} / ${persons} 人  =  $${perPersonValue.toLocaleString()} / 人`
     : "";
   const mapUrl = item.googleMapsUrl ? sanitizeMapUrl(item.googleMapsUrl) : null;
+  const mapLabel = mapUrl ? `${getMapProviderLabel(mapUrl)}（點擊開啟）` : "";
 
-  // Try image
+  // ---- Image ----
   let img: Awaited<ReturnType<typeof loadImage>> = null;
   let imgEmbed: PDFImage | null = null;
   if (item.imageUrl) {
     img = await loadImage(item.imageUrl, onWarning);
-    if (img) {
-      imgEmbed = await embedLoadedImage(doc, img, onWarning);
+    if (img) imgEmbed = await embedLoadedImage(doc, img, onWarning);
+  }
+  const imgMaxH = 170;
+  const imgMaxW = Math.min(innerW, 260);
+  let drawImgW = 0;
+  let drawImgH = 0;
+  if (imgEmbed) {
+    const ratio = imgEmbed.width / imgEmbed.height;
+    drawImgW = imgMaxW;
+    drawImgH = drawImgW / ratio;
+    if (drawImgH > imgMaxH) {
+      drawImgH = imgMaxH;
+      drawImgW = drawImgH * ratio;
     }
   }
 
-  const imgH = imgEmbed ? Math.min(150, (innerW * imgEmbed.height) / imgEmbed.width) : 0;
-
-  const cardH =
-    padY +
-    18 + // time row
-    6 +
-    descLines.length * 15 +
-    (hasPrice ? 22 : 4) +
-    (mapUrl ? 22 : 0) +
-    (imgEmbed ? imgH + 10 : 0) +
-    padY;
+  // ---- Height calc ----
+  const timeRowH = 18;
+  const descBlockH = Math.max(descLines.length, 1) * descLineH;
+  const priceH = hasPrice ? 18 : 0;
+  const mapH = mapUrl ? 20 : 0;
+  const imgBlockH = imgEmbed ? drawImgH + 10 : 0;
+  const cardH = padY + timeRowH + 6 + descBlockH + priceH + mapH + imgBlockH + padY;
 
   ensureSpace(ctx, cardH + 10);
-  // If image alone won't fit on same page either, new page
-  if (ctx.y - cardH < MARGIN) {
-    newPage(ctx);
-  }
+  if (ctx.y - cardH < MARGIN) newPage(ctx);
 
   const cardTop = ctx.y;
   const cardBottom = ctx.y - cardH;
 
-  // Background (highlight color or white)
+  // ---- Card background (white; highlight is shown as left accent + badge) ----
   const bg =
     item.highlightColor && item.highlightColor !== "none"
       ? HIGHLIGHT_RGB[item.highlightColor] ?? WHITE
@@ -718,30 +733,51 @@ async function drawItemCard(
     borderWidth: 0.8,
   });
 
-  // Left color bar
+  // Left accent bar — uses highlight color when set, otherwise primary
+  const accentColor =
+    item.highlightColor && item.highlightColor !== "none"
+      ? HIGHLIGHT_BAR[item.highlightColor] ?? PRIMARY
+      : PRIMARY;
   page.drawRectangle({
     x: MARGIN,
     y: cardBottom,
-    width: 4,
+    width: accentW,
     height: cardH,
-    color: PRIMARY,
+    color: accentColor,
   });
 
-  let cy = cardTop - padY - 12;
+  // ---- Icon badge (always drawn, never blank) ----
+  const iconType: TimelineIconType = item.iconType ?? "default";
+  const iconChar = ICON_SYMBOL[iconType];
+  const iconColor = ICON_COLOR[iconType] ?? PRIMARY;
+  const badgeR = 10;
+  const badgeCx = MARGIN + accentW + padX + badgeR;
+  const badgeCy = cardTop - padY - badgeR - 2;
+  page.drawCircle({
+    x: badgeCx,
+    y: badgeCy,
+    size: badgeR,
+    color: iconColor,
+  });
+  // Char inside badge (centered approximately)
+  const charSize = 11;
+  const cw = (() => {
+    try {
+      return fontBold.widthOfTextAtSize(iconChar, charSize);
+    } catch {
+      return charSize * 0.9;
+    }
+  })();
+  safeDrawText(page, iconChar, {
+    x: badgeCx - cw / 2,
+    y: badgeCy - charSize / 2 + 1,
+    size: charSize,
+    font: fontBold,
+    color: WHITE,
+  });
 
-  // Icon + time
-  const icon = item.iconType ? ICON_SYMBOL[item.iconType] : null;
-  let textX = MARGIN + padX;
-  if (icon) {
-    safeDrawText(page, icon, {
-      x: textX,
-      y: cy,
-      size: 12,
-      font: fontBold,
-      color: PRIMARY,
-    });
-    textX += 16;
-  }
+  // ---- Time (primary, bold) ----
+  let cy = cardTop - padY - 12;
   safeDrawText(page, timeStr, {
     x: textX,
     y: cy,
@@ -749,65 +785,82 @@ async function drawItemCard(
     font: fontBold,
     color: PRIMARY,
   });
-  cy -= 18;
+  cy -= timeRowH;
 
-  // Description
-  for (const line of descLines) {
-    safeDrawText(page, line, { x: MARGIN + padX, y: cy, size: 11, font, color: TEXT });
-    cy -= 15;
+  // ---- Description (the trip "title" — bold, larger) ----
+  if (descLines.length === 0) {
+    safeDrawText(page, "（未填寫描述）", {
+      x: textX,
+      y: cy,
+      size: descSize,
+      font,
+      color: MUTED,
+    });
+    cy -= descLineH;
+  } else {
+    for (const line of descLines) {
+      safeDrawText(page, line, {
+        x: textX,
+        y: cy,
+        size: descSize,
+        font: fontBold,
+        color: TEXT,
+      });
+      cy -= descLineH;
+    }
   }
 
-  // Price
+  // ---- Price ----
   if (hasPrice) {
-    cy -= 4;
     safeDrawText(page, priceLine, {
-      x: MARGIN + padX,
+      x: textX,
       y: cy,
       size: 10.5,
       font,
       color: MUTED,
     });
-    cy -= 18;
+    cy -= priceH;
   }
 
-  // Map link
+  // ---- Map link (provider-labelled, clickable) ----
   if (mapUrl) {
-    const linkText = "🔗 開啟地圖";
-    const safeText = "開啟地圖"; // emoji may be missing; render plain then add link
-    safeDrawText(page, safeText, {
-      x: MARGIN + padX,
+    const linkSize = 11;
+    safeDrawText(page, mapLabel, {
+      x: textX,
       y: cy,
-      size: 11,
+      size: linkSize,
       font: fontBold,
       color: PRIMARY,
     });
-    const w = font.widthOfTextAtSize(safeText, 11);
-    // Underline
+    let lw = 0;
+    try {
+      lw = fontBold.widthOfTextAtSize(mapLabel, linkSize);
+    } catch {
+      lw = mapLabel.length * linkSize * 0.9;
+    }
     page.drawLine({
-      start: { x: MARGIN + padX, y: cy - 2 },
-      end: { x: MARGIN + padX + w, y: cy - 2 },
+      start: { x: textX, y: cy - 2 },
+      end: { x: textX + lw, y: cy - 2 },
       thickness: 0.6,
       color: PRIMARY,
     });
-    addLinkAnnotation(page, mapUrl, MARGIN + padX - 2, cy - 4, w + 4, 16);
-    cy -= 18;
-    void linkText;
+    addLinkAnnotation(page, mapUrl, textX - 2, cy - 4, lw + 4, 16);
+    cy -= mapH;
   }
 
-  // Image
+  // ---- Image (aspect preserved) ----
   if (imgEmbed) {
-    cy -= 4;
-    const w = innerW;
-    const h = (w * imgEmbed.height) / imgEmbed.width;
-    const drawH = Math.min(h, 150);
-    const drawW = (drawH * imgEmbed.width) / imgEmbed.height;
     page.drawImage(imgEmbed, {
-      x: MARGIN + padX,
-      y: cy - drawH,
-      width: drawW,
-      height: drawH,
+      x: textX,
+      y: cy - drawImgH,
+      width: drawImgW,
+      height: drawImgH,
     });
-    cy -= drawH + 6;
+    cy -= drawImgH + 10;
+  }
+
+  ctx.y = cardBottom - 10;
+}
   }
 
   ctx.y = cardBottom - 10;
