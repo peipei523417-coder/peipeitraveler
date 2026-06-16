@@ -55,6 +55,7 @@ function ProjectDetailInner() {
   const [expiryWarningOpen, setExpiryWarningOpen] = useState(false);
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [overviewOpen, setOverviewOpen] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   
   // Track if we're currently performing a local update to skip realtime reload
   const isLocalUpdateRef = useRef(false);
@@ -649,6 +650,26 @@ function ProjectDetailInner() {
             onReorderNoTimeItems={isViewer ? undefined : handleReorderNoTimeItems}
             readOnly={isViewer}
             isLastDay={itinerary.length > 0 && currentDay.dayNumber === itinerary[itinerary.length - 1]?.dayNumber}
+            exportingPdf={exportingPdf}
+            onExportPdf={async () => {
+              if (exportingPdf || !project) return;
+              setExportingPdf(true);
+              const loadingId = toast.loading(t("exportingPdf"));
+              try {
+                const { exportProjectToPdf, deliverPdf, buildPdfFilename } = await import("@/lib/pdf-export");
+                const bytes = await exportProjectToPdf(project);
+                const filename = buildPdfFilename(project.name, new Date());
+                await deliverPdf(bytes, filename);
+                toast.dismiss(loadingId);
+                toast.success(t("exportPdfSuccess"));
+              } catch (e) {
+                console.error("[pdf-export] failed", e);
+                toast.dismiss(loadingId);
+                toast.error(t("exportPdfFailed"));
+              } finally {
+                setExportingPdf(false);
+              }
+            }}
           />
         )}
       </main>
