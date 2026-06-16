@@ -461,7 +461,12 @@ export async function exportProjectToPdf(
 }
 
 // ---------- Cover ----------
-async function drawCover(ctx: Ctx, project: TravelProject, now: Date) {
+async function drawCover(
+  ctx: Ctx,
+  project: TravelProject,
+  now: Date,
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+) {
   const { page, font, fontBold } = ctx;
 
   // Top accent bar
@@ -495,7 +500,7 @@ async function drawCover(ctx: Ctx, project: TravelProject, now: Date) {
 
   // Cover image
   if (project.coverImageUrl) {
-    const img = await loadImage(project.coverImageUrl);
+    const img = await loadImage(project.coverImageUrl, onWarning);
     if (img) {
       try {
         const embedded =
@@ -600,7 +605,11 @@ function drawDayHeader(ctx: Ctx, day: DayItinerary) {
 }
 
 // ---------- Item card ----------
-async function drawItemCard(ctx: Ctx, item: ItineraryItem) {
+async function drawItemCard(
+  ctx: Ctx,
+  item: ItineraryItem,
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+) {
   const { page, font, fontBold, doc } = ctx;
   const padX = 14;
   const padY = 12;
