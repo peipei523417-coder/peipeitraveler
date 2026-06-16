@@ -502,11 +502,8 @@ async function drawCover(
   if (project.coverImageUrl) {
     const img = await loadImage(project.coverImageUrl, onWarning);
     if (img) {
-      try {
-        const embedded =
-          img.type === "png"
-            ? await ctx.doc.embedPng(img.bytes)
-            : await ctx.doc.embedJpg(img.bytes);
+      const embedded = await embedLoadedImage(ctx.doc, img, onWarning);
+      if (embedded) {
         const maxH = 280;
         const maxW = CONTENT_W;
         const ratio = embedded.width / embedded.height;
@@ -519,8 +516,6 @@ async function drawCover(
         const x = MARGIN + (CONTENT_W - w) / 2;
         page.drawImage(embedded, { x, y: ctx.y - h, width: w, height: h });
         ctx.y -= h + 20;
-      } catch (e) {
-        console.warn("[pdf-export] cover embed failed", e);
       }
     }
   }
@@ -626,17 +621,11 @@ async function drawItemCard(
 
   // Try image
   let img: Awaited<ReturnType<typeof loadImage>> = null;
-  let imgEmbed: Awaited<ReturnType<typeof doc.embedPng>> | Awaited<ReturnType<typeof doc.embedJpg>> | null = null;
+  let imgEmbed: PDFImage | null = null;
   if (item.imageUrl) {
-    img = await loadImage(item.imageUrl);
+    img = await loadImage(item.imageUrl, onWarning);
     if (img) {
-      try {
-        imgEmbed =
-          img.type === "png" ? await doc.embedPng(img.bytes) : await doc.embedJpg(img.bytes);
-      } catch (e) {
-        console.warn("[pdf-export] item image embed failed", e);
-        imgEmbed = null;
-      }
+      imgEmbed = await embedLoadedImage(doc, img, onWarning);
     }
   }
 
