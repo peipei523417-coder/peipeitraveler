@@ -383,23 +383,23 @@ function ensureSpace(ctx: Ctx, needed: number) {
 export interface ExportOptions {
   /** Optional override of "now" — defaults to current time, used in cover. */
   now?: Date;
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void;
 }
 
 export async function exportProjectToPdf(
   project: TravelProject,
   opts: ExportOptions = {},
 ): Promise<Uint8Array> {
-  const { regular, bold } = await loadFonts();
+  console.info("[pdf-export] start export", { projectId: project.id, projectName: project.name });
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const font = await doc.embedFont(regular, { subset: true });
-  const fontBold = await doc.embedFont(bold, { subset: true });
+  const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
 
   const page = doc.addPage([PAGE_W, PAGE_H]);
   const ctx: Ctx = { doc, font, fontBold, page, y: PAGE_H - MARGIN };
 
   // ============ COVER ============
-  await drawCover(ctx, project, opts.now ?? new Date());
+  await drawCover(ctx, project, opts.now ?? new Date(), opts.onWarning);
 
   // ============ EACH DAY ============
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
@@ -427,7 +427,7 @@ export async function exportProjectToPdf(
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     const ordered = [...wt, ...wo];
     for (const item of ordered) {
-      await drawItemCard(ctx, item);
+      await drawItemCard(ctx, item, opts.onWarning);
     }
 
     // Day total
@@ -455,7 +455,9 @@ export async function exportProjectToPdf(
     }
   }
 
-  return await doc.save();
+  const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
+  console.info("[pdf-export] create pdf success", { bytes: bytes.length, pages: doc.getPageCount() });
+  return bytes;
 }
 
 // ---------- Cover ----------
