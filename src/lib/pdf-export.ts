@@ -1,0 +1,689 @@
+/**
+ * PDF export for a TravelProject.
+ *
+ * Stability-first design:
+ *   - Uses pdf-lib + fontkit (Noto Sans TC) for real TC support and real
+ *     clickable link annotations (works on iOS Files, Android viewers, etc.).
+ *   - Font files are fetched on-demand from a public CDN and cached in-memory
+ *     for the session. They are ~6 MB total; the bundle stays light.
+ *   - Image loading failures are isolated per-image. The PDF still succeeds.
+ *   - All link URLs are sanitized before being written into PDF annotations.
+ */
+
+import {
+  PDFDocument,
+  PDFFont,
+  PDFPage,
+  rgb,
+  PDFName,
+  PDFString,
+  PDFArray,
+} from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import type { TravelProject, ItineraryItem, DayItinerary, TimelineIconType } from "@/types/travel";
+import { sanitizeMapUrl } from "@/utils/mapLink";
+import { getSignedImageUrl } from "@/lib/supabase-storage";
+
+// ---------- Constants ----------
+const FONT_REGULAR_URL =
+  "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Regular.otf";
+const FONT_BOLD_URL =
+  "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf";
+
+// A4
+const PAGE_W = 595.28;
+const PAGE_H = 841.89;
+const MARGIN = 40;
+const CONTENT_W = PAGE_W - MARGIN * 2;
+
+// PeiTravel primary blue (≈ hsl(200 98% 39%))
+const PRIMARY = rgb(0.008, 0.522, 0.78);
+const PRIMARY_LIGHT = rgb(0.86, 0.94, 0.99);
+const TEXT = rgb(0.07, 0.09, 0.15);
+const MUTED = rgb(0.42, 0.46, 0.55);
+const CARD_BORDER = rgb(0.85, 0.88, 0.92);
+const WHITE = rgb(1, 1, 1);
+
+// Highlight color → light card background
+const HIGHLIGHT_RGB: Record<string, ReturnType<typeof rgb>> = {
+  yellow: rgb(1.0, 0.97, 0.78),
+  green: rgb(0.85, 0.96, 0.86),
+  blue: rgb(0.84, 0.93, 1.0),
+  pink: rgb(1.0, 0.88, 0.94),
+  purple: rgb(0.92, 0.87, 0.98),
+  orange: rgb(1.0, 0.9, 0.78),
+};
+
+// Icon → short symbol (chars that exist in Noto Sans TC).
+const ICON_SYMBOL: Record<TimelineIconType, string> = {
+  default: "●",
+  heart: "♥",
+  utensils: "★",
+  house: "■",
+  star: "★",
+  alert: "!",
+  question: "?",
+  car: "▲",
+};
+
+// ---------- Font loading (cached in module + sessionStorage-safe) ----------
+let fontRegularBytes: ArrayBuffer | null = null;
+let fontBoldBytes: ArrayBuffer | null = null;
+
+async function fetchBuffer(url: string): Promise<ArrayBuffer> {
+  const res = await fetch(url, { cache: "force-cache" });
+  if (!res.ok) throw new Error(`font fetch failed: ${res.status}`);
+  return await res.arrayBuffer();
+}
+
+async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer }> {
+  if (!fontRegularBytes || !fontBoldBytes) {
+    const [r, b] = await Promise.all([
+      fontRegularBytes ?? fetchBuffer(FONT_REGULAR_URL),
+      fontBoldBytes ?? fetchBuffer(FONT_BOLD_URL),
+    ]);
+    fontRegularBytes = r;
+    fontBoldBytes = b;
+  }
+  return { regular: fontRegularBytes!, bold: fontBoldBytes! };
+}
+
+// ---------- Image loading ----------
+interface LoadedImage {
+  bytes: ArrayBuffer;
+  type: "png" | "jpg";
+}
+
+async function loadImage(url: string): Promise<LoadedImage | null> {
+  try {
+    let resolved = url;
+    if (url.includes("/project-images/") && !url.includes("token=")) {
+      const signed = await getSignedImageUrl(url, 3600);
+      if (signed) resolved = signed;
+    }
+    const res = await fetch(resolved, { cache: "force-cache" });
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    // Sniff
+    const head = new Uint8Array(buf.slice(0, 4));
+    const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+    return { bytes: buf, type: isPng ? "png" : "jpg" };
+  } catch (e) {
+    console.warn("[pdf-export] image load failed", e);
+    return null;
+  }
+}
+
+// ---------- Text layout helpers ----------
+
+/** Char-by-char width-aware wrap (works for CJK without spaces and for ASCII). */
+function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+  const lines: string[] = [];
+  const paragraphs = text.split("\n");
+  for (const para of paragraphs) {
+    if (para === "") {
+      lines.push("");
+      continue;
+    }
+    let current = "";
+    for (const ch of Array.from(para)) {
+      const candidate = current + ch;
+      let w = 0;
+      try {
+        w = font.widthOfTextAtSize(candidate, size);
+      } catch {
+        // Glyph missing — skip char
+        continue;
+      }
+      if (w > maxWidth && current.length > 0) {
+        lines.push(current);
+        current = ch;
+      } else {
+        current = candidate;
+      }
+    }
+    if (current) lines.push(current);
+  }
+  return lines;
+}
+
+/** Try-safe drawText that skips missing glyphs by stripping them char by char. */
+function safeDrawText(
+  page: PDFPage,
+  text: string,
+  opts: { x: number; y: number; size: number; font: PDFFont; color?: ReturnType<typeof rgb> },
+) {
+  try {
+    page.drawText(text, { x: opts.x, y: opts.y, size: opts.size, font: opts.font, color: opts.color });
+  } catch {
+    // Fallback: filter unsupported characters
+    const filtered = Array.from(text)
+      .filter((ch) => {
+        try {
+          opts.font.widthOfTextAtSize(ch, opts.size);
+          return true;
+        } catch {
+          return false;
+        }
+      })
+      .join("");
+    if (filtered) {
+      try {
+        page.drawText(filtered, { x: opts.x, y: opts.y, size: opts.size, font: opts.font, color: opts.color });
+      } catch {
+        /* give up silently */
+      }
+    }
+  }
+}
+
+// ---------- Link annotation ----------
+function addLinkAnnotation(
+  page: PDFPage,
+  url: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  const doc = page.doc;
+  const linkDict = doc.context.obj({
+    Type: "Annot",
+    Subtype: "Link",
+    Rect: [x, y, x + width, y + height],
+    Border: [0, 0, 0],
+    A: {
+      Type: "Action",
+      S: "URI",
+      URI: PDFString.of(url),
+    },
+  });
+  const linkRef = doc.context.register(linkDict);
+  const existing = page.node.lookup(PDFName.of("Annots"), PDFArray);
+  if (existing) {
+    existing.push(linkRef);
+  } else {
+    const arr = doc.context.obj([linkRef]) as PDFArray;
+    page.node.set(PDFName.of("Annots"), arr);
+  }
+}
+
+// ---------- Date helpers ----------
+function safeDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+  try {
+    const d = new Date(value as string);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
+function fmtDateYMD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
+}
+
+function fmtDateCompact(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
+}
+
+const WEEKDAY_ZH = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+
+// ---------- Filename ----------
+export function buildPdfFilename(projectName: string, date: Date): string {
+  const cleaned = (projectName || "trip")
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "")
+    .replace(/\s+/g, "_")
+    .trim()
+    .slice(0, 40) || "trip";
+  return `${cleaned}_${fmtDateCompact(date)}.pdf`;
+}
+
+// ---------- Per-item cost helpers (mirror ItineraryList) ----------
+function perPerson(item: ItineraryItem): number {
+  if (!item.price || item.price <= 0) return 0;
+  const p = item.persons || 1;
+  return Math.round(item.price / p);
+}
+
+function dayTotal(items: ItineraryItem[]): number {
+  return items.reduce((s, i) => s + perPerson(i), 0);
+}
+
+// ---------- Page management ----------
+interface Ctx {
+  doc: PDFDocument;
+  font: PDFFont;
+  fontBold: PDFFont;
+  page: PDFPage;
+  y: number; // current top y of next content
+}
+
+function newPage(ctx: Ctx) {
+  ctx.page = ctx.doc.addPage([PAGE_W, PAGE_H]);
+  ctx.y = PAGE_H - MARGIN;
+}
+
+function ensureSpace(ctx: Ctx, needed: number) {
+  if (ctx.y - needed < MARGIN) {
+    newPage(ctx);
+  }
+}
+
+// ---------- Main export ----------
+export interface ExportOptions {
+  /** Optional override of "now" — defaults to current time, used in cover. */
+  now?: Date;
+}
+
+export async function exportProjectToPdf(
+  project: TravelProject,
+  opts: ExportOptions = {},
+): Promise<Uint8Array> {
+  const { regular, bold } = await loadFonts();
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
+  const font = await doc.embedFont(regular, { subset: true });
+  const fontBold = await doc.embedFont(bold, { subset: true });
+
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+  const ctx: Ctx = { doc, font, fontBold, page, y: PAGE_H - MARGIN };
+
+  // ============ COVER ============
+  await drawCover(ctx, project, opts.now ?? new Date());
+
+  // ============ EACH DAY ============
+  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
+  for (const day of itinerary) {
+    if (!day) continue;
+    newPage(ctx);
+    drawDayHeader(ctx, day);
+    const items = Array.isArray(day.items) ? day.items : [];
+    if (items.length === 0) {
+      ensureSpace(ctx, 40);
+      safeDrawText(ctx.page, "（這天沒有行程）", {
+        x: MARGIN,
+        y: ctx.y - 20,
+        size: 11,
+        font,
+        color: MUTED,
+      });
+      ctx.y -= 40;
+      continue;
+    }
+    // sort: with-time first by start, then no-time by sortOrder
+    const wt = items.filter((i) => !!i.startTime).sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const wo = items
+      .filter((i) => !i.startTime)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const ordered = [...wt, ...wo];
+    for (const item of ordered) {
+      await drawItemCard(ctx, item);
+    }
+
+    // Day total
+    const total = dayTotal(items);
+    if (total > 0) {
+      ensureSpace(ctx, 30);
+      ctx.y -= 8;
+      const label = `當日合計：$${total.toLocaleString()}`;
+      const w = fontBold.widthOfTextAtSize(label, 12);
+      ctx.page.drawRectangle({
+        x: MARGIN,
+        y: ctx.y - 22,
+        width: w + 20,
+        height: 22,
+        color: PRIMARY_LIGHT,
+      });
+      safeDrawText(ctx.page, label, {
+        x: MARGIN + 10,
+        y: ctx.y - 17,
+        size: 12,
+        font: fontBold,
+        color: PRIMARY,
+      });
+      ctx.y -= 32;
+    }
+  }
+
+  return await doc.save();
+}
+
+// ---------- Cover ----------
+async function drawCover(ctx: Ctx, project: TravelProject, now: Date) {
+  const { page, font, fontBold } = ctx;
+
+  // Top accent bar
+  page.drawRectangle({
+    x: 0,
+    y: PAGE_H - 6,
+    width: PAGE_W,
+    height: 6,
+    color: PRIMARY,
+  });
+
+  ctx.y = PAGE_H - 50;
+
+  // Title
+  const titleLines = wrapText(project.name || "未命名行程", fontBold, 24, CONTENT_W);
+  for (const line of titleLines.slice(0, 3)) {
+    safeDrawText(page, line, { x: MARGIN, y: ctx.y - 24, size: 24, font: fontBold, color: TEXT });
+    ctx.y -= 32;
+  }
+  ctx.y -= 4;
+
+  // Date range
+  const sd = safeDate(project.startDate);
+  const ed = safeDate(project.endDate);
+  if (sd && ed) {
+    const days = Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1;
+    const range = `${fmtDateYMD(sd)}  -  ${fmtDateYMD(ed)}  ・  共 ${days} 天`;
+    safeDrawText(page, range, { x: MARGIN, y: ctx.y - 14, size: 12, font, color: MUTED });
+    ctx.y -= 24;
+  }
+
+  // Cover image
+  if (project.coverImageUrl) {
+    const img = await loadImage(project.coverImageUrl);
+    if (img) {
+      try {
+        const embedded =
+          img.type === "png"
+            ? await ctx.doc.embedPng(img.bytes)
+            : await ctx.doc.embedJpg(img.bytes);
+        const maxH = 280;
+        const maxW = CONTENT_W;
+        const ratio = embedded.width / embedded.height;
+        let w = maxW;
+        let h = w / ratio;
+        if (h > maxH) {
+          h = maxH;
+          w = h * ratio;
+        }
+        const x = MARGIN + (CONTENT_W - w) / 2;
+        page.drawImage(embedded, { x, y: ctx.y - h, width: w, height: h });
+        ctx.y -= h + 20;
+      } catch (e) {
+        console.warn("[pdf-export] cover embed failed", e);
+      }
+    }
+  }
+
+  // Totals box
+  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
+  const allItems = itinerary.flatMap((d) => (Array.isArray(d?.items) ? d.items : []));
+  const totalPerPerson = allItems.reduce((s, i) => s + perPerson(i), 0);
+  const totalRaw = allItems.reduce((s, i) => s + (i.price ?? 0), 0);
+  const maxPersons = allItems.reduce((m, i) => Math.max(m, i.persons || 1), 1);
+
+  ctx.y -= 8;
+  const boxH = 90;
+  ensureSpace(ctx, boxH + 20);
+  page.drawRectangle({
+    x: MARGIN,
+    y: ctx.y - boxH,
+    width: CONTENT_W,
+    height: boxH,
+    color: PRIMARY_LIGHT,
+    borderColor: PRIMARY,
+    borderWidth: 1,
+  });
+  const lineH = 18;
+  let ty = ctx.y - 22;
+  const stats: Array<[string, string]> = [
+    ["總金額", `$${totalRaw.toLocaleString()}`],
+    ["單人總額", `$${totalPerPerson.toLocaleString()}`],
+    ["人數", `${maxPersons} 人`],
+    ["匯出日期", fmtDateYMD(now)],
+  ];
+  for (const [k, v] of stats) {
+    safeDrawText(page, k, { x: MARGIN + 16, y: ty, size: 11, font, color: MUTED });
+    safeDrawText(page, v, { x: MARGIN + 110, y: ty, size: 11, font: fontBold, color: TEXT });
+    ty -= lineH;
+  }
+  ctx.y -= boxH + 12;
+
+  // Footer note
+  safeDrawText(ctx.page, "由 PeiTravel 產生", {
+    x: MARGIN,
+    y: MARGIN - 10,
+    size: 9,
+    font,
+    color: MUTED,
+  });
+}
+
+// ---------- Day header ----------
+function drawDayHeader(ctx: Ctx, day: DayItinerary) {
+  const { page, fontBold } = ctx;
+  const headerH = 44;
+  ensureSpace(ctx, headerH + 8);
+  page.drawRectangle({
+    x: MARGIN,
+    y: ctx.y - headerH,
+    width: CONTENT_W,
+    height: headerH,
+    color: PRIMARY,
+  });
+  const date = safeDate(day.date);
+  const dayLabel = `Day ${day.dayNumber}`;
+  safeDrawText(page, dayLabel, {
+    x: MARGIN + 16,
+    y: ctx.y - 28,
+    size: 18,
+    font: fontBold,
+    color: WHITE,
+  });
+  if (date) {
+    const sub = `${fmtDateYMD(date)}  ${WEEKDAY_ZH[date.getDay()]}`;
+    const w = ctx.font.widthOfTextAtSize(sub, 11);
+    safeDrawText(page, sub, {
+      x: MARGIN + CONTENT_W - 16 - w,
+      y: ctx.y - 28,
+      size: 11,
+      font: ctx.font,
+      color: WHITE,
+    });
+  }
+  ctx.y -= headerH + 12;
+}
+
+// ---------- Item card ----------
+async function drawItemCard(ctx: Ctx, item: ItineraryItem) {
+  const { page, font, fontBold, doc } = ctx;
+  const padX = 14;
+  const padY = 12;
+  const innerW = CONTENT_W - padX * 2;
+
+  // Precompute content height
+  const timeStr = item.startTime ? `${item.startTime} - ${item.endTime || item.startTime}` : "未設定時間";
+  const descLines = wrapText(item.description || "", font, 11, innerW);
+  const hasPrice = !!item.price && item.price > 0;
+  const priceLine = hasPrice
+    ? `$${item.price!.toLocaleString()} / ${item.persons || 1} 人`
+    : "";
+  const mapUrl = item.googleMapsUrl ? sanitizeMapUrl(item.googleMapsUrl) : null;
+
+  // Try image
+  let img: Awaited<ReturnType<typeof loadImage>> = null;
+  let imgEmbed: Awaited<ReturnType<typeof doc.embedPng>> | Awaited<ReturnType<typeof doc.embedJpg>> | null = null;
+  if (item.imageUrl) {
+    img = await loadImage(item.imageUrl);
+    if (img) {
+      try {
+        imgEmbed =
+          img.type === "png" ? await doc.embedPng(img.bytes) : await doc.embedJpg(img.bytes);
+      } catch (e) {
+        console.warn("[pdf-export] item image embed failed", e);
+        imgEmbed = null;
+      }
+    }
+  }
+
+  const imgH = imgEmbed ? Math.min(150, (innerW * imgEmbed.height) / imgEmbed.width) : 0;
+
+  const cardH =
+    padY +
+    18 + // time row
+    6 +
+    descLines.length * 15 +
+    (hasPrice ? 22 : 4) +
+    (mapUrl ? 22 : 0) +
+    (imgEmbed ? imgH + 10 : 0) +
+    padY;
+
+  ensureSpace(ctx, cardH + 10);
+  // If image alone won't fit on same page either, new page
+  if (ctx.y - cardH < MARGIN) {
+    newPage(ctx);
+  }
+
+  const cardTop = ctx.y;
+  const cardBottom = ctx.y - cardH;
+
+  // Background (highlight color or white)
+  const bg =
+    item.highlightColor && item.highlightColor !== "none"
+      ? HIGHLIGHT_RGB[item.highlightColor] ?? WHITE
+      : WHITE;
+  page.drawRectangle({
+    x: MARGIN,
+    y: cardBottom,
+    width: CONTENT_W,
+    height: cardH,
+    color: bg,
+    borderColor: CARD_BORDER,
+    borderWidth: 0.8,
+  });
+
+  // Left color bar
+  page.drawRectangle({
+    x: MARGIN,
+    y: cardBottom,
+    width: 4,
+    height: cardH,
+    color: PRIMARY,
+  });
+
+  let cy = cardTop - padY - 12;
+
+  // Icon + time
+  const icon = item.iconType ? ICON_SYMBOL[item.iconType] : null;
+  let textX = MARGIN + padX;
+  if (icon) {
+    safeDrawText(page, icon, {
+      x: textX,
+      y: cy,
+      size: 12,
+      font: fontBold,
+      color: PRIMARY,
+    });
+    textX += 16;
+  }
+  safeDrawText(page, timeStr, {
+    x: textX,
+    y: cy,
+    size: 12,
+    font: fontBold,
+    color: PRIMARY,
+  });
+  cy -= 18;
+
+  // Description
+  for (const line of descLines) {
+    safeDrawText(page, line, { x: MARGIN + padX, y: cy, size: 11, font, color: TEXT });
+    cy -= 15;
+  }
+
+  // Price
+  if (hasPrice) {
+    cy -= 4;
+    safeDrawText(page, priceLine, {
+      x: MARGIN + padX,
+      y: cy,
+      size: 10.5,
+      font,
+      color: MUTED,
+    });
+    cy -= 18;
+  }
+
+  // Map link
+  if (mapUrl) {
+    const linkText = "🔗 開啟地圖";
+    const safeText = "開啟地圖"; // emoji may be missing; render plain then add link
+    safeDrawText(page, safeText, {
+      x: MARGIN + padX,
+      y: cy,
+      size: 11,
+      font: fontBold,
+      color: PRIMARY,
+    });
+    const w = font.widthOfTextAtSize(safeText, 11);
+    // Underline
+    page.drawLine({
+      start: { x: MARGIN + padX, y: cy - 2 },
+      end: { x: MARGIN + padX + w, y: cy - 2 },
+      thickness: 0.6,
+      color: PRIMARY,
+    });
+    addLinkAnnotation(page, mapUrl, MARGIN + padX - 2, cy - 4, w + 4, 16);
+    cy -= 18;
+    void linkText;
+  }
+
+  // Image
+  if (imgEmbed) {
+    cy -= 4;
+    const w = innerW;
+    const h = (w * imgEmbed.height) / imgEmbed.width;
+    const drawH = Math.min(h, 150);
+    const drawW = (drawH * imgEmbed.width) / imgEmbed.height;
+    page.drawImage(imgEmbed, {
+      x: MARGIN + padX,
+      y: cy - drawH,
+      width: drawW,
+      height: drawH,
+    });
+    cy -= drawH + 6;
+  }
+
+  ctx.y = cardBottom - 10;
+}
+
+// ---------- Save / share ----------
+export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"shared" | "downloaded"> {
+  const blob = new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
+  // Try Web Share with file (works on iOS Safari & some Android browsers).
+  try {
+    const file = new File([blob], filename, { type: "application/pdf" });
+    const nav = navigator as Navigator & {
+      canShare?: (data: { files?: File[] }) => boolean;
+      share?: (data: { files?: File[]; title?: string }) => Promise<void>;
+    };
+    if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
+      await nav.share({ files: [file], title: filename });
+      return "shared";
+    }
+  } catch (e) {
+    // user cancel or share unsupported — fall through to download
+    console.warn("[pdf-export] share fallback", e);
+  }
+  // Fallback: anchor download
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return "downloaded";
+}

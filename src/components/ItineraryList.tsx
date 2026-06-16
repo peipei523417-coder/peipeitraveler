@@ -41,6 +41,8 @@ interface ItineraryListProps {
   onReorderNoTimeItems?: (dayNumber: number, orderedIds: string[]) => void;
   readOnly?: boolean;
   isLastDay?: boolean;
+  onExportPdf?: () => void;
+  exportingPdf?: boolean;
 }
 
 function getHighlightClass(color?: string): string {
@@ -273,6 +275,8 @@ export function ItineraryList({
   onReorderNoTimeItems,
   readOnly = false,
   isLastDay = false,
+  onExportPdf,
+  exportingPdf = false,
 }: ItineraryListProps) {
   const { t } = useTranslation();
   const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null);
@@ -376,9 +380,24 @@ export function ItineraryList({
           </Button>
         )}
         {isLastDay && (
-          <p className="text-[10px] text-muted-foreground/60 text-center pt-6 whitespace-pre-line">
-            {t("lastDayBackupHint")}
-          </p>
+          <>
+            <p className="text-[10px] text-muted-foreground/60 text-center pt-6 whitespace-pre-line">
+              {t("lastDayBackupHint")}
+            </p>
+            {onExportPdf && (
+              <div className="flex justify-center pt-3">
+                <Button
+                  onClick={onExportPdf}
+                  disabled={exportingPdf}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl gap-1.5 text-xs"
+                >
+                  {exportingPdf ? t("exportingPdf") : t("exportPdf")}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     );
@@ -472,9 +491,24 @@ export function ItineraryList({
       )}
 
       {isLastDay && (
-        <p className="text-[10px] text-muted-foreground/60 text-center pt-3 whitespace-pre-line">
-          {t("lastDayBackupHint")}
-        </p>
+        <>
+          <p className="text-[10px] text-muted-foreground/60 text-center pt-3 whitespace-pre-line">
+            {t("lastDayBackupHint")}
+          </p>
+          {onExportPdf && (
+            <div className="flex justify-center pt-2 pb-2">
+              <Button
+                onClick={onExportPdf}
+                disabled={exportingPdf}
+                variant="outline"
+                size="sm"
+                className="rounded-xl gap-1.5 text-xs"
+              >
+                {exportingPdf ? t("exportingPdf") : t("exportPdf")}
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       <ImagePreviewDialog
