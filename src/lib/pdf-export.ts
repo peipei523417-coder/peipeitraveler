@@ -13,11 +13,13 @@
 import {
   PDFDocument,
   PDFFont,
+  PDFImage,
   PDFPage,
   rgb,
   PDFName,
   PDFString,
   PDFArray,
+  StandardFonts,
 } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import type { TravelProject, ItineraryItem, DayItinerary, TimelineIconType } from "@/types/travel";
@@ -29,6 +31,13 @@ const FONT_REGULAR_URL =
   "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Regular.otf";
 const FONT_BOLD_URL =
   "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf";
+const FONT_TIMEOUT_MS = 7000;
+const FONT_EMBED_TIMEOUT_MS = 9000;
+const SIGNED_URL_TIMEOUT_MS = 5000;
+const IMAGE_FETCH_TIMEOUT_MS = 10000;
+const IMAGE_EMBED_TIMEOUT_MS = 6000;
+const PDF_SAVE_TIMEOUT_MS = 12000;
+const SHARE_TIMEOUT_MS = 12000;
 
 // A4
 const PAGE_W = 595.28;
@@ -70,10 +79,28 @@ const ICON_SYMBOL: Record<TimelineIconType, string> = {
 let fontRegularBytes: ArrayBuffer | null = null;
 let fontBoldBytes: ArrayBuffer | null = null;
 
-async function fetchBuffer(url: string): Promise<ArrayBuffer> {
-  const res = await fetch(url, { cache: "force-cache" });
-  if (!res.ok) throw new Error(`font fetch failed: ${res.status}`);
-  return await res.arrayBuffer();
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise.finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
+    }),
+  ]);
+}
+
+async function fetchBuffer(url: string, timeoutMs = FONT_TIMEOUT_MS): Promise<ArrayBuffer> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { cache: "force-cache", signal: controller.signal });
+    if (!res.ok) throw new Error(`font fetch failed: ${res.status}`);
+    return await res.arrayBuffer();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer }> {
@@ -86,6 +113,37 @@ async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer }>
     fontBoldBytes = b;
   }
   return { regular: fontRegularBytes!, bold: fontBoldBytes! };
+}
+
+export type PdfExportWarning = "font-fallback" | "image-skipped";
+
+async function embedPdfFonts(
+  doc: PDFDocument,
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+): Promise<{ font: PDFFont; fontBold: PDFFont; usedFallback: boolean }> {
+  try {
+    console.info("[pdf-export] load font start");
+    const { regular, bold } = await loadFonts();
+    const [font, fontBold] = await withTimeout(
+      Promise.all([
+        doc.embedFont(regular, { subset: true }),
+        doc.embedFont(bold, { subset: true }),
+      ]),
+      FONT_EMBED_TIMEOUT_MS,
+      "font embed",
+    );
+    console.info("[pdf-export] load font success", { source: "jsDelivr Noto Sans TC" });
+    return { font, fontBold, usedFallback: false };
+  } catch (e) {
+    console.warn("[pdf-export] load font fail; using fallback", e);
+    console.info("[pdf-export] load font fail", { fallback: "Helvetica", error: e });
+    onWarning?.("font-fallback", e);
+    const [font, fontBold] = await Promise.all([
+      doc.embedFont(StandardFonts.Helvetica),
+      doc.embedFont(StandardFonts.HelveticaBold),
+    ]);
+    return { font, fontBold, usedFallback: true };
+  }
 }
 
 // ---------- Image loading ----------
