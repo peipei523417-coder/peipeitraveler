@@ -65,16 +65,40 @@ const HIGHLIGHT_RGB: Record<string, ReturnType<typeof rgb>> = {
   orange: rgb(1.0, 0.9, 0.78),
 };
 
-// Icon → short symbol (chars that exist in Noto Sans TC).
+// Icon → short label char that IS guaranteed in the Noto Sans TC subset.
+// (Geometric symbols like ●♥★ are often missing from the CJK subset OTF.
+// Using CJK ideographs avoids "glyph missing" silent drops.)
 const ICON_SYMBOL: Record<TimelineIconType, string> = {
-  default: "●",
-  heart: "♥",
-  utensils: "★",
-  house: "■",
+  default: "‧",
+  heart: "心",
+  utensils: "食",
+  house: "宿",
   star: "★",
-  alert: "!",
-  question: "?",
-  car: "▲",
+  alert: "！",
+  question: "？",
+  car: "車",
+};
+
+// Soft per-icon badge colors so the marker stays distinguishable in print.
+const ICON_COLOR: Record<TimelineIconType, ReturnType<typeof rgb>> = {
+  default: rgb(0.008, 0.522, 0.78),   // primary
+  heart:   rgb(0.91, 0.31, 0.43),     // red
+  utensils:rgb(0.95, 0.55, 0.18),     // orange
+  house:   rgb(0.40, 0.45, 0.85),     // indigo
+  star:    rgb(0.92, 0.74, 0.13),     // yellow
+  alert:   rgb(0.93, 0.45, 0.13),     // amber
+  question:rgb(0.20, 0.60, 0.85),     // sky
+  car:     rgb(0.13, 0.66, 0.60),     // teal
+};
+
+// Highlight color → solid color for the left card accent bar.
+const HIGHLIGHT_BAR: Record<string, ReturnType<typeof rgb>> = {
+  yellow: rgb(0.96, 0.80, 0.18),
+  green:  rgb(0.36, 0.78, 0.42),
+  blue:   rgb(0.25, 0.61, 0.92),
+  pink:   rgb(0.93, 0.43, 0.65),
+  purple: rgb(0.62, 0.45, 0.88),
+  orange: rgb(0.96, 0.60, 0.20),
 };
 
 // ---------- Font loading (cached in module + sessionStorage-safe) ----------
