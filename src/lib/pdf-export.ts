@@ -393,6 +393,18 @@ export async function exportProjectToPdf(
   opts: ExportOptions = {},
 ): Promise<Uint8Array> {
   console.info("[pdf-export] start export", { projectId: project.id, projectName: project.name });
+  try {
+    return await buildProjectPdfBytes(project, opts);
+  } catch (e) {
+    console.info("[pdf-export] create pdf fail", { error: e });
+    throw e;
+  }
+}
+
+async function buildProjectPdfBytes(
+  project: TravelProject,
+  opts: ExportOptions = {},
+): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
