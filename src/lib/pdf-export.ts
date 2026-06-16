@@ -31,6 +31,8 @@ const FONT_REGULAR_URL =
   "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Regular.otf";
 const FONT_BOLD_URL =
   "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf";
+const LOCAL_FONT_REGULAR_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Regular.otf`;
+const LOCAL_FONT_BOLD_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Bold.otf`;
 const FONT_TIMEOUT_MS = 7000;
 const FONT_EMBED_TIMEOUT_MS = 9000;
 const SIGNED_URL_TIMEOUT_MS = 5000;
@@ -105,10 +107,20 @@ async function fetchBuffer(url: string, timeoutMs = FONT_TIMEOUT_MS): Promise<Ar
 
 async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer }> {
   if (!fontRegularBytes || !fontBoldBytes) {
-    const [r, b] = await Promise.all([
-      fontRegularBytes ?? fetchBuffer(FONT_REGULAR_URL),
-      fontBoldBytes ?? fetchBuffer(FONT_BOLD_URL),
-    ]);
+    let r: ArrayBuffer;
+    let b: ArrayBuffer;
+    try {
+      [r, b] = await Promise.all([
+        fontRegularBytes ?? fetchBuffer(FONT_REGULAR_URL),
+        fontBoldBytes ?? fetchBuffer(FONT_BOLD_URL),
+      ]);
+    } catch (e) {
+      console.warn("[pdf-export] jsDelivr font fetch failed; trying bundled fallback", e);
+      [r, b] = await Promise.all([
+        fontRegularBytes ?? fetchBuffer(LOCAL_FONT_REGULAR_URL),
+        fontBoldBytes ?? fetchBuffer(LOCAL_FONT_BOLD_URL),
+      ]);
+    }
     fontRegularBytes = r;
     fontBoldBytes = b;
   }
