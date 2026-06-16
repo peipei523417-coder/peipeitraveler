@@ -41,6 +41,8 @@ interface ItineraryListProps {
   onReorderNoTimeItems?: (dayNumber: number, orderedIds: string[]) => void;
   readOnly?: boolean;
   isLastDay?: boolean;
+  onExportPdf?: () => void;
+  exportingPdf?: boolean;
 }
 
 function getHighlightClass(color?: string): string {
@@ -273,6 +275,8 @@ export function ItineraryList({
   onReorderNoTimeItems,
   readOnly = false,
   isLastDay = false,
+  onExportPdf,
+  exportingPdf = false,
 }: ItineraryListProps) {
   const { t } = useTranslation();
   const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null);
