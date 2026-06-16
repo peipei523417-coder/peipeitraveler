@@ -249,64 +249,74 @@ async function embedLoadedImage(
 
 // ---------- Text layout helpers ----------
 
+/** Measure a single character; if the glyph is missing, fall back to an
+ *  approximate CJK-ish width so wrapping still works (instead of silently
+ *  dropping the char). */
+function charWidth(font: PDFFont, ch: string, size: number): number {
+  try {
+    return font.widthOfTextAtSize(ch, size);
+  } catch {
+    // ~1em for CJK, ~0.5em for ASCII fallback approximation
+    return /[\x20-\x7e]/.test(ch) ? size * 0.55 : size * 1.0;
+  }
+}
+
 /** Char-by-char width-aware wrap (works for CJK without spaces and for ASCII). */
 function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
-  const paragraphs = text.split("\n");
+  const paragraphs = (text ?? "").split("\n");
   for (const para of paragraphs) {
     if (para === "") {
       lines.push("");
       continue;
     }
     let current = "";
+    let currentW = 0;
     for (const ch of Array.from(para)) {
-      const candidate = current + ch;
-      let w = 0;
-      try {
-        w = font.widthOfTextAtSize(candidate, size);
-      } catch {
-        // Glyph missing — skip char
-        continue;
-      }
-      if (w > maxWidth && current.length > 0) {
+      const w = charWidth(font, ch, size);
+      if (currentW + w > maxWidth && current.length > 0) {
         lines.push(current);
         current = ch;
+        currentW = w;
       } else {
-        current = candidate;
+        current += ch;
+        currentW += w;
       }
     }
     if (current) lines.push(current);
   }
-  return lines;
+  return lines.length > 0 ? lines : [""];
 }
 
-/** Try-safe drawText that skips missing glyphs by stripping them char by char. */
+/** Try-safe drawText. If a glyph is missing, substitute with "·" (never drop
+ *  the whole string). */
 function safeDrawText(
   page: PDFPage,
   text: string,
   opts: { x: number; y: number; size: number; font: PDFFont; color?: ReturnType<typeof rgb> },
 ) {
+  if (!text) return;
   try {
     page.drawText(text, { x: opts.x, y: opts.y, size: opts.size, font: opts.font, color: opts.color });
+    return;
   } catch {
-    // Fallback: filter unsupported characters
-    const filtered = Array.from(text)
-      .filter((ch) => {
-        try {
-          opts.font.widthOfTextAtSize(ch, opts.size);
-          return true;
-        } catch {
-          return false;
-        }
-      })
-      .join("");
-    if (filtered) {
+    // fall through to per-char substitution
+  }
+  const safe = Array.from(text)
+    .map((ch) => {
       try {
-        page.drawText(filtered, { x: opts.x, y: opts.y, size: opts.size, font: opts.font, color: opts.color });
+        opts.font.widthOfTextAtSize(ch, opts.size);
+        return ch;
       } catch {
-        /* give up silently */
+        return "·";
       }
-    }
+    })
+    .join("");
+  if (!safe) return;
+  try {
+    page.drawText(safe, { x: opts.x, y: opts.y, size: opts.size, font: opts.font, color: opts.color });
+  } catch {
+    /* give up silently */
   }
 }
 
