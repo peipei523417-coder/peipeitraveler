@@ -185,7 +185,12 @@ async function loadImage(
     const res = await fetch(resolved, { cache: "force-cache", signal: controller.signal }).finally(() => {
       clearTimeout(timer);
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const error = new Error(`image fetch failed: ${res.status}`);
+      console.info("[pdf-export] load images fail", { url, status: res.status });
+      onWarning?.("image-skipped", error);
+      return null;
+    }
     const buf = await res.arrayBuffer();
     // Sniff
     const head = new Uint8Array(buf.slice(0, 4));
