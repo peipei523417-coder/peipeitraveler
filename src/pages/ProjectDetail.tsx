@@ -39,6 +39,18 @@ function safeDate(value: unknown): Date | null {
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise.finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
+    }),
+  ]);
+}
+
 function ProjectDetailInner() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -655,11 +667,28 @@ function ProjectDetailInner() {
               if (exportingPdf || !project) return;
               setExportingPdf(true);
               const loadingId = toast.loading(t("exportingPdf"));
+              let fontFallbackToastShown = false;
               try {
-                const { exportProjectToPdf, deliverPdf, buildPdfFilename } = await import("@/lib/pdf-export");
-                const bytes = await exportProjectToPdf(project);
+                console.info("[pdf-export] start export click");
+                const { exportProjectToPdf, deliverPdf, buildPdfFilename } = await withTimeout(
+                  import("@/lib/pdf-export"),
+                  8000,
+                  "PDF module import",
+                );
+                const bytes = await withTimeout(
+                  exportProjectToPdf(project, {
+                    onWarning: (warning) => {
+                      if (warning === "font-fallback" && !fontFallbackToastShown) {
+                        fontFallbackToastShown = true;
+                        toast.warning("字型載入較慢，已改用備援字型繼續產生 PDF");
+                      }
+                    },
+                  }),
+                  60000,
+                  "PDF generation",
+                );
                 const filename = buildPdfFilename(project.name, new Date());
-                await deliverPdf(bytes, filename);
+                await withTimeout(deliverPdf(bytes, filename), 15000, "PDF share/download");
                 toast.dismiss(loadingId);
                 toast.success(t("exportPdfSuccess"));
               } catch (e) {
