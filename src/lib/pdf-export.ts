@@ -777,7 +777,31 @@ async function drawItemCard(
 // ---------- Save / share ----------
 export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"shared" | "downloaded"> {
   const blob = new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
-  // Try Web Share with file (works on iOS Safari & some Android browsers).
+  const triggerDownload = () => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
+  // Lovable preview / desktop web should download directly; native/mobile may share if files are supported.
+  const isNative = !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+  if (!isNative) {
+    try {
+      triggerDownload();
+      console.info("[pdf-export] share/download success", { mode: "download" });
+      return "downloaded";
+    } catch (e) {
+      console.info("[pdf-export] share/download fail", { mode: "download", error: e });
+      throw e;
+    }
+  }
+
+  // Try Web Share with file only when the environment explicitly supports files.
   try {
     const file = new File([blob], filename, { type: "application/pdf" });
     const nav = navigator as Navigator & {
@@ -785,21 +809,17 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"
       share?: (data: { files?: File[]; title?: string }) => Promise<void>;
     };
     if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
-      await nav.share({ files: [file], title: filename });
+      await withTimeout(nav.share({ files: [file], title: filename }), SHARE_TIMEOUT_MS, "navigator.share");
+      console.info("[pdf-export] share/download success", { mode: "share" });
       return "shared";
     }
   } catch (e) {
     // user cancel or share unsupported — fall through to download
     console.warn("[pdf-export] share fallback", e);
+    console.info("[pdf-export] share/download fail", { mode: "share", error: e });
   }
   // Fallback: anchor download
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  triggerDownload();
+  console.info("[pdf-export] share/download success", { mode: "download" });
   return "downloaded";
 }
