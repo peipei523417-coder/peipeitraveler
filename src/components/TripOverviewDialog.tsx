@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { TravelProject } from "@/types/travel";
 import { formatShortDate } from "@/i18n/date-utils";
 
@@ -8,14 +9,24 @@ interface TripOverviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   project: TravelProject;
+  onExportPdf?: () => void;
+  exportingPdf?: boolean;
 }
 
-export function TripOverviewDialog({ open, onOpenChange, project }: TripOverviewDialogProps) {
+export function TripOverviewDialog({
+  open,
+  onOpenChange,
+  project,
+  onExportPdf,
+  exportingPdf = false,
+}: TripOverviewDialogProps) {
   const { t, i18n } = useTranslation();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md mx-auto max-h-[85vh] p-0 rounded-2xl overflow-hidden cursor-pointer [&>button.absolute]:hidden" onClick={() => onOpenChange(false)}>
+      <DialogContent
+        className="max-w-md mx-auto max-h-[85vh] p-0 rounded-2xl overflow-hidden [&>button.absolute]:hidden"
+      >
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50 bg-muted/30">
           <DialogTitle className="text-lg font-bold text-foreground">
             {t("tripOverview")}
@@ -23,9 +34,30 @@ export function TripOverviewDialog({ open, onOpenChange, project }: TripOverview
           <p className="text-xs text-muted-foreground mt-1">
             {project.name} · {formatShortDate(project.startDate, i18n.language)} - {formatShortDate(project.endDate, i18n.language)}
           </p>
+
+          {/* PDF export — primary entry point */}
+          {onExportPdf && (
+            <div className="pt-3">
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onExportPdf();
+                }}
+                disabled={exportingPdf}
+                variant="outline"
+                size="sm"
+                className="w-full rounded-xl text-xs gap-1.5"
+              >
+                {exportingPdf ? t("exportingPdf") : t("exportPdf")}
+              </Button>
+            </div>
+          )}
         </DialogHeader>
-        
-        <ScrollArea className="max-h-[65vh]">
+
+        <ScrollArea
+          className="max-h-[65vh] cursor-pointer"
+          onClick={() => onOpenChange(false)}
+        >
           <div className="px-5 py-4 space-y-5">
             {project.itinerary.map((day) => (
               <div key={day.dayNumber}>
