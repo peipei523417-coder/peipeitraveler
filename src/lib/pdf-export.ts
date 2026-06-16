@@ -80,6 +80,7 @@ const ICON_SYMBOL: Record<TimelineIconType, string> = {
 // ---------- Font loading (cached in module + sessionStorage-safe) ----------
 let fontRegularBytes: ArrayBuffer | null = null;
 let fontBoldBytes: ArrayBuffer | null = null;
+let fontSource: "cdn" | "local" = "cdn";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -105,7 +106,7 @@ async function fetchBuffer(url: string, timeoutMs = FONT_TIMEOUT_MS): Promise<Ar
   }
 }
 
-async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer }> {
+async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer; source: "cdn" | "local" }> {
   if (!fontRegularBytes || !fontBoldBytes) {
     let r: ArrayBuffer;
     let b: ArrayBuffer;
@@ -114,17 +115,19 @@ async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer }>
         fontRegularBytes ?? fetchBuffer(FONT_REGULAR_URL),
         fontBoldBytes ?? fetchBuffer(FONT_BOLD_URL),
       ]);
+      fontSource = "cdn";
     } catch (e) {
       console.warn("[pdf-export] jsDelivr font fetch failed; trying bundled fallback", e);
       [r, b] = await Promise.all([
         fontRegularBytes ?? fetchBuffer(LOCAL_FONT_REGULAR_URL),
         fontBoldBytes ?? fetchBuffer(LOCAL_FONT_BOLD_URL),
       ]);
+      fontSource = "local";
     }
     fontRegularBytes = r;
     fontBoldBytes = b;
   }
-  return { regular: fontRegularBytes!, bold: fontBoldBytes! };
+  return { regular: fontRegularBytes!, bold: fontBoldBytes!, source: fontSource };
 }
 
 export type PdfExportWarning = "font-fallback" | "image-skipped";
@@ -135,7 +138,7 @@ async function embedPdfFonts(
 ): Promise<{ font: PDFFont; fontBold: PDFFont; usedFallback: boolean }> {
   try {
     console.info("[pdf-export] load font start");
-    const { regular, bold } = await loadFonts();
+    const { regular, bold, source } = await loadFonts();
     const [font, fontBold] = await withTimeout(
       Promise.all([
         doc.embedFont(regular, { subset: true }),
@@ -144,7 +147,10 @@ async function embedPdfFonts(
       FONT_EMBED_TIMEOUT_MS,
       "font embed",
     );
-    console.info("[pdf-export] load font success", { source: "jsDelivr Noto Sans TC" });
+    if (source === "local") onWarning?.("font-fallback", "bundled Noto Sans TC");
+    console.info("[pdf-export] load font success", {
+      source: source === "cdn" ? "jsDelivr Noto Sans TC" : "bundled Noto Sans TC fallback",
+    });
     return { font, fontBold, usedFallback: false };
   } catch (e) {
     console.warn("[pdf-export] load font fail; using fallback", e);
