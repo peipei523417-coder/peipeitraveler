@@ -53,6 +53,7 @@ export function sanitizeMapUrl(input: string | null | undefined): string | null 
 }
 
 const GOOGLE_HOSTS = [
+  /(^|\.)maps\.google\.[a-z.]+$/i,
   /(^|\.)google\.[a-z.]+$/i,
   /(^|\.)maps\.app\.goo\.gl$/i,
   /(^|\.)goo\.gl$/i,
@@ -86,8 +87,8 @@ export function detectMapProvider(url: string | null | undefined): MapProvider {
   const path = parsed.pathname;
 
   if (GOOGLE_HOSTS.some((re) => re.test(host))) {
-    // google.com requires /maps path to count; maps.app.goo.gl & goo.gl already pass.
-    if (/(^|\.)google\.[a-z.]+$/i.test(host) && !/\/maps(\/|$)/i.test(path)) {
+    // google.com requires /maps path to count; maps.google.*, maps.app.goo.gl & goo.gl already pass.
+    if (/(^|\.)google\.[a-z.]+$/i.test(host) && !/(^|\.)maps\.google\.[a-z.]+$/i.test(host) && !/\/maps(\/|$)/i.test(path)) {
       // Plain google.com without /maps isn't a map link.
       return "other";
     }

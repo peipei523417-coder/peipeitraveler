@@ -13,11 +13,13 @@
 import {
   PDFDocument,
   PDFFont,
+  PDFImage,
   PDFPage,
   rgb,
   PDFName,
   PDFString,
   PDFArray,
+  StandardFonts,
 } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import type { TravelProject, ItineraryItem, DayItinerary, TimelineIconType } from "@/types/travel";
@@ -29,6 +31,15 @@ const FONT_REGULAR_URL =
   "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Regular.otf";
 const FONT_BOLD_URL =
   "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf";
+const LOCAL_FONT_REGULAR_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Regular.otf`;
+const LOCAL_FONT_BOLD_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Bold.otf`;
+const FONT_TIMEOUT_MS = 7000;
+const FONT_EMBED_TIMEOUT_MS = 9000;
+const SIGNED_URL_TIMEOUT_MS = 5000;
+const IMAGE_FETCH_TIMEOUT_MS = 10000;
+const IMAGE_EMBED_TIMEOUT_MS = 6000;
+const PDF_SAVE_TIMEOUT_MS = 12000;
+const SHARE_TIMEOUT_MS = 12000;
 
 // A4
 const PAGE_W = 595.28;
@@ -69,23 +80,88 @@ const ICON_SYMBOL: Record<TimelineIconType, string> = {
 // ---------- Font loading (cached in module + sessionStorage-safe) ----------
 let fontRegularBytes: ArrayBuffer | null = null;
 let fontBoldBytes: ArrayBuffer | null = null;
+let fontSource: "cdn" | "local" = "cdn";
 
-async function fetchBuffer(url: string): Promise<ArrayBuffer> {
-  const res = await fetch(url, { cache: "force-cache" });
-  if (!res.ok) throw new Error(`font fetch failed: ${res.status}`);
-  return await res.arrayBuffer();
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise.finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
+    }),
+  ]);
 }
 
-async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer }> {
+async function fetchBuffer(url: string, timeoutMs = FONT_TIMEOUT_MS): Promise<ArrayBuffer> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { cache: "force-cache", signal: controller.signal });
+    if (!res.ok) throw new Error(`font fetch failed: ${res.status}`);
+    return await res.arrayBuffer();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer; source: "cdn" | "local" }> {
   if (!fontRegularBytes || !fontBoldBytes) {
-    const [r, b] = await Promise.all([
-      fontRegularBytes ?? fetchBuffer(FONT_REGULAR_URL),
-      fontBoldBytes ?? fetchBuffer(FONT_BOLD_URL),
-    ]);
+    let r: ArrayBuffer;
+    let b: ArrayBuffer;
+    try {
+      [r, b] = await Promise.all([
+        fontRegularBytes ?? fetchBuffer(FONT_REGULAR_URL),
+        fontBoldBytes ?? fetchBuffer(FONT_BOLD_URL),
+      ]);
+      fontSource = "cdn";
+    } catch (e) {
+      console.warn("[pdf-export] jsDelivr font fetch failed; trying bundled fallback", e);
+      [r, b] = await Promise.all([
+        fontRegularBytes ?? fetchBuffer(LOCAL_FONT_REGULAR_URL),
+        fontBoldBytes ?? fetchBuffer(LOCAL_FONT_BOLD_URL),
+      ]);
+      fontSource = "local";
+    }
     fontRegularBytes = r;
     fontBoldBytes = b;
   }
-  return { regular: fontRegularBytes!, bold: fontBoldBytes! };
+  return { regular: fontRegularBytes!, bold: fontBoldBytes!, source: fontSource };
+}
+
+export type PdfExportWarning = "font-fallback" | "image-skipped";
+
+async function embedPdfFonts(
+  doc: PDFDocument,
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+): Promise<{ font: PDFFont; fontBold: PDFFont; usedFallback: boolean }> {
+  try {
+    console.info("[pdf-export] load font start");
+    const { regular, bold, source } = await loadFonts();
+    const [font, fontBold] = await withTimeout(
+      Promise.all([
+        doc.embedFont(regular, { subset: true }),
+        doc.embedFont(bold, { subset: true }),
+      ]),
+      FONT_EMBED_TIMEOUT_MS,
+      "font embed",
+    );
+    if (source === "local") onWarning?.("font-fallback", "bundled Noto Sans TC");
+    console.info("[pdf-export] load font success", {
+      source: source === "cdn" ? "jsDelivr Noto Sans TC" : "bundled Noto Sans TC fallback",
+    });
+    return { font, fontBold, usedFallback: false };
+  } catch (e) {
+    console.warn("[pdf-export] load font fail; using fallback", e);
+    console.info("[pdf-export] load font fail", { fallback: "Helvetica", error: e });
+    onWarning?.("font-fallback", e);
+    const [font, fontBold] = await Promise.all([
+      doc.embedFont(StandardFonts.Helvetica),
+      doc.embedFont(StandardFonts.HelveticaBold),
+    ]);
+    return { font, fontBold, usedFallback: true };
+  }
 }
 
 // ---------- Image loading ----------
@@ -94,22 +170,55 @@ interface LoadedImage {
   type: "png" | "jpg";
 }
 
-async function loadImage(url: string): Promise<LoadedImage | null> {
+async function loadImage(
+  url: string,
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+): Promise<LoadedImage | null> {
   try {
     let resolved = url;
     if (url.includes("/project-images/") && !url.includes("token=")) {
-      const signed = await getSignedImageUrl(url, 3600);
+      const signed = await withTimeout(getSignedImageUrl(url, 3600), SIGNED_URL_TIMEOUT_MS, "signed URL");
       if (signed) resolved = signed;
     }
-    const res = await fetch(resolved, { cache: "force-cache" });
-    if (!res.ok) return null;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
+    const res = await fetch(resolved, { cache: "force-cache", signal: controller.signal }).finally(() => {
+      clearTimeout(timer);
+    });
+    if (!res.ok) {
+      const error = new Error(`image fetch failed: ${res.status}`);
+      console.info("[pdf-export] load images fail", { url, status: res.status });
+      onWarning?.("image-skipped", error);
+      return null;
+    }
     const buf = await res.arrayBuffer();
     // Sniff
     const head = new Uint8Array(buf.slice(0, 4));
     const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+    console.info("[pdf-export] load images success", { url, bytes: buf.byteLength });
     return { bytes: buf, type: isPng ? "png" : "jpg" };
   } catch (e) {
     console.warn("[pdf-export] image load failed", e);
+    console.info("[pdf-export] load images fail", { url, error: e });
+    onWarning?.("image-skipped", e);
+    return null;
+  }
+}
+
+async function embedLoadedImage(
+  doc: PDFDocument,
+  img: LoadedImage,
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+): Promise<PDFImage | null> {
+  try {
+    return await withTimeout(
+      img.type === "png" ? doc.embedPng(img.bytes) : doc.embedJpg(img.bytes),
+      IMAGE_EMBED_TIMEOUT_MS,
+      "image embed",
+    );
+  } catch (e) {
+    console.warn("[pdf-export] image embed failed", e);
+    onWarning?.("image-skipped", e);
     return null;
   }
 }
@@ -281,23 +390,35 @@ function ensureSpace(ctx: Ctx, needed: number) {
 export interface ExportOptions {
   /** Optional override of "now" — defaults to current time, used in cover. */
   now?: Date;
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void;
 }
 
 export async function exportProjectToPdf(
   project: TravelProject,
   opts: ExportOptions = {},
 ): Promise<Uint8Array> {
-  const { regular, bold } = await loadFonts();
+  console.info("[pdf-export] start export", { projectId: project.id, projectName: project.name });
+  try {
+    return await buildProjectPdfBytes(project, opts);
+  } catch (e) {
+    console.info("[pdf-export] create pdf fail", { error: e });
+    throw e;
+  }
+}
+
+async function buildProjectPdfBytes(
+  project: TravelProject,
+  opts: ExportOptions = {},
+): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const font = await doc.embedFont(regular, { subset: true });
-  const fontBold = await doc.embedFont(bold, { subset: true });
+  const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
 
   const page = doc.addPage([PAGE_W, PAGE_H]);
   const ctx: Ctx = { doc, font, fontBold, page, y: PAGE_H - MARGIN };
 
   // ============ COVER ============
-  await drawCover(ctx, project, opts.now ?? new Date());
+  await drawCover(ctx, project, opts.now ?? new Date(), opts.onWarning);
 
   // ============ EACH DAY ============
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
@@ -325,7 +446,7 @@ export async function exportProjectToPdf(
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     const ordered = [...wt, ...wo];
     for (const item of ordered) {
-      await drawItemCard(ctx, item);
+      await drawItemCard(ctx, item, opts.onWarning);
     }
 
     // Day total
@@ -353,11 +474,18 @@ export async function exportProjectToPdf(
     }
   }
 
-  return await doc.save();
+  const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
+  console.info("[pdf-export] create pdf success", { bytes: bytes.length, pages: doc.getPageCount() });
+  return bytes;
 }
 
 // ---------- Cover ----------
-async function drawCover(ctx: Ctx, project: TravelProject, now: Date) {
+async function drawCover(
+  ctx: Ctx,
+  project: TravelProject,
+  now: Date,
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+) {
   const { page, font, fontBold } = ctx;
 
   // Top accent bar
@@ -391,13 +519,10 @@ async function drawCover(ctx: Ctx, project: TravelProject, now: Date) {
 
   // Cover image
   if (project.coverImageUrl) {
-    const img = await loadImage(project.coverImageUrl);
+    const img = await loadImage(project.coverImageUrl, onWarning);
     if (img) {
-      try {
-        const embedded =
-          img.type === "png"
-            ? await ctx.doc.embedPng(img.bytes)
-            : await ctx.doc.embedJpg(img.bytes);
+      const embedded = await embedLoadedImage(ctx.doc, img, onWarning);
+      if (embedded) {
         const maxH = 280;
         const maxW = CONTENT_W;
         const ratio = embedded.width / embedded.height;
@@ -410,8 +535,6 @@ async function drawCover(ctx: Ctx, project: TravelProject, now: Date) {
         const x = MARGIN + (CONTENT_W - w) / 2;
         page.drawImage(embedded, { x, y: ctx.y - h, width: w, height: h });
         ctx.y -= h + 20;
-      } catch (e) {
-        console.warn("[pdf-export] cover embed failed", e);
       }
     }
   }
@@ -496,7 +619,11 @@ function drawDayHeader(ctx: Ctx, day: DayItinerary) {
 }
 
 // ---------- Item card ----------
-async function drawItemCard(ctx: Ctx, item: ItineraryItem) {
+async function drawItemCard(
+  ctx: Ctx,
+  item: ItineraryItem,
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+) {
   const { page, font, fontBold, doc } = ctx;
   const padX = 14;
   const padY = 12;
@@ -513,17 +640,11 @@ async function drawItemCard(ctx: Ctx, item: ItineraryItem) {
 
   // Try image
   let img: Awaited<ReturnType<typeof loadImage>> = null;
-  let imgEmbed: Awaited<ReturnType<typeof doc.embedPng>> | Awaited<ReturnType<typeof doc.embedJpg>> | null = null;
+  let imgEmbed: PDFImage | null = null;
   if (item.imageUrl) {
-    img = await loadImage(item.imageUrl);
+    img = await loadImage(item.imageUrl, onWarning);
     if (img) {
-      try {
-        imgEmbed =
-          img.type === "png" ? await doc.embedPng(img.bytes) : await doc.embedJpg(img.bytes);
-      } catch (e) {
-        console.warn("[pdf-export] item image embed failed", e);
-        imgEmbed = null;
-      }
+      imgEmbed = await embedLoadedImage(doc, img, onWarning);
     }
   }
 
@@ -661,7 +782,31 @@ async function drawItemCard(ctx: Ctx, item: ItineraryItem) {
 // ---------- Save / share ----------
 export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"shared" | "downloaded"> {
   const blob = new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
-  // Try Web Share with file (works on iOS Safari & some Android browsers).
+  const triggerDownload = () => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
+  // Lovable preview / desktop web should download directly; native/mobile may share if files are supported.
+  const isNative = !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+  if (!isNative) {
+    try {
+      triggerDownload();
+      console.info("[pdf-export] share/download success", { mode: "download" });
+      return "downloaded";
+    } catch (e) {
+      console.info("[pdf-export] share/download fail", { mode: "download", error: e });
+      throw e;
+    }
+  }
+
+  // Try Web Share with file only when the environment explicitly supports files.
   try {
     const file = new File([blob], filename, { type: "application/pdf" });
     const nav = navigator as Navigator & {
@@ -669,21 +814,22 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"
       share?: (data: { files?: File[]; title?: string }) => Promise<void>;
     };
     if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
-      await nav.share({ files: [file], title: filename });
+      await withTimeout(nav.share({ files: [file], title: filename }), SHARE_TIMEOUT_MS, "navigator.share");
+      console.info("[pdf-export] share/download success", { mode: "share" });
       return "shared";
     }
   } catch (e) {
     // user cancel or share unsupported — fall through to download
     console.warn("[pdf-export] share fallback", e);
+    console.info("[pdf-export] share/download fail", { mode: "share", error: e });
   }
   // Fallback: anchor download
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-  return "downloaded";
+  try {
+    triggerDownload();
+    console.info("[pdf-export] share/download success", { mode: "download" });
+    return "downloaded";
+  } catch (e) {
+    console.info("[pdf-export] share/download fail", { mode: "download", error: e });
+    throw e;
+  }
 }
