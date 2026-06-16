@@ -735,7 +735,10 @@ function ProjectDetailInner() {
         open={overviewOpen}
         onOpenChange={setOverviewOpen}
         project={project}
+        onExportPdf={handleExportPdf}
+        exportingPdf={exportingPdf}
       />
+
     </div>
   );
 }
