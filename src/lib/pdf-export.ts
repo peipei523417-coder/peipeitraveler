@@ -190,9 +190,11 @@ async function loadImage(
     // Sniff
     const head = new Uint8Array(buf.slice(0, 4));
     const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+    console.info("[pdf-export] load images success", { url, bytes: buf.byteLength });
     return { bytes: buf, type: isPng ? "png" : "jpg" };
   } catch (e) {
     console.warn("[pdf-export] image load failed", e);
+    console.info("[pdf-export] load images fail", { url, error: e });
     onWarning?.("image-skipped", e);
     return null;
   }
