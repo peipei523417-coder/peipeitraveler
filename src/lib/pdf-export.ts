@@ -597,11 +597,14 @@ async function buildProjectPdfBytes(
 // ---------- Cover ----------
 async function drawCover(
   ctx: Ctx,
+// ---------- Cover ----------
+async function drawCover(
+  ctx: Ctx,
   project: TravelProject,
   now: Date,
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
 ) {
-  const { page, font, fontBold } = ctx;
+  const { page, font, fontBold, fontEmoji } = ctx;
 
   // Top accent bar
   page.drawRectangle({
@@ -612,33 +615,44 @@ async function drawCover(
     color: PRIMARY,
   });
 
-  ctx.y = PAGE_H - 50;
+  ctx.y = PAGE_H - 56;
 
-  // Title
-  const titleLines = wrapText(project.name || "未命名行程", fontBold, 24, CONTENT_W);
+  // PeiTravel brand label
+  safeDrawText(page, "PeiTravel", {
+    x: MARGIN,
+    y: ctx.y - 14,
+    size: 13,
+    font: fontBold,
+    color: PRIMARY,
+  });
+  ctx.y -= 30;
+
+  // Title (旅程名稱)
+  const titleLines = wrapText(project.name || "未命名行程", fontBold, 26, CONTENT_W);
   for (const line of titleLines.slice(0, 3)) {
-    safeDrawText(page, line, { x: MARGIN, y: ctx.y - 24, size: 24, font: fontBold, color: TEXT });
-    ctx.y -= 32;
+    safeDrawText(page, line, { x: MARGIN, y: ctx.y - 26, size: 26, font: fontBold, color: TEXT });
+    ctx.y -= 34;
   }
-  ctx.y -= 4;
+  ctx.y -= 6;
 
   // Date range
   const sd = safeDate(project.startDate);
   const ed = safeDate(project.endDate);
+  let days = 0;
   if (sd && ed) {
-    const days = Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1;
-    const range = `${fmtDateYMD(sd)}  -  ${fmtDateYMD(ed)}  ・  共 ${days} 天`;
-    safeDrawText(page, range, { x: MARGIN, y: ctx.y - 14, size: 12, font, color: MUTED });
+    days = Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1;
+    const range = `${fmtDateYMD(sd)}  ─  ${fmtDateYMD(ed)}`;
+    safeDrawText(page, range, { x: MARGIN, y: ctx.y - 14, size: 13, font, color: MUTED });
     ctx.y -= 24;
   }
 
-  // Cover image
+  // Cover image (preserve ratio, no crop)
   if (project.coverImageUrl) {
     const img = await loadImage(project.coverImageUrl, onWarning);
     if (img) {
       const embedded = await embedLoadedImage(ctx.doc, img, onWarning);
       if (embedded) {
-        const maxH = 280;
+        const maxH = 300;
         const maxW = CONTENT_W;
         const ratio = embedded.width / embedded.height;
         let w = maxW;
@@ -649,44 +663,42 @@ async function drawCover(
         }
         const x = MARGIN + (CONTENT_W - w) / 2;
         page.drawImage(embedded, { x, y: ctx.y - h, width: w, height: h });
-        ctx.y -= h + 20;
+        ctx.y -= h + 24;
       }
     }
   }
 
-  // Totals box
+  // Stats — light box
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   const allItems = itinerary.flatMap((d) => (Array.isArray(d?.items) ? d.items : []));
   const totalPerPerson = allItems.reduce((s, i) => s + perPerson(i), 0);
   const totalRaw = allItems.reduce((s, i) => s + (i.price ?? 0), 0);
   const maxPersons = allItems.reduce((m, i) => Math.max(m, i.persons || 1), 1);
 
-  ctx.y -= 8;
-  const boxH = 90;
-  ensureSpace(ctx, boxH + 20);
+  const stats: Array<[string, string]> = [
+    ["總天數", `${days} 天`],
+    ["人數", `${maxPersons} 人`],
+    ["總花費", `$${totalRaw.toLocaleString()}`],
+    ["單人總花費", `$${totalPerPerson.toLocaleString()}`],
+    ["匯出日期", fmtDateYMD(now)],
+  ];
+  const lineH = 20;
+  const boxH = stats.length * lineH + 20;
+  ensureSpace(ctx, boxH + 30);
   page.drawRectangle({
     x: MARGIN,
     y: ctx.y - boxH,
     width: CONTENT_W,
     height: boxH,
     color: PRIMARY_LIGHT,
-    borderColor: PRIMARY,
-    borderWidth: 1,
   });
-  const lineH = 18;
   let ty = ctx.y - 22;
-  const stats: Array<[string, string]> = [
-    ["總金額", `$${totalRaw.toLocaleString()}`],
-    ["單人總額", `$${totalPerPerson.toLocaleString()}`],
-    ["人數", `${maxPersons} 人`],
-    ["匯出日期", fmtDateYMD(now)],
-  ];
   for (const [k, v] of stats) {
-    safeDrawText(page, k, { x: MARGIN + 16, y: ty, size: 11, font, color: MUTED });
-    safeDrawText(page, v, { x: MARGIN + 110, y: ty, size: 11, font: fontBold, color: TEXT });
+    safeDrawText(page, k, { x: MARGIN + 18, y: ty, size: 11.5, font, color: MUTED });
+    safeDrawText(page, v, { x: MARGIN + 130, y: ty, size: 12, font: fontBold, color: TEXT });
     ty -= lineH;
   }
-  ctx.y -= boxH + 12;
+  ctx.y -= boxH + 14;
 
   // Footer note
   safeDrawText(ctx.page, "由 PeiTravel 產生", {
@@ -696,83 +708,97 @@ async function drawCover(
     font,
     color: MUTED,
   });
+  // Silence unused warning for fontEmoji at cover scope
+  void fontEmoji;
 }
 
-// ---------- Day header ----------
+// ---------- Day header (Day N｜YYYY/MM/DD) ----------
 function drawDayHeader(ctx: Ctx, day: DayItinerary) {
-  const { page, fontBold } = ctx;
-  const headerH = 44;
-  ensureSpace(ctx, headerH + 8);
-  page.drawRectangle({
+  const { page, font, fontBold } = ctx;
+  ensureSpace(ctx, 60);
+
+  const date = safeDate(day.date);
+  const dateStr = date ? fmtDateYMD(date) : "";
+  const headerText = dateStr ? `Day ${day.dayNumber}｜${dateStr}` : `Day ${day.dayNumber}`;
+
+  safeDrawText(page, headerText, {
     x: MARGIN,
-    y: ctx.y - headerH,
-    width: CONTENT_W,
-    height: headerH,
+    y: ctx.y - 22,
+    size: 20,
+    font: fontBold,
     color: PRIMARY,
   });
-  const date = safeDate(day.date);
-  const dayLabel = `Day ${day.dayNumber}`;
-  safeDrawText(page, dayLabel, {
-    x: MARGIN + 16,
-    y: ctx.y - 28,
-    size: 18,
-    font: fontBold,
-    color: WHITE,
-  });
+
   if (date) {
-    const sub = `${fmtDateYMD(date)}  ${WEEKDAY_ZH[date.getDay()]}`;
-    const w = ctx.font.widthOfTextAtSize(sub, 11);
+    const sub = WEEKDAY_ZH[date.getDay()];
     safeDrawText(page, sub, {
-      x: MARGIN + CONTENT_W - 16 - w,
-      y: ctx.y - 28,
+      x: MARGIN,
+      y: ctx.y - 40,
       size: 11,
-      font: ctx.font,
-      color: WHITE,
+      font,
+      color: MUTED,
     });
   }
-  ctx.y -= headerH + 12;
+
+  // Underline accent
+  page.drawLine({
+    start: { x: MARGIN, y: ctx.y - 50 },
+    end: { x: MARGIN + 60, y: ctx.y - 50 },
+    thickness: 2,
+    color: PRIMARY,
+  });
+  ctx.y -= 64;
 }
 
-// ---------- Item card ----------
+// ---------- Item card (memory book style) ----------
 async function drawItemCard(
   ctx: Ctx,
   item: ItineraryItem,
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
 ) {
-  const { page, font, fontBold, doc } = ctx;
+  const { page, font, fontBold, fontEmoji, doc } = ctx;
   const padX = 16;
   const padY = 14;
-  const iconColW = 26; // colored badge column on the left of the text
   const accentW = 5;
-  const textX = MARGIN + accentW + padX + iconColW;
-  const innerW = CONTENT_W - accentW - padX * 2 - iconColW;
+  const textX = MARGIN + accentW + padX;
+  const innerW = CONTENT_W - accentW - padX * 2;
 
   // ---- Data prep ----
+  const iconType: TimelineIconType = item.iconType ?? "default";
+  const iconEmoji = ICON_EMOJI[iconType];
+  const iconFallback = ICON_FALLBACK_CHAR[iconType];
+  const iconColor = ICON_COLOR[iconType] ?? PRIMARY;
   const timeStr = item.startTime
     ? `${item.startTime}${item.endTime ? " - " + item.endTime : ""}`
     : "未設定時間";
-  const description = (item.description || "").trim();
-  const descSize = 12.5;
+
+  const description = item.description || "";
+  const descSize = 12;
   const descLineH = 17;
-  const descLines = description ? wrapText(description, fontBold, descSize, innerW) : [];
+  // Preserve user line breaks: wrap each line independently (wrapText already splits on \n)
+  const descLines = description ? wrapText(description, font, descSize, innerW) : [];
+
   const hasPrice = !!item.price && item.price > 0;
   const persons = item.persons || 1;
   const perPersonValue = hasPrice ? Math.round(item.price! / persons) : 0;
+  // Match in-app price line: "$2000 / 2 人 = $1000"
   const priceLine = hasPrice
-    ? `$${item.price!.toLocaleString()} / ${persons} 人  =  $${perPersonValue.toLocaleString()} / 人`
+    ? (persons > 1
+        ? `$${item.price!.toLocaleString()} / ${persons} 人 = $${perPersonValue.toLocaleString()}`
+        : `$${item.price!.toLocaleString()} / 1 人`)
     : "";
+
   const mapUrl = item.googleMapsUrl ? sanitizeMapUrl(item.googleMapsUrl) : null;
   const mapLabel = mapUrl ? `${getMapProviderLabel(mapUrl)}（點擊開啟）` : "";
 
-  // ---- Image ----
-  let img: Awaited<ReturnType<typeof loadImage>> = null;
+  // ---- Image (preserve aspect, no crop) ----
   let imgEmbed: PDFImage | null = null;
   if (item.imageUrl) {
-    img = await loadImage(item.imageUrl, onWarning);
+    const img = await loadImage(item.imageUrl, onWarning);
     if (img) imgEmbed = await embedLoadedImage(doc, img, onWarning);
   }
-  const imgMaxH = 170;
-  const imgMaxW = Math.min(innerW, 260);
+  const imgMaxH = 220;
+  const imgMaxW = Math.min(innerW, 360);
   let drawImgW = 0;
   let drawImgH = 0;
   if (imgEmbed) {
@@ -786,20 +812,20 @@ async function drawItemCard(
   }
 
   // ---- Height calc ----
-  const timeRowH = 18;
+  const timeRowH = 22;
   const descBlockH = Math.max(descLines.length, 1) * descLineH;
-  const priceH = hasPrice ? 18 : 0;
-  const mapH = mapUrl ? 20 : 0;
-  const imgBlockH = imgEmbed ? drawImgH + 10 : 0;
-  const cardH = padY + timeRowH + 6 + descBlockH + priceH + mapH + imgBlockH + padY;
+  const priceH = hasPrice ? 20 : 0;
+  const mapH = mapUrl ? 22 : 0;
+  const imgBlockH = imgEmbed ? drawImgH + 12 : 0;
+  const cardH = padY + timeRowH + 4 + descBlockH + (hasPrice ? 6 : 0) + priceH + (mapUrl ? 4 : 0) + mapH + imgBlockH + padY;
 
-  ensureSpace(ctx, cardH + 10);
-  if (ctx.y - cardH < MARGIN) newPage(ctx);
+  // Page break: if it doesn't fit, start a new page
+  if (ctx.y - cardH - 12 < MARGIN) newPage(ctx);
 
   const cardTop = ctx.y;
   const cardBottom = ctx.y - cardH;
 
-  // ---- Card background (white; highlight is shown as left accent + badge) ----
+  // ---- Card background (highlight color if set, else white) ----
   const bg =
     item.highlightColor && item.highlightColor !== "none"
       ? HIGHLIGHT_RGB[item.highlightColor] ?? WHITE
@@ -814,11 +840,11 @@ async function drawItemCard(
     borderWidth: 0.8,
   });
 
-  // Left accent bar — uses highlight color when set, otherwise primary
+  // Left accent bar — highlight color when set, else icon color
   const accentColor =
     item.highlightColor && item.highlightColor !== "none"
-      ? HIGHLIGHT_BAR[item.highlightColor] ?? PRIMARY
-      : PRIMARY;
+      ? HIGHLIGHT_BAR[item.highlightColor] ?? iconColor
+      : iconColor;
   page.drawRectangle({
     x: MARGIN,
     y: cardBottom,
@@ -827,48 +853,44 @@ async function drawItemCard(
     color: accentColor,
   });
 
-  // ---- Icon badge (always drawn, never blank) ----
-  const iconType: TimelineIconType = item.iconType ?? "default";
-  const iconChar = ICON_SYMBOL[iconType];
-  const iconColor = ICON_COLOR[iconType] ?? PRIMARY;
-  const badgeR = 10;
-  const badgeCx = MARGIN + accentW + padX + badgeR;
-  const badgeCy = cardTop - padY - badgeR - 2;
-  page.drawCircle({
-    x: badgeCx,
-    y: badgeCy,
-    size: badgeR,
-    color: iconColor,
-  });
-  // Char inside badge (centered approximately)
-  const charSize = 11;
-  const cw = (() => {
-    try {
-      return fontBold.widthOfTextAtSize(iconChar, charSize);
-    } catch {
-      return charSize * 0.9;
-    }
-  })();
-  safeDrawText(page, iconChar, {
-    x: badgeCx - cw / 2,
-    y: badgeCy - charSize / 2 + 1,
-    size: charSize,
-    font: fontBold,
-    color: WHITE,
-  });
-
-  // ---- Time (primary, bold) ----
-  let cy = cardTop - padY - 12;
+  // ---- Row 1: [emoji icon] [time] ----
+  let cy = cardTop - padY - 14;
+  const iconSize = 14;
+  let cursorX = textX;
+  if (fontEmoji) {
+    const w = drawEmoji(page, fontEmoji, iconEmoji, cursorX, cy, iconSize);
+    cursorX += (w > 0 ? w : iconSize * 1.15) + 6;
+  } else {
+    // Fallback: small colored badge with CJK char
+    const badgeR = 8;
+    page.drawCircle({
+      x: cursorX + badgeR,
+      y: cy + iconSize / 2 - 1,
+      size: badgeR,
+      color: iconColor,
+    });
+    const cs = 10;
+    let cw = cs * 0.9;
+    try { cw = fontBold.widthOfTextAtSize(iconFallback, cs); } catch { /* keep approx */ }
+    safeDrawText(page, iconFallback, {
+      x: cursorX + badgeR - cw / 2,
+      y: cy + iconSize / 2 - cs / 2,
+      size: cs,
+      font: fontBold,
+      color: WHITE,
+    });
+    cursorX += badgeR * 2 + 8;
+  }
   safeDrawText(page, timeStr, {
-    x: textX,
+    x: cursorX,
     y: cy,
-    size: 12,
+    size: 12.5,
     font: fontBold,
     color: PRIMARY,
   });
   cy -= timeRowH;
 
-  // ---- Description (the trip "title" — bold, larger) ----
+  // ---- Row 2: description (preserve line breaks; not bold for journal feel) ----
   if (descLines.length === 0) {
     safeDrawText(page, "（未填寫描述）", {
       x: textX,
@@ -884,30 +906,55 @@ async function drawItemCard(
         x: textX,
         y: cy,
         size: descSize,
-        font: fontBold,
+        font,
         color: TEXT,
       });
       cy -= descLineH;
     }
   }
 
-  // ---- Price ----
+  // ---- Row 3: 💰 price ----
   if (hasPrice) {
+    cy -= 4;
+    let px = textX;
+    if (fontEmoji) {
+      const w = drawEmoji(page, fontEmoji, "💰", px, cy, 12);
+      px += (w > 0 ? w : 14) + 5;
+    }
     safeDrawText(page, priceLine, {
-      x: textX,
+      x: px,
       y: cy,
-      size: 10.5,
+      size: 11,
       font,
-      color: MUTED,
+      color: TEXT,
     });
-    cy -= priceH;
+    cy -= priceH - 4;
   }
 
-  // ---- Map link (provider-labelled, clickable) ----
-  if (mapUrl) {
-    const linkSize = 11;
-    safeDrawText(page, mapLabel, {
+  // ---- Block 4: photo (preserve aspect, no crop) ----
+  if (imgEmbed) {
+    page.drawImage(imgEmbed, {
       x: textX,
+      y: cy - drawImgH,
+      width: drawImgW,
+      height: drawImgH,
+    });
+    cy -= drawImgH + 12;
+  }
+
+  // ---- Block 5: 📍 map link (clickable) ----
+  if (mapUrl) {
+    cy -= 2;
+    let mx = textX;
+    let pinAdvance = 0;
+    if (fontEmoji) {
+      const w = drawEmoji(page, fontEmoji, "📍", mx, cy, 12);
+      pinAdvance = (w > 0 ? w : 14) + 5;
+      mx += pinAdvance;
+    }
+    const linkSize = 11.5;
+    safeDrawText(page, mapLabel, {
+      x: mx,
       y: cy,
       size: linkSize,
       font: fontBold,
@@ -920,24 +967,13 @@ async function drawItemCard(
       lw = mapLabel.length * linkSize * 0.9;
     }
     page.drawLine({
-      start: { x: textX, y: cy - 2 },
-      end: { x: textX + lw, y: cy - 2 },
+      start: { x: mx, y: cy - 2 },
+      end: { x: mx + lw, y: cy - 2 },
       thickness: 0.6,
       color: PRIMARY,
     });
-    addLinkAnnotation(page, mapUrl, textX - 2, cy - 4, lw + 4, 16);
-    cy -= mapH;
-  }
-
-  // ---- Image (aspect preserved) ----
-  if (imgEmbed) {
-    page.drawImage(imgEmbed, {
-      x: textX,
-      y: cy - drawImgH,
-      width: drawImgW,
-      height: drawImgH,
-    });
-    cy -= drawImgH + 10;
+    // Link annotation covers emoji + label so the entire row is tappable.
+    addLinkAnnotation(page, mapUrl, textX - 2, cy - 4, pinAdvance + lw + 6, 18);
   }
 
   ctx.y = cardBottom - 10;
