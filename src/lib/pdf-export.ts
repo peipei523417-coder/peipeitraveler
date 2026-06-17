@@ -33,7 +33,12 @@ const FONT_BOLD_URL =
   "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf";
 const LOCAL_FONT_REGULAR_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Regular.otf`;
 const LOCAL_FONT_BOLD_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Bold.otf`;
+// Monochrome emoji font (TTF) — used ONLY for emoji glyphs (icon, 💰, 📍).
+// Optional: if it fails, we fall back to a colored badge + CJK label.
+const FONT_EMOJI_URL =
+  "https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@main/fonts/NotoEmoji-Regular.ttf";
 const FONT_TIMEOUT_MS = 7000;
+const FONT_EMOJI_TIMEOUT_MS = 5000;
 const FONT_EMBED_TIMEOUT_MS = 9000;
 const SIGNED_URL_TIMEOUT_MS = 5000;
 const IMAGE_FETCH_TIMEOUT_MS = 10000;
@@ -47,7 +52,6 @@ const PAGE_H = 841.89;
 const MARGIN = 40;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
-// PeiTravel primary blue (≈ hsl(200 98% 39%))
 const PRIMARY = rgb(0.008, 0.522, 0.78);
 const PRIMARY_LIGHT = rgb(0.86, 0.94, 0.99);
 const TEXT = rgb(0.07, 0.09, 0.15);
@@ -55,7 +59,6 @@ const MUTED = rgb(0.42, 0.46, 0.55);
 const CARD_BORDER = rgb(0.85, 0.88, 0.92);
 const WHITE = rgb(1, 1, 1);
 
-// Highlight color → light card background
 const HIGHLIGHT_RGB: Record<string, ReturnType<typeof rgb>> = {
   yellow: rgb(1.0, 0.97, 0.78),
   green: rgb(0.85, 0.96, 0.86),
@@ -65,10 +68,19 @@ const HIGHLIGHT_RGB: Record<string, ReturnType<typeof rgb>> = {
   orange: rgb(1.0, 0.9, 0.78),
 };
 
-// Icon → short label char that IS guaranteed in the Noto Sans TC subset.
-// (Geometric symbols like ●♥★ are often missing from the CJK subset OTF.
-// Using CJK ideographs avoids "glyph missing" silent drops.)
-const ICON_SYMBOL: Record<TimelineIconType, string> = {
+// Icon → emoji (preferred via Noto Emoji) and CJK fallback char when emoji
+// font is unavailable. Fallback char renders inside a colored badge.
+const ICON_EMOJI: Record<TimelineIconType, string> = {
+  default: "📌",
+  heart: "❤",
+  utensils: "🍴",
+  house: "🏠",
+  star: "⭐",
+  alert: "❗",
+  question: "❓",
+  car: "🚗",
+};
+const ICON_FALLBACK_CHAR: Record<TimelineIconType, string> = {
   default: "‧",
   heart: "心",
   utensils: "食",
@@ -78,20 +90,17 @@ const ICON_SYMBOL: Record<TimelineIconType, string> = {
   question: "？",
   car: "車",
 };
-
-// Soft per-icon badge colors so the marker stays distinguishable in print.
 const ICON_COLOR: Record<TimelineIconType, ReturnType<typeof rgb>> = {
-  default: rgb(0.008, 0.522, 0.78),   // primary
-  heart:   rgb(0.91, 0.31, 0.43),     // red
-  utensils:rgb(0.95, 0.55, 0.18),     // orange
-  house:   rgb(0.40, 0.45, 0.85),     // indigo
-  star:    rgb(0.92, 0.74, 0.13),     // yellow
-  alert:   rgb(0.93, 0.45, 0.13),     // amber
-  question:rgb(0.20, 0.60, 0.85),     // sky
-  car:     rgb(0.13, 0.66, 0.60),     // teal
+  default: rgb(0.008, 0.522, 0.78),
+  heart:   rgb(0.91, 0.31, 0.43),
+  utensils:rgb(0.95, 0.55, 0.18),
+  house:   rgb(0.40, 0.45, 0.85),
+  star:    rgb(0.92, 0.74, 0.13),
+  alert:   rgb(0.93, 0.45, 0.13),
+  question:rgb(0.20, 0.60, 0.85),
+  car:     rgb(0.13, 0.66, 0.60),
 };
 
-// Highlight color → solid color for the left card accent bar.
 const HIGHLIGHT_BAR: Record<string, ReturnType<typeof rgb>> = {
   yellow: rgb(0.96, 0.80, 0.18),
   green:  rgb(0.36, 0.78, 0.42),
