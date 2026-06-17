@@ -110,10 +110,6 @@ const HIGHLIGHT_BAR: Record<string, ReturnType<typeof rgb>> = {
   orange: rgb(0.96, 0.60, 0.20),
 };
 
-// ---------- Font loading (cached in module + sessionStorage-safe) ----------
-let fontRegularBytes: ArrayBuffer | null = null;
-let fontBoldBytes: ArrayBuffer | null = null;
-let fontSource: "cdn" | "local" = "cdn";
 
 // ---------- Font loading (cached in module) ----------
 let fontRegularBytes: ArrayBuffer | null = null;
