@@ -767,6 +767,14 @@ function ProjectDetailInner() {
         exportingPdf={exportingPdf}
       />
 
+      {/* Offscreen PDF capture root — only mounted while exporting */}
+      {capturingForPdf && project && (
+        <PdfCaptureRoot
+          project={project}
+          onReady={(days, err) => captureResolverRef.current?.(days, err)}
+        />
+      )}
+
     </div>
   );
 }
