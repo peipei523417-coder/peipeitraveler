@@ -153,7 +153,7 @@ function ItemRow({
                 {item.googleMapsUrl && (
                   <button
                     type="button"
-                    data-pdf-map-url={sanitizeMapUrl(item.googleMapsUrl) || item.googleMapsUrl}
+                    data-pdf-map-url={normalizeMapUrl(sanitizeMapUrl(item.googleMapsUrl) || item.googleMapsUrl) || ""}
                     // Block drag start so opening Maps doesn't start a sortable drag.
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={async (e) => {
