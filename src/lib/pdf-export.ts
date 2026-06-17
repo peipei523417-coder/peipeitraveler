@@ -335,30 +335,21 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   // ===== Cover =====
   await drawCover(doc, font, fontBold, project, opts.now ?? new Date(), opts.onWarning);
 
-  // ===== One page per Day (snapshot + link annotations) =====
+  // ===== One page per Day (snapshot + fixed map-links section) =====
   const days = opts.capturedDays ?? [];
+  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   for (const cap of days) {
-    if (!cap.dataUrl || !cap.widthPx || !cap.heightPx) {
-      opts.onWarning?.("day-snapshot-skipped", { day: cap.dayNumber });
-      // Add a placeholder page so the day number is still represented
-      const p = doc.addPage([PAGE_W, PAGE_H]);
-      safeDrawText(p, `Day ${cap.dayNumber}`, {
-        x: MARGIN,
-        y: PAGE_H - MARGIN - 24,
-        size: 20,
-        font: fontBold,
-        color: PRIMARY,
-      });
-      safeDrawText(p, "（無法擷取此天畫面）", {
-        x: MARGIN,
-        y: PAGE_H - MARGIN - 56,
-        size: 12,
-        font,
-        color: MUTED,
-      });
-      continue;
+    const dayData = itinerary.find((d) => d.dayNumber === cap.dayNumber);
+    try {
+      if (!cap.dataUrl || !cap.widthPx || !cap.heightPx) {
+        throw new Error("missing snapshot");
+      }
+      await drawDaySnapshotPage(doc, cap, font, fontBold, dayData, opts.onWarning);
+    } catch (e) {
+      console.warn("[pdf-export] day render failed; inserting fallback page", { day: cap.dayNumber, error: e });
+      opts.onWarning?.("day-snapshot-skipped", { day: cap.dayNumber, error: e });
+      drawDayFallbackPage(doc, font, fontBold, cap.dayNumber, dayData);
     }
-    await drawDaySnapshotPage(doc, cap, opts.onWarning);
   }
 
   console.info("pdf save start");
@@ -367,6 +358,109 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   console.info("pdf create complete", { bytes: bytes.length, pages: doc.getPageCount() });
   console.info("[pdf-export] create pdf success", { bytes: bytes.length, pages: doc.getPageCount() });
   return bytes;
+}
+
+// ---------- Map links section ----------
+interface DayMapLink {
+  title: string;
+  url: string;
+  label: string;
+}
+
+function collectDayMapLinks(day: DayItinerary | undefined): DayMapLink[] {
+  if (!day || !Array.isArray(day.items)) return [];
+  const links: DayMapLink[] = [];
+  for (const item of day.items) {
+    const url = sanitizeMapUrl(item.googleMapsUrl);
+    if (!url) continue;
+    const title = (item.description || "").split("\n")[0].trim() || "（未命名行程）";
+    links.push({ title, url, label: getMapProviderLabel(url) });
+  }
+  return links;
+}
+
+function drawMapLinksSection(
+  doc: PDFDocument,
+  font: PDFFont,
+  fontBold: PDFFont,
+  dayNumber: number,
+  links: DayMapLink[],
+) {
+  if (links.length === 0) return;
+  const lineH = 16;
+  const itemBlockH = 36; // title + link line
+  const headerH = 28;
+  let page = doc.addPage([PAGE_W, PAGE_H]);
+  let y = PAGE_H - MARGIN;
+  safeDrawText(page, `Day ${dayNumber}｜地圖連結`, {
+    x: MARGIN, y: y - 20, size: 16, font: fontBold, color: PRIMARY,
+  });
+  y -= headerH + 6;
+  page.drawLine({
+    start: { x: MARGIN, y },
+    end: { x: PAGE_W - MARGIN, y },
+    thickness: 0.6,
+    color: PRIMARY_LIGHT,
+  });
+  y -= 12;
+
+  for (const link of links) {
+    if (y - itemBlockH < MARGIN + 24) {
+      page = doc.addPage([PAGE_W, PAGE_H]);
+      y = PAGE_H - MARGIN;
+      safeDrawText(page, `Day ${dayNumber}｜地圖連結（續）`, {
+        x: MARGIN, y: y - 20, size: 14, font: fontBold, color: PRIMARY,
+      });
+      y -= headerH + 6;
+    }
+    // Title (wrapped to 1 line, truncated)
+    const titleLines = wrapByWidth(link.title, font, 11.5, CONTENT_W);
+    safeDrawText(page, titleLines[0] ?? "", {
+      x: MARGIN, y, size: 11.5, font, color: TEXT,
+    });
+    y -= lineH;
+    // Clickable provider label
+    const linkText = `${link.label}（點擊開啟）`;
+    const linkSize = 12;
+    let linkW = CONTENT_W;
+    try {
+      linkW = fontBold.widthOfTextAtSize(linkText, linkSize);
+    } catch { /* keep default */ }
+    safeDrawText(page, linkText, {
+      x: MARGIN, y, size: linkSize, font: fontBold, color: PRIMARY,
+    });
+    // underline
+    page.drawLine({
+      start: { x: MARGIN, y: y - 2 },
+      end: { x: MARGIN + linkW, y: y - 2 },
+      thickness: 0.6,
+      color: PRIMARY,
+    });
+    addLinkAnnotation(page, link.url, MARGIN - 2, y - 4, linkW + 4, linkSize + 6);
+    y -= lineH + 6;
+  }
+}
+
+// ---------- Day fallback (snapshot failed) ----------
+function drawDayFallbackPage(
+  doc: PDFDocument,
+  font: PDFFont,
+  fontBold: PDFFont,
+  dayNumber: number,
+  day: DayItinerary | undefined,
+) {
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+  safeDrawText(page, `Day ${dayNumber}`, {
+    x: MARGIN, y: PAGE_H - MARGIN - 24, size: 22, font: fontBold, color: PRIMARY,
+  });
+  safeDrawText(page, "此天畫面匯出失敗，請回 App 查看完整內容。", {
+    x: MARGIN, y: PAGE_H - MARGIN - 56, size: 12, font, color: MUTED,
+  });
+  // Still show map links so user gets value
+  const links = collectDayMapLinks(day);
+  if (links.length > 0) {
+    drawMapLinksSection(doc, font, fontBold, dayNumber, links);
+  }
 }
 
 // ---------- Cover ----------
