@@ -21,9 +21,10 @@ import {
   StandardFonts,
 } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
-import type { TravelProject, ItineraryItem } from "@/types/travel";
+import type { TravelProject, ItineraryItem, DayItinerary } from "@/types/travel";
 import { getSignedImageUrl } from "@/lib/supabase-storage";
 import type { CapturedDay } from "@/components/PdfCaptureRoot";
+import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 
 // ---------- Fonts ----------
 const FONT_REGULAR_URL =
@@ -334,30 +335,21 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   // ===== Cover =====
   await drawCover(doc, font, fontBold, project, opts.now ?? new Date(), opts.onWarning);
 
-  // ===== One page per Day (snapshot + link annotations) =====
+  // ===== One page per Day (snapshot + fixed map-links section) =====
   const days = opts.capturedDays ?? [];
+  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   for (const cap of days) {
-    if (!cap.dataUrl || !cap.widthPx || !cap.heightPx) {
-      opts.onWarning?.("day-snapshot-skipped", { day: cap.dayNumber });
-      // Add a placeholder page so the day number is still represented
-      const p = doc.addPage([PAGE_W, PAGE_H]);
-      safeDrawText(p, `Day ${cap.dayNumber}`, {
-        x: MARGIN,
-        y: PAGE_H - MARGIN - 24,
-        size: 20,
-        font: fontBold,
-        color: PRIMARY,
-      });
-      safeDrawText(p, "（無法擷取此天畫面）", {
-        x: MARGIN,
-        y: PAGE_H - MARGIN - 56,
-        size: 12,
-        font,
-        color: MUTED,
-      });
-      continue;
+    const dayData = itinerary.find((d) => d.dayNumber === cap.dayNumber);
+    try {
+      if (!cap.dataUrl || !cap.widthPx || !cap.heightPx) {
+        throw new Error("missing snapshot");
+      }
+      await drawDaySnapshotPage(doc, cap, font, fontBold, dayData, opts.onWarning);
+    } catch (e) {
+      console.warn("[pdf-export] day render failed; inserting fallback page", { day: cap.dayNumber, error: e });
+      opts.onWarning?.("day-snapshot-skipped", { day: cap.dayNumber, error: e });
+      drawDayFallbackPage(doc, font, fontBold, cap.dayNumber, dayData);
     }
-    await drawDaySnapshotPage(doc, cap, opts.onWarning);
   }
 
   console.info("pdf save start");
@@ -366,6 +358,109 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   console.info("pdf create complete", { bytes: bytes.length, pages: doc.getPageCount() });
   console.info("[pdf-export] create pdf success", { bytes: bytes.length, pages: doc.getPageCount() });
   return bytes;
+}
+
+// ---------- Map links section ----------
+interface DayMapLink {
+  title: string;
+  url: string;
+  label: string;
+}
+
+function collectDayMapLinks(day: DayItinerary | undefined): DayMapLink[] {
+  if (!day || !Array.isArray(day.items)) return [];
+  const links: DayMapLink[] = [];
+  for (const item of day.items) {
+    const url = sanitizeMapUrl(item.googleMapsUrl);
+    if (!url) continue;
+    const title = (item.description || "").split("\n")[0].trim() || "（未命名行程）";
+    links.push({ title, url, label: getMapProviderLabel(url) });
+  }
+  return links;
+}
+
+function drawMapLinksSection(
+  doc: PDFDocument,
+  font: PDFFont,
+  fontBold: PDFFont,
+  dayNumber: number,
+  links: DayMapLink[],
+) {
+  if (links.length === 0) return;
+  const lineH = 16;
+  const itemBlockH = 36; // title + link line
+  const headerH = 28;
+  let page = doc.addPage([PAGE_W, PAGE_H]);
+  let y = PAGE_H - MARGIN;
+  safeDrawText(page, `Day ${dayNumber}｜地圖連結`, {
+    x: MARGIN, y: y - 20, size: 16, font: fontBold, color: PRIMARY,
+  });
+  y -= headerH + 6;
+  page.drawLine({
+    start: { x: MARGIN, y },
+    end: { x: PAGE_W - MARGIN, y },
+    thickness: 0.6,
+    color: PRIMARY_LIGHT,
+  });
+  y -= 12;
+
+  for (const link of links) {
+    if (y - itemBlockH < MARGIN + 24) {
+      page = doc.addPage([PAGE_W, PAGE_H]);
+      y = PAGE_H - MARGIN;
+      safeDrawText(page, `Day ${dayNumber}｜地圖連結（續）`, {
+        x: MARGIN, y: y - 20, size: 14, font: fontBold, color: PRIMARY,
+      });
+      y -= headerH + 6;
+    }
+    // Title (wrapped to 1 line, truncated)
+    const titleLines = wrapByWidth(link.title, font, 11.5, CONTENT_W);
+    safeDrawText(page, titleLines[0] ?? "", {
+      x: MARGIN, y, size: 11.5, font, color: TEXT,
+    });
+    y -= lineH;
+    // Clickable provider label
+    const linkText = `${link.label}（點擊開啟）`;
+    const linkSize = 12;
+    let linkW = CONTENT_W;
+    try {
+      linkW = fontBold.widthOfTextAtSize(linkText, linkSize);
+    } catch { /* keep default */ }
+    safeDrawText(page, linkText, {
+      x: MARGIN, y, size: linkSize, font: fontBold, color: PRIMARY,
+    });
+    // underline
+    page.drawLine({
+      start: { x: MARGIN, y: y - 2 },
+      end: { x: MARGIN + linkW, y: y - 2 },
+      thickness: 0.6,
+      color: PRIMARY,
+    });
+    addLinkAnnotation(page, link.url, MARGIN - 2, y - 4, linkW + 4, linkSize + 6);
+    y -= lineH + 6;
+  }
+}
+
+// ---------- Day fallback (snapshot failed) ----------
+function drawDayFallbackPage(
+  doc: PDFDocument,
+  font: PDFFont,
+  fontBold: PDFFont,
+  dayNumber: number,
+  day: DayItinerary | undefined,
+) {
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+  safeDrawText(page, `Day ${dayNumber}`, {
+    x: MARGIN, y: PAGE_H - MARGIN - 24, size: 22, font: fontBold, color: PRIMARY,
+  });
+  safeDrawText(page, "此天畫面匯出失敗，請回 App 查看完整內容。", {
+    x: MARGIN, y: PAGE_H - MARGIN - 56, size: 12, font, color: MUTED,
+  });
+  // Still show map links so user gets value
+  const links = collectDayMapLinks(day);
+  if (links.length > 0) {
+    drawMapLinksSection(doc, font, fontBold, dayNumber, links);
+  }
 }
 
 // ---------- Cover ----------
@@ -475,6 +570,9 @@ async function drawCover(
 async function drawDaySnapshotPage(
   doc: PDFDocument,
   cap: CapturedDay,
+  font: PDFFont,
+  fontBold: PDFFont,
+  dayData: DayItinerary | undefined,
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
 ) {
   // Parse data URL → bytes
@@ -494,7 +592,7 @@ async function drawDaySnapshotPage(
   } catch (e) {
     console.warn("[pdf-export] day snapshot embed failed", { day: cap.dayNumber, error: e });
     onWarning?.("day-snapshot-skipped", e);
-    return;
+    throw e;
   }
 
   // Fit into content area preserving aspect.
@@ -508,88 +606,58 @@ async function drawDaySnapshotPage(
     const yBottom = yTop - drawH;
     const page = doc.addPage([PAGE_W, PAGE_H]);
     page.drawImage(img, { x, y: yBottom, width: drawW, height: drawH });
-    // Link annotations
-    for (const link of cap.mapLinks) {
-      if (!link.url) continue;
-      const lx = x + link.xPct * drawW;
-      const lw = link.wPct * drawW;
-      const lh = link.hPct * drawH;
-      // y from top of image → convert to bottom-origin
-      const ly = yTop - link.yPct * drawH - lh;
-      addLinkAnnotation(page, link.url, lx, ly, lw, lh);
-    }
-    return;
-  }
+  } else {
+    // Image is taller than one page — split into vertical slices, one page each.
+    // Prefer page breaks between itinerary cards when PdfCaptureRoot provides bounds.
+    const sliceBreaks: Array<{ start: number; end: number }> = [];
+    let start = 0;
+    const minUsefulSlice = CONTENT_H * 0.35;
+    const cardBounds = (cap.cardBounds ?? [])
+      .map((b) => ({ top: b.topPct * drawH, bottom: b.bottomPct * drawH }))
+      .filter((b) => Number.isFinite(b.top) && Number.isFinite(b.bottom) && b.bottom > b.top)
+      .sort((a, b) => a.top - b.top);
 
-  // Image is taller than one page — split into vertical slices, one page each.
-  // Prefer page breaks between itinerary cards when PdfCaptureRoot provides bounds.
-  const sliceBreaks: Array<{ start: number; end: number }> = [];
-  let start = 0;
-  const minUsefulSlice = CONTENT_H * 0.35;
-  const cardBounds = (cap.cardBounds ?? [])
-    .map((b) => ({ top: b.topPct * drawH, bottom: b.bottomPct * drawH }))
-    .filter((b) => Number.isFinite(b.top) && Number.isFinite(b.bottom) && b.bottom > b.top)
-    .sort((a, b) => a.top - b.top);
-
-  while (start < drawH - 1) {
-    let end = Math.min(start + CONTENT_H, drawH);
-    if (end < drawH) {
-      const crossing = cardBounds.find((b) => b.top < end && b.bottom > end);
-      if (crossing && crossing.top - start >= minUsefulSlice) {
-        end = crossing.top;
+    while (start < drawH - 1) {
+      let end = Math.min(start + CONTENT_H, drawH);
+      if (end < drawH) {
+        const crossing = cardBounds.find((b) => b.top < end && b.bottom > end);
+        if (crossing && crossing.top - start >= minUsefulSlice) {
+          end = crossing.top;
+        }
       }
+      if (end <= start + 8) end = Math.min(start + CONTENT_H, drawH);
+      sliceBreaks.push({ start, end });
+      start = end;
     }
-    if (end <= start + 8) end = Math.min(start + CONTENT_H, drawH);
-    sliceBreaks.push({ start, end });
-    start = end;
+
+    for (let s = 0; s < sliceBreaks.length; s++) {
+      const slice = sliceBreaks[s];
+      const page = doc.addPage([PAGE_W, PAGE_H]);
+      const x = MARGIN + (CONTENT_W - drawW) / 2;
+      const visibleH = slice.end - slice.start;
+      const yTopOfSliceInImage = slice.start;
+      const imageBottomY = (PAGE_H - MARGIN) + yTopOfSliceInImage - drawH;
+      page.drawImage(img, { x, y: imageBottomY, width: drawW, height: drawH });
+      // Mask outside the intended content slice.
+      page.drawRectangle({ x: 0, y: PAGE_H - MARGIN, width: PAGE_W, height: MARGIN, color: rgb(1, 1, 1) });
+      page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H - MARGIN - visibleH, color: rgb(1, 1, 1) });
+      safeDrawText(page, `(${s + 1}/${sliceBreaks.length})`, {
+        x: PAGE_W - MARGIN - 30,
+        y: 14,
+        size: 8,
+        font,
+        color: MUTED,
+      });
+    }
   }
 
-  // We'll render the SAME full image on each page but shifted upward and mask
-  // the margins so the visible band is exactly the selected slice.
-  for (let s = 0; s < sliceBreaks.length; s++) {
-    const slice = sliceBreaks[s];
-    const page = doc.addPage([PAGE_W, PAGE_H]);
-    const x = MARGIN + (CONTENT_W - drawW) / 2;
-    const visibleH = slice.end - slice.start;
-    const yTopOfSliceInImage = slice.start; // px from image top (in PDF pts)
-    // We want image-top to land at: page_top - (slice * sliceHpdf - 0) above the page top
-    // i.e. image bottom y = (PAGE_H - MARGIN) + yTopOfSliceInImage - drawH
-    const imageBottomY = (PAGE_H - MARGIN) + yTopOfSliceInImage - drawH;
-    page.drawImage(img, { x, y: imageBottomY, width: drawW, height: drawH });
-    // Mask outside the intended content slice.
-    page.drawRectangle({ x: 0, y: PAGE_H - MARGIN, width: PAGE_W, height: MARGIN, color: rgb(1, 1, 1) });
-    page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H - MARGIN - visibleH, color: rgb(1, 1, 1) });
-
-    // Small slice indicator
-    safeDrawText(page, `(${s + 1}/${sliceBreaks.length})`, {
-      x: PAGE_W - MARGIN - 30,
-      y: 14,
-      size: 8,
-      font: await doc.embedFont(StandardFonts.Helvetica),
-      color: MUTED,
-    });
-
-    // Annotations whose vertical center falls within this slice
-    for (const link of cap.mapLinks) {
-      if (!link.url) continue;
-      const linkTopInImage = link.yPct * drawH;
-      const linkHpdf = link.hPct * drawH;
-      const linkBottomInImage = linkTopInImage + linkHpdf;
-      const sliceTop = slice.start;
-      const sliceBottom = slice.end;
-      if (linkBottomInImage < sliceTop || linkTopInImage > sliceBottom) continue;
-      const lx = x + link.xPct * drawW;
-      const lw = link.wPct * drawW;
-      const clippedTop = Math.max(linkTopInImage, sliceTop);
-      const clippedBottom = Math.min(linkBottomInImage, sliceBottom);
-      const clippedH = clippedBottom - clippedTop;
-      // Convert link top-in-image → page y (bottom-origin)
-      const pageYofLinkTop = (PAGE_H - MARGIN) - (clippedTop - yTopOfSliceInImage);
-      const ly = pageYofLinkTop - clippedH;
-      addLinkAnnotation(page, link.url, lx, ly, lw, clippedH);
-    }
+  // Fixed map-links section (no DOM coordinate math, fully reliable)
+  const links = collectDayMapLinks(dayData);
+  if (links.length > 0) {
+    drawMapLinksSection(doc, font, fontBold, cap.dayNumber, links);
   }
 }
+
 
 // ---------- Save / share ----------
 export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"shared" | "downloaded"> {

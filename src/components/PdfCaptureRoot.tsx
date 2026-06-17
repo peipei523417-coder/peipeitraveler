@@ -262,11 +262,12 @@ export function PdfCaptureRoot({ project, onReady }: Props) {
       aria-hidden
       style={{
         position: "fixed",
-        left: 0,
+        left: -10000,
         top: 0,
         width: CAPTURE_WIDTH,
         background: "#ffffff",
-        zIndex: -1,
+        visibility: "visible",
+        opacity: 1,
         pointerEvents: "none",
       }}
     >
