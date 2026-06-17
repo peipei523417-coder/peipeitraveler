@@ -115,6 +115,12 @@ let fontRegularBytes: ArrayBuffer | null = null;
 let fontBoldBytes: ArrayBuffer | null = null;
 let fontSource: "cdn" | "local" = "cdn";
 
+// ---------- Font loading (cached in module) ----------
+let fontRegularBytes: ArrayBuffer | null = null;
+let fontBoldBytes: ArrayBuffer | null = null;
+let fontEmojiBytes: ArrayBuffer | null = null;
+let fontSource: "cdn" | "local" = "cdn";
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
@@ -163,12 +169,24 @@ async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer; s
   return { regular: fontRegularBytes!, bold: fontBoldBytes!, source: fontSource };
 }
 
+async function loadEmojiFont(): Promise<ArrayBuffer | null> {
+  if (fontEmojiBytes) return fontEmojiBytes;
+  try {
+    const bytes = await fetchBuffer(FONT_EMOJI_URL, FONT_EMOJI_TIMEOUT_MS);
+    fontEmojiBytes = bytes;
+    return bytes;
+  } catch (e) {
+    console.warn("[pdf-export] emoji font fetch failed (will use fallback badge)", e);
+    return null;
+  }
+}
+
 export type PdfExportWarning = "font-fallback" | "image-skipped";
 
 async function embedPdfFonts(
   doc: PDFDocument,
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
-): Promise<{ font: PDFFont; fontBold: PDFFont; usedFallback: boolean }> {
+): Promise<{ font: PDFFont; fontBold: PDFFont; fontEmoji: PDFFont | null; usedFallback: boolean }> {
   try {
     console.info("[pdf-export] load font start");
     const { regular, bold, source } = await loadFonts();
@@ -180,20 +198,39 @@ async function embedPdfFonts(
       FONT_EMBED_TIMEOUT_MS,
       "font embed",
     );
+
+    // Optional emoji font — never blocks export.
+    let fontEmoji: PDFFont | null = null;
+    try {
+      const emojiBytes = await loadEmojiFont();
+      if (emojiBytes) {
+        fontEmoji = await withTimeout(
+          doc.embedFont(emojiBytes, { subset: true }),
+          FONT_EMBED_TIMEOUT_MS,
+          "emoji font embed",
+        );
+        console.info("[pdf-export] load emoji font success");
+      } else {
+        console.info("[pdf-export] emoji font unavailable; using CJK fallback");
+      }
+    } catch (ee) {
+      console.warn("[pdf-export] emoji font embed failed; using CJK fallback", ee);
+    }
+
     if (source === "local") onWarning?.("font-fallback", "bundled Noto Sans TC");
     console.info("[pdf-export] load font success", {
       source: source === "cdn" ? "jsDelivr Noto Sans TC" : "bundled Noto Sans TC fallback",
+      emoji: !!fontEmoji,
     });
-    return { font, fontBold, usedFallback: false };
+    return { font, fontBold, fontEmoji, usedFallback: false };
   } catch (e) {
     console.warn("[pdf-export] load font fail; using fallback", e);
-    console.info("[pdf-export] load font fail", { fallback: "Helvetica", error: e });
     onWarning?.("font-fallback", e);
     const [font, fontBold] = await Promise.all([
       doc.embedFont(StandardFonts.Helvetica),
       doc.embedFont(StandardFonts.HelveticaBold),
     ]);
-    return { font, fontBold, usedFallback: true };
+    return { font, fontBold, fontEmoji: null, usedFallback: true };
   }
 }
 
