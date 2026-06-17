@@ -326,6 +326,7 @@ export async function exportProjectToPdf(
 }
 
 async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promise<Uint8Array> {
+  console.info("pdf create start");
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
@@ -359,7 +360,10 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
     await drawDaySnapshotPage(doc, cap, opts.onWarning);
   }
 
+  console.info("pdf save start");
   const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
+  console.info("pdf save complete", { bytes: bytes.length });
+  console.info("pdf create complete", { bytes: bytes.length, pages: doc.getPageCount() });
   console.info("[pdf-export] create pdf success", { bytes: bytes.length, pages: doc.getPageCount() });
   return bytes;
 }
@@ -518,25 +522,46 @@ async function drawDaySnapshotPage(
   }
 
   // Image is taller than one page — split into vertical slices, one page each.
-  const sliceHpdf = CONTENT_H; // PDF points per slice
-  // How many PDF points of source image correspond per PDF point on page?
-  // Since we map full image width → CONTENT_W, vertical scale is the same.
-  const totalSlices = Math.ceil(drawH / sliceHpdf);
+  // Prefer page breaks between itinerary cards when PdfCaptureRoot provides bounds.
+  const sliceBreaks: Array<{ start: number; end: number }> = [];
+  let start = 0;
+  const minUsefulSlice = CONTENT_H * 0.35;
+  const cardBounds = (cap.cardBounds ?? [])
+    .map((b) => ({ top: b.topPct * drawH, bottom: b.bottomPct * drawH }))
+    .filter((b) => Number.isFinite(b.top) && Number.isFinite(b.bottom) && b.bottom > b.top)
+    .sort((a, b) => a.top - b.top);
 
-  // We'll render the SAME full image on each page but shifted upward and clip
-  // via page bounds (pdf-lib has no real clipping — but page bounds clip
-  // rendering). We draw image with y so that the visible band is the slice.
-  for (let s = 0; s < totalSlices; s++) {
+  while (start < drawH - 1) {
+    let end = Math.min(start + CONTENT_H, drawH);
+    if (end < drawH) {
+      const crossing = cardBounds.find((b) => b.top < end && b.bottom > end);
+      if (crossing && crossing.top - start >= minUsefulSlice) {
+        end = crossing.top;
+      }
+    }
+    if (end <= start + 8) end = Math.min(start + CONTENT_H, drawH);
+    sliceBreaks.push({ start, end });
+    start = end;
+  }
+
+  // We'll render the SAME full image on each page but shifted upward and mask
+  // the margins so the visible band is exactly the selected slice.
+  for (let s = 0; s < sliceBreaks.length; s++) {
+    const slice = sliceBreaks[s];
     const page = doc.addPage([PAGE_W, PAGE_H]);
     const x = MARGIN + (CONTENT_W - drawW) / 2;
-    const yTopOfSliceInImage = s * sliceHpdf; // px from image top (in PDF pts)
+    const visibleH = slice.end - slice.start;
+    const yTopOfSliceInImage = slice.start; // px from image top (in PDF pts)
     // We want image-top to land at: page_top - (slice * sliceHpdf - 0) above the page top
     // i.e. image bottom y = (PAGE_H - MARGIN) + yTopOfSliceInImage - drawH
     const imageBottomY = (PAGE_H - MARGIN) + yTopOfSliceInImage - drawH;
     page.drawImage(img, { x, y: imageBottomY, width: drawW, height: drawH });
+    // Mask outside the intended content slice.
+    page.drawRectangle({ x: 0, y: PAGE_H - MARGIN, width: PAGE_W, height: MARGIN, color: rgb(1, 1, 1) });
+    page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H - MARGIN - visibleH, color: rgb(1, 1, 1) });
 
     // Small slice indicator
-    safeDrawText(page, `(${s + 1}/${totalSlices})`, {
+    safeDrawText(page, `(${s + 1}/${sliceBreaks.length})`, {
       x: PAGE_W - MARGIN - 30,
       y: 14,
       size: 8,
@@ -550,15 +575,18 @@ async function drawDaySnapshotPage(
       const linkTopInImage = link.yPct * drawH;
       const linkHpdf = link.hPct * drawH;
       const linkBottomInImage = linkTopInImage + linkHpdf;
-      const sliceTop = yTopOfSliceInImage;
-      const sliceBottom = yTopOfSliceInImage + sliceHpdf;
+      const sliceTop = slice.start;
+      const sliceBottom = slice.end;
       if (linkBottomInImage < sliceTop || linkTopInImage > sliceBottom) continue;
       const lx = x + link.xPct * drawW;
       const lw = link.wPct * drawW;
+      const clippedTop = Math.max(linkTopInImage, sliceTop);
+      const clippedBottom = Math.min(linkBottomInImage, sliceBottom);
+      const clippedH = clippedBottom - clippedTop;
       // Convert link top-in-image → page y (bottom-origin)
-      const pageYofLinkTop = (PAGE_H - MARGIN) - (linkTopInImage - yTopOfSliceInImage);
-      const ly = pageYofLinkTop - linkHpdf;
-      addLinkAnnotation(page, link.url, lx, ly, lw, linkHpdf);
+      const pageYofLinkTop = (PAGE_H - MARGIN) - (clippedTop - yTopOfSliceInImage);
+      const ly = pageYofLinkTop - clippedH;
+      addLinkAnnotation(page, link.url, lx, ly, lw, clippedH);
     }
   }
 }
@@ -567,6 +595,7 @@ async function drawDaySnapshotPage(
 export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"shared" | "downloaded"> {
   const blob = new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
   const triggerDownload = () => {
+    console.info("download start", { filename, bytes: bytes.length });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -575,29 +604,74 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 4000);
+    console.info("download complete", { filename });
   };
 
-  const isNative = !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
-    .Capacitor?.isNativePlatform?.();
+  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  const isNative = !!cap?.isNativePlatform?.();
+  const isMobileBrowser = !isNative && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   if (!isNative) {
+    if (isMobileBrowser) {
+      try {
+        const file = new File([blob], filename, { type: "application/pdf" });
+        const nav = navigator as Navigator & {
+          canShare?: (data: { files?: File[] }) => boolean;
+          share?: (data: { files?: File[]; title?: string }) => Promise<void>;
+        };
+        if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
+          console.info("share start", { mode: "web-share", filename, bytes: bytes.length });
+          await withTimeout(nav.share({ files: [file], title: filename }), SHARE_TIMEOUT_MS, "navigator.share");
+          console.info("share success", { mode: "web-share" });
+          console.info("[pdf-export] share/download success", { mode: "web-share" });
+          return "shared";
+        }
+      } catch (e) {
+        console.warn("share failed", e);
+        console.warn("[pdf-export] web share fallback", e);
+      }
+    }
     triggerDownload();
     console.info("[pdf-export] share/download success", { mode: "download" });
     return "downloaded";
   }
 
   try {
-    const file = new File([blob], filename, { type: "application/pdf" });
-    const nav = navigator as Navigator & {
-      canShare?: (data: { files?: File[] }) => boolean;
-      share?: (data: { files?: File[]; title?: string }) => Promise<void>;
-    };
-    if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
-      await withTimeout(nav.share({ files: [file], title: filename }), SHARE_TIMEOUT_MS, "navigator.share");
-      console.info("[pdf-export] share/download success", { mode: "share" });
-      return "shared";
+    console.info("share start", { mode: "native", filename, bytes: bytes.length });
+    const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+      import("@capacitor/filesystem"),
+      import("@capacitor/share"),
+    ]);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
     }
+    const base64 = btoa(binary);
+    const writeResult = await withTimeout(
+      Filesystem.writeFile({
+        path: filename,
+        data: base64,
+        directory: Directory.Cache,
+        recursive: true,
+      }),
+      15000,
+      "native PDF file write",
+    );
+    await withTimeout(
+      Share.share({
+        title: filename,
+        files: [writeResult.uri],
+        dialogTitle: filename,
+      }),
+      SHARE_TIMEOUT_MS,
+      "native share",
+    );
+    console.info("share success", { mode: "native" });
+    console.info("[pdf-export] share/download success", { mode: "native-share" });
+    return "shared";
   } catch (e) {
+    console.warn("share failed", e);
     console.warn("[pdf-export] share fallback", e);
   }
   triggerDownload();
