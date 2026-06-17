@@ -21,9 +21,10 @@ import {
   StandardFonts,
 } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
-import type { TravelProject, ItineraryItem } from "@/types/travel";
+import type { TravelProject, ItineraryItem, DayItinerary } from "@/types/travel";
 import { getSignedImageUrl } from "@/lib/supabase-storage";
 import type { CapturedDay } from "@/components/PdfCaptureRoot";
+import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 
 // ---------- Fonts ----------
 const FONT_REGULAR_URL =
