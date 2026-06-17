@@ -20,6 +20,11 @@ export interface CapturedMapLink {
   hPct: number;
 }
 
+export interface CapturedCardBounds {
+  topPct: number;
+  bottomPct: number;
+}
+
 export interface CapturedDay {
   dayNumber: number;
   date: string;
@@ -28,6 +33,7 @@ export interface CapturedDay {
   widthPx: number;
   heightPx: number;
   mapLinks: CapturedMapLink[];
+  cardBounds: CapturedCardBounds[];
 }
 
 interface Props {
@@ -170,6 +176,13 @@ export function PdfCaptureRoot({ project, onReady }: Props) {
           const mapBtns = Array.from(
             node.querySelectorAll<HTMLElement>("[data-pdf-map-url]"),
           );
+          const cardBounds = Array.from(node.querySelectorAll<HTMLElement>("[data-pdf-card]")).map((card) => {
+            const r = card.getBoundingClientRect();
+            return {
+              topPct: (r.top - nodeRect.top) / nodeRect.height,
+              bottomPct: (r.bottom - nodeRect.top) / nodeRect.height,
+            };
+          });
           const mapLinks: CapturedMapLink[] = mapBtns.map((btn) => {
             const r = btn.getBoundingClientRect();
             return {
@@ -213,7 +226,7 @@ export function PdfCaptureRoot({ project, onReady }: Props) {
           } catch (e) {
             console.warn("[pdf-capture] html2canvas failed for day", dayNumber, e);
           }
-          result.push({ dayNumber, date, dataUrl, widthPx, heightPx, mapLinks });
+          result.push({ dayNumber, date, dataUrl, widthPx, heightPx, mapLinks, cardBounds });
         }
         console.info("capture complete");
         console.info("[pdf-capture] capture complete", { days: result.length });
