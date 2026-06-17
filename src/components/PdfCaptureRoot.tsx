@@ -54,29 +54,39 @@ function weekday(value: unknown): string {
   return WEEKDAY[d.getDay()] ?? "";
 }
 
-async function waitImages(root: HTMLElement, timeoutMs = 8000): Promise<void> {
-  const imgs = Array.from(root.querySelectorAll("img"));
-  if (imgs.length === 0) return;
-  await Promise.all(
-    imgs.map(
-      (img) =>
-        new Promise<void>((resolve) => {
-          if (img.complete && img.naturalWidth > 0) {
-            resolve();
-            return;
-          }
-          let done = false;
-          const finish = () => {
-            if (done) return;
-            done = true;
-            resolve();
-          };
-          img.addEventListener("load", finish, { once: true });
-          img.addEventListener("error", finish, { once: true });
-          setTimeout(finish, timeoutMs);
-        }),
-    ),
-  );
+async function waitImages(root: HTMLElement, overallTimeoutMs = 12000): Promise<void> {
+  const start = Date.now();
+  // Poll until the set of <img> elements is stable AND all complete, or until timeout.
+  let lastCount = -1;
+  let stableTicks = 0;
+  while (Date.now() - start < overallTimeoutMs) {
+    const imgs = Array.from(root.querySelectorAll("img"));
+    const count = imgs.length;
+    const allDone = imgs.every((img) => img.complete);
+    if (count === lastCount && allDone) {
+      stableTicks++;
+      if (stableTicks >= 2) {
+        // Wait final image loads (in case some just toggled complete)
+        await Promise.all(
+          imgs.map(
+            (img) =>
+              new Promise<void>((resolve) => {
+                if (img.complete) return resolve();
+                const finish = () => resolve();
+                img.addEventListener("load", finish, { once: true });
+                img.addEventListener("error", finish, { once: true });
+                setTimeout(finish, 4000);
+              }),
+          ),
+        );
+        return;
+      }
+    } else {
+      stableTicks = 0;
+    }
+    lastCount = count;
+    await new Promise((r) => setTimeout(r, 250));
+  }
 }
 
 export function PdfCaptureRoot({ project, onReady }: Props) {
