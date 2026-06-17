@@ -360,7 +360,9 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
     await drawDaySnapshotPage(doc, cap, opts.onWarning);
   }
 
+  console.info("pdf save start");
   const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
+  console.info("pdf save complete", { bytes: bytes.length });
   console.info("pdf create complete", { bytes: bytes.length, pages: doc.getPageCount() });
   console.info("[pdf-export] create pdf success", { bytes: bytes.length, pages: doc.getPageCount() });
   return bytes;
