@@ -267,7 +267,6 @@ export function PdfCaptureRoot({ project, onReady }: Props) {
         width: CAPTURE_WIDTH,
         background: "#ffffff",
         zIndex: -1,
-        transform: "translateX(-120vw)",
         pointerEvents: "none",
       }}
     >
