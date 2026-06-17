@@ -447,6 +447,7 @@ interface Ctx {
   doc: PDFDocument;
   font: PDFFont;
   fontBold: PDFFont;
+  fontEmoji: PDFFont | null;
   page: PDFPage;
   y: number; // current top y of next content
 }
@@ -459,6 +460,34 @@ function newPage(ctx: Ctx) {
 function ensureSpace(ctx: Ctx, needed: number) {
   if (ctx.y - needed < MARGIN) {
     newPage(ctx);
+  }
+}
+
+/** Width of a single emoji glyph using the emoji font (or fallback width). */
+function emojiWidth(fontEmoji: PDFFont | null, emoji: string, size: number): number {
+  if (!fontEmoji) return size * 1.15;
+  try {
+    return fontEmoji.widthOfTextAtSize(emoji, size);
+  } catch {
+    return size * 1.15;
+  }
+}
+
+/** Draw an emoji at (x, y) using the emoji font. Returns advance width drawn. */
+function drawEmoji(
+  page: PDFPage,
+  fontEmoji: PDFFont | null,
+  emoji: string,
+  x: number,
+  y: number,
+  size: number,
+): number {
+  if (!fontEmoji) return 0;
+  try {
+    page.drawText(emoji, { x, y, size, font: fontEmoji, color: TEXT });
+    return fontEmoji.widthOfTextAtSize(emoji, size);
+  } catch {
+    return 0;
   }
 }
 
@@ -488,10 +517,10 @@ async function buildProjectPdfBytes(
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
+  const { font, fontBold, fontEmoji } = await embedPdfFonts(doc, opts.onWarning);
 
   const page = doc.addPage([PAGE_W, PAGE_H]);
-  const ctx: Ctx = { doc, font, fontBold, page, y: PAGE_H - MARGIN };
+  const ctx: Ctx = { doc, font, fontBold, fontEmoji, page, y: PAGE_H - MARGIN };
 
   // ============ COVER ============
   await drawCover(ctx, project, opts.now ?? new Date(), opts.onWarning);
@@ -515,38 +544,48 @@ async function buildProjectPdfBytes(
       ctx.y -= 40;
       continue;
     }
-    // sort: with-time first by start, then no-time by sortOrder
-    const wt = items.filter((i) => !!i.startTime).sort((a, b) => a.startTime.localeCompare(b.startTime));
-    const wo = items
-      .filter((i) => !i.startTime)
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    // Order:
+    //  - With time → sorted by start time.
+    //  - Without time → preserve user-defined order (sortOrder, then original).
+    const indexed = items.map((it, i) => ({ it, i }));
+    const wt = indexed
+      .filter(({ it }) => !!it.startTime)
+      .sort((a, b) => a.it.startTime.localeCompare(b.it.startTime))
+      .map((x) => x.it);
+    const wo = indexed
+      .filter(({ it }) => !it.startTime)
+      .sort((a, b) => {
+        const ao = a.it.sortOrder ?? a.i;
+        const bo = b.it.sortOrder ?? b.i;
+        return ao - bo;
+      })
+      .map((x) => x.it);
     const ordered = [...wt, ...wo];
     for (const item of ordered) {
       await drawItemCard(ctx, item, opts.onWarning);
     }
 
-    // Day total
+    // Day footer: 今日單人花費 (only if > 0)
     const total = dayTotal(items);
     if (total > 0) {
-      ensureSpace(ctx, 30);
-      ctx.y -= 8;
-      const label = `當日合計：$${total.toLocaleString()}`;
-      const w = fontBold.widthOfTextAtSize(label, 12);
-      ctx.page.drawRectangle({
+      ensureSpace(ctx, 42);
+      ctx.y -= 6;
+      safeDrawText(ctx.page, "今日單人花費：", {
         x: MARGIN,
-        y: ctx.y - 22,
-        width: w + 20,
-        height: 22,
-        color: PRIMARY_LIGHT,
+        y: ctx.y - 12,
+        size: 11,
+        font,
+        color: MUTED,
       });
-      safeDrawText(ctx.page, label, {
-        x: MARGIN + 10,
-        y: ctx.y - 17,
-        size: 12,
+      const amount = `$${total.toLocaleString()}`;
+      safeDrawText(ctx.page, amount, {
+        x: MARGIN,
+        y: ctx.y - 32,
+        size: 18,
         font: fontBold,
         color: PRIMARY,
       });
-      ctx.y -= 32;
+      ctx.y -= 44;
     }
   }
 
