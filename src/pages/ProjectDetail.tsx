@@ -92,7 +92,9 @@ function ProjectDetailInner() {
 
   const captureDays = useCallback((): Promise<CapturedDay[]> => {
     return new Promise((resolve, reject) => {
+      console.info("[pdf-export] mount PdfCaptureRoot");
       captureResolverRef.current = (days, err) => {
+        console.info("[pdf-export] PdfCaptureRoot callback", { days: days?.length ?? null, hasError: !!err });
         captureResolverRef.current = null;
         setCapturingForPdf(false);
         if (err || !days) reject(err ?? new Error("capture failed"));
@@ -107,16 +109,24 @@ function ProjectDetailInner() {
     setExportingPdf(true);
     const loadingId = toast.loading(t("exportingPdf"));
     let fontFallbackToastShown = false;
+    let currentStep = "start";
+    const logStep = (step: string, detail?: unknown) => {
+      currentStep = step;
+      console.info(`[pdf-export] step: ${step}`, detail ?? {});
+    };
     try {
-      console.info("[pdf-export] start export click");
-      console.info("[pdf-export] capturing day snapshots…");
-      const capturedDays = await withTimeout(captureDays(), 45000, "Day capture");
+      logStep("capture start", { projectId: project.id, days: project.itinerary?.length ?? 0 });
+      const captureTimeoutMs = Math.min(180000, 20000 + Math.max(1, project.itinerary?.length ?? 1) * 22000);
+      const capturedDays = await withTimeout(captureDays(), captureTimeoutMs, "Day capture");
+      logStep("capture complete", { count: capturedDays.length });
       console.info("[pdf-export] captured days", { count: capturedDays.length });
+      logStep("pdf module import");
       const { exportProjectToPdf, deliverPdf, buildPdfFilename } = await withTimeout(
         import("@/lib/pdf-export"),
         8000,
         "PDF module import",
       );
+      logStep("pdf create start");
       const bytes = await withTimeout(
         exportProjectToPdf(project, {
           capturedDays,
@@ -130,15 +140,29 @@ function ProjectDetailInner() {
         60000,
         "PDF generation",
       );
+      logStep("pdf create complete", { bytes: bytes.length });
       const filename = buildPdfFilename(project.name, new Date());
+      logStep("share/download start", { filename, bytes: bytes.length });
       await withTimeout(deliverPdf(bytes, filename), 15000, "PDF share/download");
+      logStep("share/download complete", { filename });
       toast.dismiss(loadingId);
       toast.success(t("exportPdfSuccess"));
     } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      console.error("[pdf-export] failed", {
+        step: currentStep,
+        message: err.message,
+        stack: err.stack,
+        error: e,
+      });
       console.error("[pdf-export] failed", e);
       toast.dismiss(loadingId);
-      toast.error(t("exportPdfFailed"));
+      toast.error(t("exportPdfFailed"), {
+        description: `Step: ${currentStep}\nError Message: ${err.message}\nError Stack: ${err.stack ?? "N/A"}`,
+        duration: 12000,
+      });
     } finally {
+      console.info("[pdf-export] finally cleanup", { step: currentStep });
       // Ensure capture root is unmounted even on failure
       if (captureResolverRef.current) {
         captureResolverRef.current = null;
