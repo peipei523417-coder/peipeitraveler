@@ -8,7 +8,7 @@ import dogEmptyNew from "@/assets/dog-empty-new.png";
 import { cn } from "@/lib/utils";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import { useSignedImageUrls } from "@/hooks/useSignedImageUrl";
-import { TimelineIconPicker } from "@/components/TimelineIconPicker";
+import { TimelineIcon, TimelineIconPicker } from "@/components/TimelineIconPicker";
 import { normalizeMapUrl, openMapUrl } from "@/lib/maps-url";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { toast } from "@/hooks/use-toast";
@@ -97,19 +97,23 @@ function ItemRow({
   isDragging,
 }: RowProps) {
   return (
-    <div className={cn("relative flex gap-4", isDragging && "opacity-60")}>
+    <div className={cn("relative flex gap-4", isDragging && "opacity-60")} data-pdf-card>
       {/* Timeline icon (NOT a drag handle — pointer-events stay on the picker) */}
       <div
         className="relative z-10 w-12 flex-shrink-0 flex flex-col items-center justify-center pt-2"
         style={{ pointerEvents: "auto" }}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <TimelineIconPicker
-          value={item.iconType || 'default'}
-          onChange={(iconType) => onUpdateItemIcon?.(item.id, iconType)}
-          disabled={readOnly}
-          onOpenChange={onIconPickerOpenChange}
-        />
+        {readOnly ? (
+          <TimelineIcon type={item.iconType || 'default'} />
+        ) : (
+          <TimelineIconPicker
+            value={item.iconType || 'default'}
+            onChange={(iconType) => onUpdateItemIcon?.(item.id, iconType)}
+            disabled={readOnly}
+            onOpenChange={onIconPickerOpenChange}
+          />
+        )}
       </div>
 
       {/* Card — drag handle for no-time items */}
@@ -198,9 +202,10 @@ function ItemRow({
                     className="relative group/img cursor-pointer"
                   >
                     <img
+                      data-pdf-photo
                       src={signedImageUrl}
                       alt=""
-                      loading="lazy"
+                      loading={readOnly ? "eager" : "lazy"}
                       decoding="async"
                       className="w-20 h-20 object-cover rounded-lg border border-border shadow-sm hover:opacity-90 transition-opacity"
                     />
