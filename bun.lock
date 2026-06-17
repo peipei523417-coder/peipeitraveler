@@ -12,7 +12,9 @@
         "@capacitor/camera": "7",
         "@capacitor/cli": "7.0.0",
         "@capacitor/core": "7.0.0",
+        "@capacitor/filesystem": "7.1.8",
         "@capacitor/ios": "7.0.0",
+        "@capacitor/share": "7.0.4",
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
@@ -125,7 +127,13 @@
 
     "@capacitor/core": ["@capacitor/core@7.0.0", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/core/-/core-7.0.0.tgz", { "dependencies": { "tslib": "^2.1.0" } }, "sha512-JMJxPi/tHeOR/I87/P0kc1DUKrj+XfXlYTnNZ8sCp4LA/MPLkTOzpZm3cga7fTY0nWaSqLll2xalrC0psQBfuA=="],
 
+    "@capacitor/filesystem": ["@capacitor/filesystem@7.1.8", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/filesystem/-/filesystem-7.1.8.tgz", { "dependencies": { "@capacitor/synapse": "^1.0.3" }, "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-Qpw/2SE4/CzqAUvGgSM9hw/uXQ5qoOaF4wxbToXwpAaKPS+tzletS1h5ti3jjLmGcqizTs2sEXMtcsARW/Ceew=="],
+
     "@capacitor/ios": ["@capacitor/ios@7.0.0", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/ios/-/ios-7.0.0.tgz", { "peerDependencies": { "@capacitor/core": "^7.0.0" } }, "sha512-FuCoTx2HRYPhIUOT+J87rHkjT4m1yNLsIaG5/qkt9JG5k3KIYATKbp8EHjtLAMqyJWJKBmjkjpFExNesr/t6kA=="],
+
+    "@capacitor/share": ["@capacitor/share@7.0.4", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/share/-/share-7.0.4.tgz", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-wNXxmXUcChrtbZ5jQv8scFIbIGKo3rk6B7qpWySxfUhYJP5NANgAqQ9Z69m0k/zYsucdh66SBU7XW1ykd9aUug=="],
+
+    "@capacitor/synapse": ["@capacitor/synapse@1.0.4", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/synapse/-/synapse-1.0.4.tgz", {}, "sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw=="],
 
     "@dnd-kit/accessibility": ["@dnd-kit/accessibility@3.1.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@dnd-kit/accessibility/-/accessibility-3.1.1.tgz", { "dependencies": { "tslib": "^2.0.0" }, "peerDependencies": { "react": ">=16.8.0" } }, "sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw=="],
 
