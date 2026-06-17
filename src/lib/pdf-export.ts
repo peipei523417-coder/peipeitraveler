@@ -659,8 +659,7 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"
     await withTimeout(
       Share.share({
         title: filename,
-        text: filename,
-        url: writeResult.uri,
+        files: [writeResult.uri],
         dialogTitle: filename,
       }),
       SHARE_TIMEOUT_MS,
