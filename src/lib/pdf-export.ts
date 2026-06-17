@@ -570,6 +570,9 @@ async function drawCover(
 async function drawDaySnapshotPage(
   doc: PDFDocument,
   cap: CapturedDay,
+  font: PDFFont,
+  fontBold: PDFFont,
+  dayData: DayItinerary | undefined,
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
 ) {
   // Parse data URL → bytes
@@ -589,7 +592,7 @@ async function drawDaySnapshotPage(
   } catch (e) {
     console.warn("[pdf-export] day snapshot embed failed", { day: cap.dayNumber, error: e });
     onWarning?.("day-snapshot-skipped", e);
-    return;
+    throw e;
   }
 
   // Fit into content area preserving aspect.
@@ -603,88 +606,58 @@ async function drawDaySnapshotPage(
     const yBottom = yTop - drawH;
     const page = doc.addPage([PAGE_W, PAGE_H]);
     page.drawImage(img, { x, y: yBottom, width: drawW, height: drawH });
-    // Link annotations
-    for (const link of cap.mapLinks) {
-      if (!link.url) continue;
-      const lx = x + link.xPct * drawW;
-      const lw = link.wPct * drawW;
-      const lh = link.hPct * drawH;
-      // y from top of image → convert to bottom-origin
-      const ly = yTop - link.yPct * drawH - lh;
-      addLinkAnnotation(page, link.url, lx, ly, lw, lh);
-    }
-    return;
-  }
+  } else {
+    // Image is taller than one page — split into vertical slices, one page each.
+    // Prefer page breaks between itinerary cards when PdfCaptureRoot provides bounds.
+    const sliceBreaks: Array<{ start: number; end: number }> = [];
+    let start = 0;
+    const minUsefulSlice = CONTENT_H * 0.35;
+    const cardBounds = (cap.cardBounds ?? [])
+      .map((b) => ({ top: b.topPct * drawH, bottom: b.bottomPct * drawH }))
+      .filter((b) => Number.isFinite(b.top) && Number.isFinite(b.bottom) && b.bottom > b.top)
+      .sort((a, b) => a.top - b.top);
 
-  // Image is taller than one page — split into vertical slices, one page each.
-  // Prefer page breaks between itinerary cards when PdfCaptureRoot provides bounds.
-  const sliceBreaks: Array<{ start: number; end: number }> = [];
-  let start = 0;
-  const minUsefulSlice = CONTENT_H * 0.35;
-  const cardBounds = (cap.cardBounds ?? [])
-    .map((b) => ({ top: b.topPct * drawH, bottom: b.bottomPct * drawH }))
-    .filter((b) => Number.isFinite(b.top) && Number.isFinite(b.bottom) && b.bottom > b.top)
-    .sort((a, b) => a.top - b.top);
-
-  while (start < drawH - 1) {
-    let end = Math.min(start + CONTENT_H, drawH);
-    if (end < drawH) {
-      const crossing = cardBounds.find((b) => b.top < end && b.bottom > end);
-      if (crossing && crossing.top - start >= minUsefulSlice) {
-        end = crossing.top;
+    while (start < drawH - 1) {
+      let end = Math.min(start + CONTENT_H, drawH);
+      if (end < drawH) {
+        const crossing = cardBounds.find((b) => b.top < end && b.bottom > end);
+        if (crossing && crossing.top - start >= minUsefulSlice) {
+          end = crossing.top;
+        }
       }
+      if (end <= start + 8) end = Math.min(start + CONTENT_H, drawH);
+      sliceBreaks.push({ start, end });
+      start = end;
     }
-    if (end <= start + 8) end = Math.min(start + CONTENT_H, drawH);
-    sliceBreaks.push({ start, end });
-    start = end;
+
+    for (let s = 0; s < sliceBreaks.length; s++) {
+      const slice = sliceBreaks[s];
+      const page = doc.addPage([PAGE_W, PAGE_H]);
+      const x = MARGIN + (CONTENT_W - drawW) / 2;
+      const visibleH = slice.end - slice.start;
+      const yTopOfSliceInImage = slice.start;
+      const imageBottomY = (PAGE_H - MARGIN) + yTopOfSliceInImage - drawH;
+      page.drawImage(img, { x, y: imageBottomY, width: drawW, height: drawH });
+      // Mask outside the intended content slice.
+      page.drawRectangle({ x: 0, y: PAGE_H - MARGIN, width: PAGE_W, height: MARGIN, color: rgb(1, 1, 1) });
+      page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H - MARGIN - visibleH, color: rgb(1, 1, 1) });
+      safeDrawText(page, `(${s + 1}/${sliceBreaks.length})`, {
+        x: PAGE_W - MARGIN - 30,
+        y: 14,
+        size: 8,
+        font,
+        color: MUTED,
+      });
+    }
   }
 
-  // We'll render the SAME full image on each page but shifted upward and mask
-  // the margins so the visible band is exactly the selected slice.
-  for (let s = 0; s < sliceBreaks.length; s++) {
-    const slice = sliceBreaks[s];
-    const page = doc.addPage([PAGE_W, PAGE_H]);
-    const x = MARGIN + (CONTENT_W - drawW) / 2;
-    const visibleH = slice.end - slice.start;
-    const yTopOfSliceInImage = slice.start; // px from image top (in PDF pts)
-    // We want image-top to land at: page_top - (slice * sliceHpdf - 0) above the page top
-    // i.e. image bottom y = (PAGE_H - MARGIN) + yTopOfSliceInImage - drawH
-    const imageBottomY = (PAGE_H - MARGIN) + yTopOfSliceInImage - drawH;
-    page.drawImage(img, { x, y: imageBottomY, width: drawW, height: drawH });
-    // Mask outside the intended content slice.
-    page.drawRectangle({ x: 0, y: PAGE_H - MARGIN, width: PAGE_W, height: MARGIN, color: rgb(1, 1, 1) });
-    page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H - MARGIN - visibleH, color: rgb(1, 1, 1) });
-
-    // Small slice indicator
-    safeDrawText(page, `(${s + 1}/${sliceBreaks.length})`, {
-      x: PAGE_W - MARGIN - 30,
-      y: 14,
-      size: 8,
-      font: await doc.embedFont(StandardFonts.Helvetica),
-      color: MUTED,
-    });
-
-    // Annotations whose vertical center falls within this slice
-    for (const link of cap.mapLinks) {
-      if (!link.url) continue;
-      const linkTopInImage = link.yPct * drawH;
-      const linkHpdf = link.hPct * drawH;
-      const linkBottomInImage = linkTopInImage + linkHpdf;
-      const sliceTop = slice.start;
-      const sliceBottom = slice.end;
-      if (linkBottomInImage < sliceTop || linkTopInImage > sliceBottom) continue;
-      const lx = x + link.xPct * drawW;
-      const lw = link.wPct * drawW;
-      const clippedTop = Math.max(linkTopInImage, sliceTop);
-      const clippedBottom = Math.min(linkBottomInImage, sliceBottom);
-      const clippedH = clippedBottom - clippedTop;
-      // Convert link top-in-image → page y (bottom-origin)
-      const pageYofLinkTop = (PAGE_H - MARGIN) - (clippedTop - yTopOfSliceInImage);
-      const ly = pageYofLinkTop - clippedH;
-      addLinkAnnotation(page, link.url, lx, ly, lw, clippedH);
-    }
+  // Fixed map-links section (no DOM coordinate math, fully reliable)
+  const links = collectDayMapLinks(dayData);
+  if (links.length > 0) {
+    drawMapLinksSection(doc, font, fontBold, cap.dayNumber, links);
   }
 }
+
 
 // ---------- Save / share ----------
 export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"shared" | "downloaded"> {
