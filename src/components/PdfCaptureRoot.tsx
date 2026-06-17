@@ -74,16 +74,18 @@ function weekday(value: unknown): string {
   return WEEKDAY[d.getDay()] ?? "";
 }
 
-async function waitImages(root: HTMLElement, overallTimeoutMs = 12000): Promise<void> {
+async function waitImages(root: HTMLElement, overallTimeoutMs = 12000, expectedPhotoCount = 0): Promise<void> {
   const start = Date.now();
   // Poll until the set of <img> elements is stable AND all complete, or until timeout.
   let lastCount = -1;
   let stableTicks = 0;
   while (Date.now() - start < overallTimeoutMs) {
     const imgs = Array.from(root.querySelectorAll("img"));
+    const photoCount = root.querySelectorAll("img[data-pdf-photo]").length;
     const count = imgs.length;
+    const enoughPhotos = photoCount >= expectedPhotoCount;
     const allDone = imgs.every((img) => img.complete);
-    if (count === lastCount && allDone) {
+    if (count === lastCount && enoughPhotos && allDone) {
       stableTicks++;
       if (stableTicks >= 2) {
         // Wait final image loads (in case some just toggled complete)
@@ -107,6 +109,11 @@ async function waitImages(root: HTMLElement, overallTimeoutMs = 12000): Promise<
     lastCount = count;
     await new Promise((r) => setTimeout(r, 250));
   }
+  console.warn("[pdf-capture] images settled by timeout; continuing", {
+    expectedPhotoCount,
+    actualPhotoCount: root.querySelectorAll("img[data-pdf-photo]").length,
+    totalImages: root.querySelectorAll("img").length,
+  });
 }
 
 export function PdfCaptureRoot({ project, onReady }: Props) {
@@ -139,7 +146,11 @@ export function PdfCaptureRoot({ project, onReady }: Props) {
         } catch (e) {
           console.warn("[pdf-capture] fonts ready timeout/fail; continuing", e);
         }
-        await waitImages(root, 6000);
+        const expectedPhotoCount = (Array.isArray(project.itinerary) ? project.itinerary : []).reduce(
+          (sum, day) => sum + (Array.isArray(day.items) ? day.items.filter((item) => !!item.imageUrl).length : 0),
+          0,
+        );
+        await waitImages(root, 9000, expectedPhotoCount);
         console.info("images settled");
         console.info("[pdf-capture] images settled");
         await new Promise((r) => setTimeout(r, 150));
