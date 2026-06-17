@@ -593,6 +593,7 @@ async function drawDaySnapshotPage(
 export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"shared" | "downloaded"> {
   const blob = new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
   const triggerDownload = () => {
+    console.info("download start", { filename, bytes: bytes.length });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -601,29 +602,75 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 4000);
+    console.info("download complete", { filename });
   };
 
-  const isNative = !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
-    .Capacitor?.isNativePlatform?.();
+  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  const isNative = !!cap?.isNativePlatform?.();
+  const isMobileBrowser = !isNative && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   if (!isNative) {
+    if (isMobileBrowser) {
+      try {
+        const file = new File([blob], filename, { type: "application/pdf" });
+        const nav = navigator as Navigator & {
+          canShare?: (data: { files?: File[] }) => boolean;
+          share?: (data: { files?: File[]; title?: string }) => Promise<void>;
+        };
+        if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
+          console.info("share start", { mode: "web-share", filename, bytes: bytes.length });
+          await withTimeout(nav.share({ files: [file], title: filename }), SHARE_TIMEOUT_MS, "navigator.share");
+          console.info("share success", { mode: "web-share" });
+          console.info("[pdf-export] share/download success", { mode: "web-share" });
+          return "shared";
+        }
+      } catch (e) {
+        console.warn("share failed", e);
+        console.warn("[pdf-export] web share fallback", e);
+      }
+    }
     triggerDownload();
     console.info("[pdf-export] share/download success", { mode: "download" });
     return "downloaded";
   }
 
   try {
-    const file = new File([blob], filename, { type: "application/pdf" });
-    const nav = navigator as Navigator & {
-      canShare?: (data: { files?: File[] }) => boolean;
-      share?: (data: { files?: File[]; title?: string }) => Promise<void>;
-    };
-    if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
-      await withTimeout(nav.share({ files: [file], title: filename }), SHARE_TIMEOUT_MS, "navigator.share");
-      console.info("[pdf-export] share/download success", { mode: "share" });
-      return "shared";
+    console.info("share start", { mode: "native", filename, bytes: bytes.length });
+    const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+      import("@capacitor/filesystem"),
+      import("@capacitor/share"),
+    ]);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
     }
+    const base64 = btoa(binary);
+    const writeResult = await withTimeout(
+      Filesystem.writeFile({
+        path: filename,
+        data: base64,
+        directory: Directory.Cache,
+        recursive: true,
+      }),
+      15000,
+      "native PDF file write",
+    );
+    await withTimeout(
+      Share.share({
+        title: filename,
+        text: filename,
+        url: writeResult.uri,
+        dialogTitle: filename,
+      }),
+      SHARE_TIMEOUT_MS,
+      "native share",
+    );
+    console.info("share success", { mode: "native" });
+    console.info("[pdf-export] share/download success", { mode: "native-share" });
+    return "shared";
   } catch (e) {
+    console.warn("share failed", e);
     console.warn("[pdf-export] share fallback", e);
   }
   triggerDownload();
