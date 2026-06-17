@@ -597,9 +597,6 @@ async function buildProjectPdfBytes(
 // ---------- Cover ----------
 async function drawCover(
   ctx: Ctx,
-// ---------- Cover ----------
-async function drawCover(
-  ctx: Ctx,
   project: TravelProject,
   now: Date,
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
