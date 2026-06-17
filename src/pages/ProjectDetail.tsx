@@ -69,7 +69,13 @@ function ProjectDetailInner() {
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
-  
+  // When set, mounts the offscreen PdfCaptureRoot which captures day snapshots
+  // and calls back with the result via captureResolverRef.
+  const [capturingForPdf, setCapturingForPdf] = useState(false);
+  const captureResolverRef = useRef<
+    ((days: CapturedDay[] | null, error?: unknown) => void) | null
+  >(null);
+
   // Track if we're currently performing a local update to skip realtime reload
   const isLocalUpdateRef = useRef(false);
 
@@ -84,6 +90,18 @@ function ProjectDetailInner() {
   // Get signed URL for cover image
   const signedCoverImage = useSignedImageUrl(project?.coverImageUrl);
 
+  const captureDays = useCallback((): Promise<CapturedDay[]> => {
+    return new Promise((resolve, reject) => {
+      captureResolverRef.current = (days, err) => {
+        captureResolverRef.current = null;
+        setCapturingForPdf(false);
+        if (err || !days) reject(err ?? new Error("capture failed"));
+        else resolve(days);
+      };
+      setCapturingForPdf(true);
+    });
+  }, []);
+
   const handleExportPdf = useCallback(async () => {
     if (exportingPdf || !project) return;
     setExportingPdf(true);
@@ -91,6 +109,9 @@ function ProjectDetailInner() {
     let fontFallbackToastShown = false;
     try {
       console.info("[pdf-export] start export click");
+      console.info("[pdf-export] capturing day snapshots…");
+      const capturedDays = await withTimeout(captureDays(), 45000, "Day capture");
+      console.info("[pdf-export] captured days", { count: capturedDays.length });
       const { exportProjectToPdf, deliverPdf, buildPdfFilename } = await withTimeout(
         import("@/lib/pdf-export"),
         8000,
@@ -98,6 +119,7 @@ function ProjectDetailInner() {
       );
       const bytes = await withTimeout(
         exportProjectToPdf(project, {
+          capturedDays,
           onWarning: (warning) => {
             if (warning === "font-fallback" && !fontFallbackToastShown) {
               fontFallbackToastShown = true;
@@ -117,9 +139,14 @@ function ProjectDetailInner() {
       toast.dismiss(loadingId);
       toast.error(t("exportPdfFailed"));
     } finally {
+      // Ensure capture root is unmounted even on failure
+      if (captureResolverRef.current) {
+        captureResolverRef.current = null;
+        setCapturingForPdf(false);
+      }
       setExportingPdf(false);
     }
-  }, [exportingPdf, project, t]);
+  }, [exportingPdf, project, t, captureDays]);
 
 
 
