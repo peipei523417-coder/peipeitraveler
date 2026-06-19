@@ -548,30 +548,28 @@ async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
   const totalH = size1 + gap1 + size2 + gap2 + logoSize + gap3 + sizeWord;
   let y = PAGE_H / 2 + totalH / 2;
 
-  const drawCentred = (text: string, size: number, f: PDFFont, color: ReturnType<typeof rgb>) => {
-    let w = 0;
-    try { w = f.widthOfTextAtSize(text, size); } catch { w = text.length * size * 0.6; }
-    safeDrawText(page, text, { x: (PAGE_W - w) / 2, y: y - size, size, font: f, color });
+  const drawCentred = async (text: string, size: number, f: PDFFont, color: ReturnType<typeof rgb>, bold = false) => {
+    const w = await measurePdfText(text, f, size, bold);
+    await drawPdfText(doc, page, text, { x: (PAGE_W - w) / 2, y: y - size, size, font: f, color, bold });
     y -= size;
   };
 
-  const line1W = (() => {
-    try { return fontBold.widthOfTextAtSize(line1, size1); } catch { return line1.length * size1 * 0.6; }
-  })();
+  const line1W = await measurePdfText(line1, fontBold, size1, true);
   const emojiGap = 8;
   const line1TotalW = logoSize / 3 + emojiGap + line1W;
   const line1X = (PAGE_W - line1TotalW) / 2;
   await drawPdfIcon(doc, page, "pdf-party.png", "*", line1X, y - size1 - 1, logoSize / 3);
-  safeDrawText(page, line1, {
+  await drawPdfText(doc, page, line1, {
     x: line1X + logoSize / 3 + emojiGap,
     y: y - size1,
     size: size1,
     font: fontBold,
     color: rgb(0.32, 0.36, 0.44),
+    bold: true,
   });
   y -= size1;
   y -= gap1;
-  drawCentred(line2, size2, font, rgb(0.5, 0.55, 0.62));
+  await drawCentred(line2, size2, font, rgb(0.5, 0.55, 0.62));
   y -= gap2;
 
   // Logo
@@ -590,7 +588,7 @@ async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
     }
   }
   y -= logoSize + gap3;
-  drawCentred(wordmark, sizeWord, fontBold, rgb(0.55, 0.6, 0.68));
+  await drawCentred(wordmark, sizeWord, fontBold, rgb(0.55, 0.6, 0.68), true);
 }
 
 // ---------- Map links section ----------
