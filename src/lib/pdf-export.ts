@@ -445,8 +445,94 @@ function addLinkAnnotation(
 export interface ExportOptions {
   now?: Date;
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void;
-  /** Captured day snapshots from PdfCaptureRoot. */
-  capturedDays: CapturedDay[];
+  /**
+   * DOM root rendered by PdfCaptureRoot. The exporter captures one node at a
+   * time, embeds it into the PDF immediately, and releases the canvas before
+   * moving on. Only ONE large canvas exists in memory at any moment.
+   *
+   * When null/undefined, the exporter falls back to the lightweight text PDF.
+   */
+  captureRoot?: HTMLElement | null;
+}
+
+// ---------- Sequential capture (one canvas in memory at a time) ----------
+interface CaptureResult { dataUrl: string; w: number; h: number }
+type Html2Canvas = typeof import("html2canvas-pro").default;
+
+let html2canvasPromise: Promise<Html2Canvas> | null = null;
+async function loadHtml2Canvas(): Promise<Html2Canvas> {
+  if (!html2canvasPromise) {
+    html2canvasPromise = withTimeout(
+      import("html2canvas-pro").then((m) => m.default),
+      8000,
+      "html2canvas-pro import",
+    );
+  }
+  return html2canvasPromise;
+}
+
+function captureProfile(): { scale: number; jpegQuality: number; isMobile: boolean } {
+  const isMobile =
+    typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  return { isMobile, scale: isMobile ? 0.6 : 2, jpegQuality: isMobile ? 0.5 : 0.85 };
+}
+
+async function captureSingleNode(
+  html2canvas: Html2Canvas,
+  node: HTMLElement,
+  scale: number,
+  jpegQuality: number,
+  label: string,
+): Promise<CaptureResult | null> {
+  const rect = node.getBoundingClientRect();
+  let canvas: HTMLCanvasElement | null = null;
+  try {
+    canvas = await withTimeout(
+      html2canvas(node, {
+        backgroundColor: "#ffffff",
+        scale,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        imageTimeout: 6000,
+        windowWidth: PDF_CAPTURE_WIDTH,
+        width: Math.ceil(node.scrollWidth || rect.width || PDF_CAPTURE_WIDTH),
+        height: Math.ceil(node.scrollHeight || rect.height || 1),
+        scrollX: 0,
+        scrollY: 0,
+      }),
+      HTML2CANVAS_TIMEOUT_MS,
+      label,
+    );
+    const dataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
+    const w = canvas.width;
+    const h = canvas.height;
+    return { dataUrl, w, h };
+  } catch (e) {
+    console.warn("[pdf-export] capture failed", label, e);
+    return null;
+  } finally {
+    // Release canvas memory immediately
+    if (canvas) {
+      try { canvas.width = 0; canvas.height = 0; } catch { /* ignore */ }
+    }
+  }
+}
+
+function collectCardBounds(node: HTMLElement): CapturedCardBounds[] {
+  const nodeRect = node.getBoundingClientRect();
+  return Array.from(node.querySelectorAll<HTMLElement>("[data-pdf-card]")).map((card) => {
+    const r = card.getBoundingClientRect();
+    return {
+      topPct: (r.top - nodeRect.top) / nodeRect.height,
+      bottomPct: (r.bottom - nodeRect.top) / nodeRect.height,
+    };
+  });
+}
+
+/** Yield to the event loop so memory can be reclaimed between heavy ops. */
+function yieldToLoop(): Promise<void> {
+  return new Promise((r) => setTimeout(r, 0));
 }
 
 export async function exportProjectToPdf(
@@ -456,10 +542,9 @@ export async function exportProjectToPdf(
   console.info("[pdf-export] PDF snapshot export start", {
     projectId: project.id,
     projectName: project.name,
-    capturedDays: opts.capturedDays?.length ?? 0,
+    hasCaptureRoot: !!opts.captureRoot,
   });
-  const hasSnapshots = Array.isArray(opts.capturedDays) && opts.capturedDays.length > 0;
-  if (hasSnapshots) {
+  if (opts.captureRoot) {
     try {
       return await buildPdfBytes(project, opts);
     } catch (e) {
@@ -472,7 +557,7 @@ export async function exportProjectToPdf(
   } else {
     console.warn(
       "[pdf-export] PDF snapshot export failed, switching to lightweight text PDF",
-      "no captured days",
+      "no capture root",
     );
   }
   try {
