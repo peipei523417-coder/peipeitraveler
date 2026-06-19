@@ -44,7 +44,7 @@
     ],
   });
   window.__PDF_QA_BYTES__ = Array.from(bytes);
-  document.body.textContent = JSON.stringify({ bytes: bytes.length });
+  let binary = ''; for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.slice(i, i + 0x8000)); document.body.textContent = JSON.stringify({ bytes: bytes.length, base64: btoa(binary) });
 </script>
 </body>
 </html>
