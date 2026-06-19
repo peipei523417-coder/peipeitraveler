@@ -339,6 +339,7 @@ function browserMeasureText(text: string, size: number, bold = false): number | 
 }
 
 async function measurePdfText(text: string, font: PDFFont, size: number, bold = false): Promise<number> {
+  await ensurePdfCanvasFonts();
   const measured = browserMeasureText(text, size, bold);
   if (measured !== null) return measured;
   try { return font.widthOfTextAtSize(text, size); } catch { return Array.from(text).length * size * 0.62; }
@@ -351,6 +352,7 @@ async function drawPdfText(
   opts: { x: number; y: number; size: number; font: PDFFont; color?: ReturnType<typeof rgb>; bold?: boolean; forceImage?: boolean },
 ): Promise<number> {
   if (!text) return 0;
+  await ensurePdfCanvasFonts();
   const needsImage = opts.forceImage || /[^\x20-\x7e]/.test(text);
   if (typeof document !== "undefined" && needsImage) {
     const scale = 3;
@@ -364,7 +366,7 @@ async function drawPdfText(
     if (ctx) {
       ctx.scale(scale, scale);
       ctx.clearRect(0, 0, widthPt, heightPt);
-      ctx.font = `${opts.bold ? 700 : 400} ${opts.size}px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif`;
+      ctx.font = `${opts.bold ? 700 : 400} ${opts.size}px "PeiTravelPdfNoto", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif`;
       ctx.fillStyle = pdfColorToCss(opts.color);
       ctx.textBaseline = "alphabetic";
       ctx.fillText(text, 2, opts.size + 1);
