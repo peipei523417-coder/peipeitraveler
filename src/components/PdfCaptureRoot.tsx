@@ -373,19 +373,18 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
                 {fmtDate(project.startDate)} － {fmtDate(project.endDate)}
               </div>
 
-              {/* Stats grid */}
+              {/* Stats grid — no 人數 on cover */}
               <div
                 style={{
                   marginTop: 22,
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gridTemplateColumns: "1fr 1fr",
                   gap: 10,
                 }}
               >
                 {[
                   { k: "總天數", v: `${totalDays} 天` },
                   { k: "行程數", v: `${totalItems} 項` },
-                  { k: "人數", v: `${maxPersons} 人` },
                 ].map((s) => (
                   <div
                     key={s.k}
