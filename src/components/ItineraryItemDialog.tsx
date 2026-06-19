@@ -31,6 +31,7 @@ import { GoogleMapsInput } from "@/components/GoogleMapsInput";
 import { SimpleTimePicker, getNextAvailableTime, isTimeBefore } from "@/components/SimpleTimePicker";
 import { HighlightColorPicker } from "@/components/HighlightColorPicker";
 import { hasTimeConflict, findOverlappingItem } from "@/lib/time-validation";
+import { sanitizeMapUrl } from "@/utils/mapLink";
 import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/switch";
 
@@ -68,6 +69,7 @@ export function ItineraryItemDialog({
   const [price, setPrice] = useState<string>(initialData?.price?.toString() || "");
   const [persons, setPersons] = useState<string>(initialData?.persons?.toString() || "1");
   const [timeError, setTimeError] = useState<string | null>(null);
+  const [mapUrlInvalid, setMapUrlInvalid] = useState(false);
   const [overlapWarningOpen, setOverlapWarningOpen] = useState(false);
   const [overlappingItemDesc, setOverlappingItemDesc] = useState<string>("");
 
@@ -96,6 +98,7 @@ export function ItineraryItemDialog({
       setPersons("1");
     }
     setTimeError(null);
+    setMapUrlInvalid(false);
   }, [initialData, open, suggestedStartTime]);
 
   // Validate time when start or end time changes
@@ -129,6 +132,7 @@ export function ItineraryItemDialog({
   const handleSubmit = () => {
     if (!description.trim()) return;
     if (useTime && timeError) return;
+    if (mapUrlInvalid) return;
     
     // Check for time overlap using array.some() - only if time is enabled
     if (useTime) {
@@ -149,6 +153,7 @@ export function ItineraryItemDialog({
   const submitItem = () => {
     const priceNum = parseInt(price, 10);
     const personsNum = parseInt(persons, 10) || 1;
+    const cleanMapUrl = sanitizeMapUrl(googleMapsUrl);
     
     // If there's a new file, pass it along; don't store base64/blob URL in imageUrl
     // Use null (not undefined) when image is explicitly cleared, so the DB update happens
@@ -166,7 +171,7 @@ export function ItineraryItemDialog({
       startTime: useTime ? startTime : "",
       endTime: useTime ? endTime : "",
       description: description.trim(),
-      googleMapsUrl: googleMapsUrl.trim() || undefined,
+      googleMapsUrl: cleanMapUrl || undefined,
       imageUrl: itemImageUrl as string | undefined,
       highlightColor: highlightColor,
       price: !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
@@ -378,6 +383,7 @@ export function ItineraryItemDialog({
               <GoogleMapsInput
                 value={googleMapsUrl}
                 onChange={setGoogleMapsUrl}
+                onInvalidChange={setMapUrlInvalid}
               />
             </div>
             
@@ -443,7 +449,7 @@ export function ItineraryItemDialog({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!description.trim() || (useTime && !!timeError)}
+              disabled={!description.trim() || (useTime && !!timeError) || mapUrlInvalid}
               className="samoyed-button rounded-xl min-h-[44px] min-w-[80px] touch-manipulation"
             >
               {mode === "create" ? t("add") : t("save")}

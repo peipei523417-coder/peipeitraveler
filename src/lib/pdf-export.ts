@@ -13,6 +13,7 @@
 import {
   PDFDocument,
   PDFFont,
+  PDFImage,
   PDFPage,
   rgb,
   PDFName,
@@ -254,6 +255,33 @@ function safeDrawText(
   }
 }
 
+const pdfIconCache = new Map<string, ArrayBuffer>();
+
+async function embedPdfIcon(doc: PDFDocument, fileName: string): Promise<PDFImage | null> {
+  let bytes = pdfIconCache.get(fileName);
+  if (!bytes) {
+    const res = await fetch(`${import.meta.env.BASE_URL}${fileName}`, { cache: "force-cache" });
+    if (!res.ok) return null;
+    bytes = await res.arrayBuffer();
+    pdfIconCache.set(fileName, bytes);
+  }
+  try {
+    return await withTimeout(doc.embedPng(bytes), IMAGE_EMBED_TIMEOUT_MS, `PDF icon ${fileName} embed`);
+  } catch (e) {
+    console.warn("[pdf-export] PDF icon embed failed", { fileName, error: e });
+    return null;
+  }
+}
+
+async function drawPdfIcon(doc: PDFDocument, page: PDFPage, fileName: string, fallback: string, x: number, y: number, size: number) {
+  const img = await embedPdfIcon(doc, fileName);
+  if (img) {
+    page.drawImage(img, { x, y, width: size, height: size });
+    return;
+  }
+  safeDrawText(page, fallback, { x, y: y + 1, size, font: await doc.embedFont(StandardFonts.Helvetica), color: TEXT });
+}
+
 function wrapByWidth(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
   for (const para of (text ?? "").split("\n")) {
@@ -374,7 +402,7 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
     } catch (e) {
       console.warn("[pdf-export] day render failed; inserting fallback page", { day: cap.dayNumber, error: e });
       opts.onWarning?.("day-snapshot-skipped", { day: cap.dayNumber, error: e });
-      drawDayFallbackPage(doc, font, fontBold, cap.dayNumber, dayData);
+      await drawDayFallbackPage(doc, font, fontBold, cap.dayNumber, dayData);
     }
   }
 
@@ -386,6 +414,11 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   console.info("pdf save complete", { bytes: bytes.length });
   console.info("[pdf-export] create pdf success", { bytes: bytes.length, pages: doc.getPageCount() });
   return bytes;
+}
+
+/** Internal smoke-test hook for generating a deterministic PDF preview in Vitest/QA. */
+export async function __debugBuildPdfBytes(project: TravelProject, opts: ExportOptions): Promise<Uint8Array> {
+  return buildPdfBytes(project, opts);
 }
 
 // ---------- Cover from snapshot ----------
@@ -442,7 +475,7 @@ async function loadEndLogo(): Promise<ArrayBuffer | null> {
 async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
   const page = doc.addPage([PAGE_W, PAGE_H]);
 
-  const line1 = "🎉 旅途順利，玩得開心";
+  const line1 = "旅途順利，玩得開心";
   const line2 = "此行程由 PeiTravel App 匯出完成";
   const wordmark = "PeiTravel";
   const size1 = 20;
@@ -464,7 +497,21 @@ async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
     y -= size;
   };
 
-  drawCentred(line1, size1, fontBold, rgb(0.32, 0.36, 0.44));
+  const line1W = (() => {
+    try { return fontBold.widthOfTextAtSize(line1, size1); } catch { return line1.length * size1 * 0.6; }
+  })();
+  const emojiGap = 8;
+  const line1TotalW = logoSize / 3 + emojiGap + line1W;
+  const line1X = (PAGE_W - line1TotalW) / 2;
+  await drawPdfIcon(doc, page, "pdf-party.png", "*", line1X, y - size1 - 1, logoSize / 3);
+  safeDrawText(page, line1, {
+    x: line1X + logoSize / 3 + emojiGap,
+    y: y - size1,
+    size: size1,
+    font: fontBold,
+    color: rgb(0.32, 0.36, 0.44),
+  });
+  y -= size1;
   y -= gap1;
   drawCentred(line2, size2, font, rgb(0.5, 0.55, 0.62));
   y -= gap2;
@@ -495,20 +542,28 @@ interface DayMapLink {
   label: string;
 }
 
+function getMapButtonText(provider: string): string {
+  return provider === "高德地圖" ? "開啟高德地圖 ↗" : `開啟 ${provider} ↗`;
+}
+
 function collectDayMapLinks(day: DayItinerary | undefined): DayMapLink[] {
   if (!day || !Array.isArray(day.items)) return [];
   const links: DayMapLink[] = [];
   for (const item of day.items) {
-    const url = sanitizeMapUrl(item.googleMapsUrl);
+    const source = item as ItineraryItem & { title?: unknown; name?: unknown; map_url?: unknown; location_url?: unknown };
+    const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
+    const url = sanitizeMapUrl(rawUrl);
     if (!url) continue;
-    const rawTitle = (item.description || "").split("\n")[0].trim();
+    const rawTitle = String(source.title || source.name || item.description || "")
+      .split("\n")[0]
+      .trim();
     const title = rawTitle || "景點連結";
     links.push({ title, url, label: getMapProviderLabel(url) });
   }
   return links;
 }
 
-function drawMapLinksSection(
+async function drawMapLinksSection(
   doc: PDFDocument,
   font: PDFFont,
   fontBold: PDFFont,
@@ -554,11 +609,12 @@ function drawMapLinksSection(
       borderColor: rgb(0.84, 0.9, 0.97),
       borderWidth: 0.8,
     });
-    // Title — 📍 + first line of description, single line (truncated)
-    const titleText = `📍 ${link.title}`;
+    // Title — pin icon + first line of item title, single line (truncated)
+    const titleText = link.title;
     const titleLines = wrapByWidth(titleText, fontBold, titleSize, CONTENT_W - cardPad * 2);
+    await drawPdfIcon(doc, page, "pdf-pin.png", "•", MARGIN + cardPad, cardTop - cardPad - titleSize + 1, titleSize);
     safeDrawText(page, titleLines[0] ?? titleText, {
-      x: MARGIN + cardPad,
+      x: MARGIN + cardPad + titleSize + 6,
       y: cardTop - cardPad - titleSize + 2,
       size: titleSize,
       font: fontBold,
@@ -573,7 +629,7 @@ function drawMapLinksSection(
       color: MUTED,
     });
     // CTA button
-    const buttonText = `開啟 ${link.label} ↗`;
+    const buttonText = getMapButtonText(link.label);
     let textW = 120;
     try { textW = fontBold.widthOfTextAtSize(buttonText, buttonSize); } catch { /* keep */ }
     const btnW = Math.min(CONTENT_W - cardPad * 2, textW + 32);
@@ -599,7 +655,7 @@ function drawMapLinksSection(
 }
 
 // ---------- Day fallback (snapshot failed) ----------
-function drawDayFallbackPage(
+async function drawDayFallbackPage(
   doc: PDFDocument,
   font: PDFFont,
   fontBold: PDFFont,
@@ -616,7 +672,7 @@ function drawDayFallbackPage(
   // Still show map links so user gets value
   const links = collectDayMapLinks(day);
   if (links.length > 0) {
-    drawMapLinksSection(doc, font, fontBold, dayNumber, links);
+      await drawMapLinksSection(doc, font, fontBold, dayNumber, links);
   }
 }
 
@@ -811,7 +867,7 @@ async function drawDaySnapshotPage(
   // Fixed map-links section (no DOM coordinate math, fully reliable)
   const links = collectDayMapLinks(dayData);
   if (links.length > 0) {
-    drawMapLinksSection(doc, font, fontBold, cap.dayNumber, links);
+    await drawMapLinksSection(doc, font, fontBold, cap.dayNumber, links);
   }
 }
 

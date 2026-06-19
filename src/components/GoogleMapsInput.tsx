@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MapPin, ExternalLink, Check, Link2 } from "lucide-react";
@@ -14,6 +14,7 @@ interface GoogleMapsInputProps {
   onChange: (url: string) => void;
   placeName?: string;
   onPlaceNameChange?: (name: string) => void;
+  onInvalidChange?: (invalid: boolean) => void;
 }
 
 // Best-effort place-name extraction. Only attempted for Google Maps; Naver/Amap
@@ -28,16 +29,23 @@ function extractGooglePlaceName(url: string): string | undefined {
   return undefined;
 }
 
-export function GoogleMapsInput({ value, onChange, onPlaceNameChange }: GoogleMapsInputProps) {
+export function GoogleMapsInput({ value, onChange, onPlaceNameChange, onInvalidChange }: GoogleMapsInputProps) {
   // We keep two states: the raw text the user sees (may include pasted
   // address/newlines), and the sanitized URL that gets stored upstream.
   const [inputValue, setInputValue] = useState(value);
   const [sanitized, setSanitized] = useState<string | null>(sanitizeMapUrl(value));
+  const skipNextEmptySyncRef = useRef(false);
 
   useEffect(() => {
+    if (skipNextEmptySyncRef.current && value === "") {
+      skipNextEmptySyncRef.current = false;
+      return;
+    }
     setInputValue(value);
-    setSanitized(sanitizeMapUrl(value));
-  }, [value]);
+    const clean = sanitizeMapUrl(value);
+    setSanitized(clean);
+    onInvalidChange?.(!!value && !clean);
+  }, [value, onInvalidChange]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
@@ -45,6 +53,7 @@ export function GoogleMapsInput({ value, onChange, onPlaceNameChange }: GoogleMa
 
     if (raw.trim() === "") {
       setSanitized(null);
+      onInvalidChange?.(false);
       onChange("");
       return;
     }
@@ -54,6 +63,7 @@ export function GoogleMapsInput({ value, onChange, onPlaceNameChange }: GoogleMa
 
     if (clean) {
       // Persist ONLY the clean URL upstream — never the surrounding text.
+      onInvalidChange?.(false);
       onChange(clean);
       if (detectMapProvider(clean) === "google") {
         const name = extractGooglePlaceName(clean);
@@ -63,6 +73,8 @@ export function GoogleMapsInput({ value, onChange, onPlaceNameChange }: GoogleMa
       // No valid https URL detected — do NOT persist the raw text (which may
       // contain place names/addresses/newlines). Clear upstream value; the
       // user sees an inline error and the raw text stays only in local state.
+      onInvalidChange?.(true);
+      skipNextEmptySyncRef.current = true;
       onChange("");
     }
   };
@@ -111,7 +123,7 @@ export function GoogleMapsInput({ value, onChange, onPlaceNameChange }: GoogleMa
           ) : (
             <>
               <MapPin className="w-4 h-4 text-amber-500" />
-              <span className="text-amber-600">找不到有效地圖連結</span>
+              <span className="text-amber-600">請輸入 Google Maps、Naver Map 或高德地圖連結</span>
             </>
           )}
         </div>
