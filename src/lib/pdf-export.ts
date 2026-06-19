@@ -282,6 +282,64 @@ async function drawPdfIcon(doc: PDFDocument, page: PDFPage, fileName: string, fa
   safeDrawText(page, fallback, { x, y: y + 1, size, font: await doc.embedFont(StandardFonts.Helvetica), color: TEXT });
 }
 
+function pdfColorToCss(color?: ReturnType<typeof rgb>): string {
+  const c = (color ?? TEXT) as unknown as { red?: number; green?: number; blue?: number };
+  const toHex = (v = 0) => Math.max(0, Math.min(255, Math.round(v * 255))).toString(16).padStart(2, "0");
+  return `#${toHex(c.red)}${toHex(c.green)}${toHex(c.blue)}`;
+}
+
+function browserMeasureText(text: string, size: number, bold = false): number | null {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.font = `${bold ? 700 : 400} ${size}px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif`;
+  return ctx.measureText(text).width;
+}
+
+async function measurePdfText(text: string, font: PDFFont, size: number, bold = false): Promise<number> {
+  const measured = browserMeasureText(text, size, bold);
+  if (measured !== null) return measured;
+  try { return font.widthOfTextAtSize(text, size); } catch { return Array.from(text).length * size * 0.62; }
+}
+
+async function drawPdfText(
+  doc: PDFDocument,
+  page: PDFPage,
+  text: string,
+  opts: { x: number; y: number; size: number; font: PDFFont; color?: ReturnType<typeof rgb>; bold?: boolean; forceImage?: boolean },
+): Promise<number> {
+  if (!text) return 0;
+  const needsImage = opts.forceImage || /[^\x20-\x7e]/.test(text);
+  if (typeof document !== "undefined" && needsImage) {
+    const scale = 3;
+    const measured = browserMeasureText(text, opts.size, opts.bold) ?? Array.from(text).length * opts.size * 0.62;
+    const widthPt = Math.ceil(measured + 6);
+    const heightPt = Math.ceil(opts.size * 1.45);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.ceil(widthPt * scale));
+    canvas.height = Math.max(1, Math.ceil(heightPt * scale));
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.scale(scale, scale);
+      ctx.clearRect(0, 0, widthPt, heightPt);
+      ctx.font = `${opts.bold ? 700 : 400} ${opts.size}px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif`;
+      ctx.fillStyle = pdfColorToCss(opts.color);
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(text, 2, opts.size + 1);
+      try {
+        const img = await withTimeout(doc.embedPng(canvas.toDataURL("image/png")), IMAGE_EMBED_TIMEOUT_MS, "text image embed");
+        page.drawImage(img, { x: opts.x, y: opts.y - (heightPt - opts.size), width: widthPt, height: heightPt });
+        return widthPt;
+      } catch (e) {
+        console.warn("[pdf-export] text image embed failed; falling back to font text", { text, error: e });
+      }
+    }
+  }
+  safeDrawText(page, text, { x: opts.x, y: opts.y, size: opts.size, font: opts.font, color: opts.color });
+  return measurePdfText(text, opts.font, opts.size, opts.bold);
+}
+
 function wrapByWidth(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
   for (const para of (text ?? "").split("\n")) {
