@@ -570,46 +570,32 @@ async function loadEndLogo(): Promise<ArrayBuffer | null> {
 async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
   const page = doc.addPage([PAGE_W, PAGE_H]);
 
-  const line1 = "旅途順利，玩得開心";
+  const line1 = "🎉  旅途順利";
   const line2 = "此行程由 PeiTravel App 匯出完成";
   const wordmark = "PeiTravel";
-  const size1 = 20;
+  const size1 = 18;
   const size2 = 14;
   const sizeWord = 12;
-  const logoSize = 60;
-  const gap1 = 22; // line1 -> line2
-  const gap2 = 44; // line2 -> logo
-  const gap3 = 14; // logo -> wordmark
+  const logoSize = 44;
+  const gap1 = 18;  // line1 -> line2
+  const gap2 = 60;  // line2 -> logo
+  const gap3 = 12;  // logo -> wordmark
 
-  // Stack: line1 / line2 / (gap) / logo / wordmark — centred vertically
   const totalH = size1 + gap1 + size2 + gap2 + logoSize + gap3 + sizeWord;
   let y = PAGE_H / 2 + totalH / 2;
 
   const drawCentred = async (text: string, size: number, f: PDFFont, color: ReturnType<typeof rgb>, bold = false) => {
     const w = await measurePdfText(text, f, size, bold);
-    await drawPdfText(doc, page, text, { x: (PAGE_W - w) / 2, y: y - size, size, font: f, color, bold });
+    await drawPdfText(doc, page, text, { x: (PAGE_W - w) / 2, y: y - size, size, font: f, color, bold, forceImage: true });
     y -= size;
   };
 
-  const line1W = await measurePdfText(line1, fontBold, size1, true);
-  const emojiGap = 8;
-  const line1TotalW = logoSize / 3 + emojiGap + line1W;
-  const line1X = (PAGE_W - line1TotalW) / 2;
-  await drawPdfIcon(doc, page, "pdf-party.png", "*", line1X, y - size1 - 1, logoSize / 3);
-  await drawPdfText(doc, page, line1, {
-    x: line1X + logoSize / 3 + emojiGap,
-    y: y - size1,
-    size: size1,
-    font: fontBold,
-    color: rgb(0.32, 0.36, 0.44),
-    bold: true,
-  });
-  y -= size1;
+  await drawCentred(line1, size1, fontBold, rgb(0.27, 0.30, 0.38), true);
   y -= gap1;
-  await drawCentred(line2, size2, font, rgb(0.5, 0.55, 0.62));
+  await drawCentred(line2, size2, font, rgb(0.55, 0.60, 0.68));
   y -= gap2;
 
-  // Logo
+  // Logo (small)
   const logoBytes = await loadEndLogo();
   if (logoBytes) {
     try {
@@ -625,14 +611,14 @@ async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
     }
   }
   y -= logoSize + gap3;
-  await drawCentred(wordmark, sizeWord, fontBold, rgb(0.55, 0.6, 0.68), true);
+  await drawCentred(wordmark, sizeWord, fontBold, rgb(0.60, 0.65, 0.72), true);
 }
 
 // ---------- Map links section ----------
 interface DayMapLink {
-  title: string;
+  title: string;        // may contain '\n' — preserve user formatting
   url: string;
-  label: string;
+  label: string;        // provider, used only for button text
 }
 
 function getMapButtonText(provider: string): string {
@@ -647,9 +633,8 @@ function collectDayMapLinks(day: DayItinerary | undefined): DayMapLink[] {
     const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
     const url = sanitizeMapUrl(rawUrl);
     if (!url) continue;
-    const rawTitle = String(source.title || source.name || item.description || "")
-      .split("\n")[0]
-      .trim();
+    // Preserve user's full title verbatim, including line breaks (CJK / KR / JP).
+    const rawTitle = String(source.title || source.name || item.description || "").replace(/\s+$/g, "");
     const title = rawTitle || "景點連結";
     links.push({ title, url, label: getMapProviderLabel(url) });
   }
@@ -664,31 +649,38 @@ async function drawMapLinksSection(
   links: DayMapLink[],
 ) {
   if (links.length === 0) return;
-  // Card layout — title + provider label + clear CTA button
-  const cardPad = 14;
+
+  // Layout constants
+  const cardPad = 16;
   const titleSize = 13;
-  const providerSize = 10.5;
+  const titleLineH = 18;
+  const titleToButton = 12;
   const buttonSize = 11;
-  const buttonH = 28;
-  // height = pad + title + 6 + provider + 12 + button + pad
-  const cardH = cardPad + titleSize + 6 + providerSize + 12 + buttonH + cardPad;
+  const buttonH = 30;
   const cardGap = 12;
   const headerH = 52;
+  const pinSize = titleSize + 1;
+  const pinGap = 6;
+
   const startNewPage = async (continuation: boolean): Promise<{ page: PDFPage; y: number }> => {
-    const page = doc.addPage([PAGE_W, PAGE_H]);
-    page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
-    await drawPdfText(doc, page, `Day ${dayNumber}｜導航連結${continuation ? "（續）" : ""}`, {
-      x: MARGIN, y: PAGE_H - MARGIN - 14, size: 17, font: fontBold, color: PRIMARY,
-      bold: true,
+    const p = doc.addPage([PAGE_W, PAGE_H]);
+    p.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
+    await drawPdfText(doc, p, `Day ${dayNumber}｜導航連結${continuation ? "（續）" : ""}`, {
+      x: MARGIN, y: PAGE_H - MARGIN - 14, size: 17, font: fontBold, color: PRIMARY, bold: true, forceImage: true,
     });
-    await drawPdfText(doc, page, "以下連結可直接開啟導航", {
-      x: MARGIN, y: PAGE_H - MARGIN - 34, size: 11, font, color: MUTED,
+    await drawPdfText(doc, p, "點擊卡片即可開啟導航", {
+      x: MARGIN, y: PAGE_H - MARGIN - 34, size: 11, font, color: MUTED, forceImage: true,
     });
-    return { page, y: PAGE_H - MARGIN - headerH };
+    return { page: p, y: PAGE_H - MARGIN - headerH };
   };
+
   let { page, y } = await startNewPage(false);
 
   for (const link of links) {
+    const titleLines = link.title.split("\n");
+    const titleBlockH = titleLines.length * titleLineH;
+    const cardH = cardPad + titleBlockH + titleToButton + buttonH + cardPad;
+
     if (y - cardH < MARGIN + 20) {
       const next = await startNewPage(true);
       page = next.page;
@@ -696,6 +688,7 @@ async function drawMapLinksSection(
     }
     const cardTop = y;
     const cardBottom = y - cardH;
+
     // Card background
     page.drawRectangle({
       x: MARGIN, y: cardBottom, width: CONTENT_W, height: cardH,
@@ -703,37 +696,42 @@ async function drawMapLinksSection(
       borderColor: rgb(0.84, 0.9, 0.97),
       borderWidth: 0.8,
     });
-    // Title — pin icon + first line of item title, single line (truncated)
-    const titleText = link.title;
-    const titleLines = wrapByWidth(titleText, fontBold, titleSize, CONTENT_W - cardPad * 2);
-    await drawPdfIcon(doc, page, "pdf-pin.png", "•", MARGIN + cardPad, cardTop - cardPad - titleSize + 1, titleSize);
-    await drawPdfText(doc, page, titleLines[0] ?? titleText, {
-      x: MARGIN + cardPad + titleSize + 6,
-      y: cardTop - cardPad - titleSize + 2,
-      size: titleSize,
+
+    // 📍 pin (rendered via canvas-PNG so it appears on every platform)
+    const pinY = cardTop - cardPad - titleSize + 1;
+    await drawPdfText(doc, page, "📍", {
+      x: MARGIN + cardPad,
+      y: pinY,
+      size: pinSize,
       font: fontBold,
       color: TEXT,
       bold: true,
+      forceImage: true,
     });
-    // Provider label (small, muted)
-    await drawPdfText(doc, page, link.label, {
-      x: MARGIN + cardPad,
-      y: cardTop - cardPad - titleSize - 6 - providerSize + 2,
-      size: providerSize,
-      font,
-      color: MUTED,
-    });
-    // CTA button
+
+    // Title — preserve user line breaks verbatim
+    const titleX = MARGIN + cardPad + pinSize + pinGap;
+    let lineY = cardTop - cardPad - titleSize + 2;
+    for (const line of titleLines) {
+      await drawPdfText(doc, page, line, {
+        x: titleX,
+        y: lineY,
+        size: titleSize,
+        font: fontBold,
+        color: TEXT,
+        bold: true,
+        forceImage: true,
+      });
+      lineY -= titleLineH;
+    }
+
+    // CTA button (single line, provider in button text only)
     const buttonText = getMapButtonText(link.label);
-    let textW = 120;
-    textW = await measurePdfText(buttonText, fontBold, buttonSize, true);
-    const btnW = Math.min(CONTENT_W - cardPad * 2, textW + 32);
+    const textW = await measurePdfText(buttonText, fontBold, buttonSize, true);
+    const btnW = Math.min(CONTENT_W - cardPad * 2, textW + 36);
     const btnX = MARGIN + cardPad;
     const btnY = cardBottom + cardPad;
-    page.drawRectangle({
-      x: btnX, y: btnY, width: btnW, height: buttonH,
-      color: PRIMARY,
-    });
+    page.drawRectangle({ x: btnX, y: btnY, width: btnW, height: buttonH, color: PRIMARY });
     await drawPdfText(doc, page, buttonText, {
       x: btnX + (btnW - textW) / 2,
       y: btnY + (buttonH - buttonSize) / 2 + 2,
@@ -741,9 +739,10 @@ async function drawMapLinksSection(
       font: fontBold,
       color: rgb(1, 1, 1),
       bold: true,
+      forceImage: true,
     });
     addLinkAnnotation(page, link.url, btnX, btnY, btnW, buttonH);
-    // Whole card also clickable
+    // Whole card is clickable
     addLinkAnnotation(page, link.url, MARGIN, cardBottom, CONTENT_W, cardH);
 
     y = cardBottom - cardGap;
