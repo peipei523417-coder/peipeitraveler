@@ -809,7 +809,7 @@ function ProjectDetailInner() {
         <PdfCaptureRoot
           project={project}
           coverImageUrl={signedCoverImage}
-          onReady={(days, err) => captureResolverRef.current?.(days, err)}
+          onReady={(root, err) => captureResolverRef.current?.(root, err)}
         />
       )}
 
