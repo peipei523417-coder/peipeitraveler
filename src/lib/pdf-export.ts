@@ -637,22 +637,23 @@ async function drawMapLinksSection(
   const cardH = cardPad + titleSize + 6 + providerSize + 12 + buttonH + cardPad;
   const cardGap = 12;
   const headerH = 52;
-  const startNewPage = (continuation: boolean): { page: PDFPage; y: number } => {
+  const startNewPage = async (continuation: boolean): Promise<{ page: PDFPage; y: number }> => {
     const page = doc.addPage([PAGE_W, PAGE_H]);
     page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
-    safeDrawText(page, `Day ${dayNumber}｜導航連結${continuation ? "（續）" : ""}`, {
+    await drawPdfText(doc, page, `Day ${dayNumber}｜導航連結${continuation ? "（續）" : ""}`, {
       x: MARGIN, y: PAGE_H - MARGIN - 14, size: 17, font: fontBold, color: PRIMARY,
+      bold: true,
     });
-    safeDrawText(page, "以下連結可直接開啟導航", {
+    await drawPdfText(doc, page, "以下連結可直接開啟導航", {
       x: MARGIN, y: PAGE_H - MARGIN - 34, size: 11, font, color: MUTED,
     });
     return { page, y: PAGE_H - MARGIN - headerH };
   };
-  let { page, y } = startNewPage(false);
+  let { page, y } = await startNewPage(false);
 
   for (const link of links) {
     if (y - cardH < MARGIN + 20) {
-      const next = startNewPage(true);
+      const next = await startNewPage(true);
       page = next.page;
       y = next.y;
     }
@@ -669,15 +670,16 @@ async function drawMapLinksSection(
     const titleText = link.title;
     const titleLines = wrapByWidth(titleText, fontBold, titleSize, CONTENT_W - cardPad * 2);
     await drawPdfIcon(doc, page, "pdf-pin.png", "•", MARGIN + cardPad, cardTop - cardPad - titleSize + 1, titleSize);
-    safeDrawText(page, titleLines[0] ?? titleText, {
+    await drawPdfText(doc, page, titleLines[0] ?? titleText, {
       x: MARGIN + cardPad + titleSize + 6,
       y: cardTop - cardPad - titleSize + 2,
       size: titleSize,
       font: fontBold,
       color: TEXT,
+      bold: true,
     });
     // Provider label (small, muted)
-    safeDrawText(page, link.label, {
+    await drawPdfText(doc, page, link.label, {
       x: MARGIN + cardPad,
       y: cardTop - cardPad - titleSize - 6 - providerSize + 2,
       size: providerSize,
@@ -687,7 +689,7 @@ async function drawMapLinksSection(
     // CTA button
     const buttonText = getMapButtonText(link.label);
     let textW = 120;
-    try { textW = fontBold.widthOfTextAtSize(buttonText, buttonSize); } catch { /* keep */ }
+    textW = await measurePdfText(buttonText, fontBold, buttonSize, true);
     const btnW = Math.min(CONTENT_W - cardPad * 2, textW + 32);
     const btnX = MARGIN + cardPad;
     const btnY = cardBottom + cardPad;
@@ -695,12 +697,13 @@ async function drawMapLinksSection(
       x: btnX, y: btnY, width: btnW, height: buttonH,
       color: PRIMARY,
     });
-    safeDrawText(page, buttonText, {
+    await drawPdfText(doc, page, buttonText, {
       x: btnX + (btnW - textW) / 2,
       y: btnY + (buttonH - buttonSize) / 2 + 2,
       size: buttonSize,
       font: fontBold,
       color: rgb(1, 1, 1),
+      bold: true,
     });
     addLinkAnnotation(page, link.url, btnX, btnY, btnW, buttonH);
     // Whole card also clickable
