@@ -581,7 +581,12 @@ async function buildLightweightPdfBytes(
   });
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
+  const { font, fontBold, fallback } = await embedPdfFonts(doc, opts.onWarning);
+  // When the embedded font is Helvetica (CJK font failed to load), we MUST
+  // route non-ASCII text through the canvas-PNG path or the PDF shows
+  // garbled glyphs. ASCII still uses safeDrawText for speed.
+  const useImageForNonAscii = fallback;
+  const hasNonAscii = (t: string) => /[^\x20-\x7e]/.test(t);
 
   const lineH = 14;
   const headerH = 22;
@@ -596,44 +601,51 @@ async function buildLightweightPdfBytes(
     }
   };
 
-  const drawLine = (
+  const drawLine = async (
     text: string,
     size: number,
     f: PDFFont,
     color: ReturnType<typeof rgb>,
     indent = 0,
+    bold = false,
   ) => {
     if (!text) return;
     const maxW = CONTENT_W - indent;
     const lines = wrapByWidth(text, f, size, maxW);
     for (const line of lines) {
       ensureSpace(size + 4);
-      safeDrawText(page, line, { x: MARGIN + indent, y: y - size, size, font: f, color });
+      if (useImageForNonAscii && hasNonAscii(line)) {
+        await drawPdfText(doc, page, line, {
+          x: MARGIN + indent, y: y - size, size, font: f, color, bold, forceImage: true,
+        });
+      } else {
+        safeDrawText(page, line, { x: MARGIN + indent, y: y - size, size, font: f, color });
+      }
       y -= size + 4;
     }
   };
 
   // Trip header
-  drawLine(project.name || "Trip", 20, fontBold, PRIMARY);
+  await drawLine(project.name || "Trip", 20, fontBold, PRIMARY, 0, true);
   y -= 4;
   const sd = safeDate(project.startDate);
   const ed = safeDate(project.endDate);
   let totalDays = Array.isArray(project.itinerary) ? project.itinerary.length : 0;
   if (sd && ed) {
     totalDays = Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1;
-    drawLine(`${fmtDateYMD(sd)}  -  ${fmtDateYMD(ed)}`, 12, font, MUTED);
+    await drawLine(`${fmtDateYMD(sd)}  -  ${fmtDateYMD(ed)}`, 12, font, MUTED);
   }
-  drawLine(`Total Days: ${totalDays}`, 12, font, MUTED);
+  await drawLine(`Total Days: ${totalDays}`, 12, font, MUTED);
   y -= 10;
 
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   for (const day of itinerary) {
     ensureSpace(headerH + lineH);
     y -= 4;
-    drawLine(`Day ${day.dayNumber}`, 16, fontBold, PRIMARY);
+    await drawLine(`Day ${day.dayNumber}`, 16, fontBold, PRIMARY, 0, true);
     const items = Array.isArray(day.items) ? day.items : [];
     if (items.length === 0) {
-      drawLine("(no items)", 11, font, MUTED, 12);
+      await drawLine("(no items)", 11, font, MUTED, 12);
       continue;
     }
     const sorted = [...items].sort((a, b) =>
@@ -652,17 +664,19 @@ async function buildLightweightPdfBytes(
       const title =
         String(source.title || source.name || source.description || "").trim() ||
         "(untitled)";
-      drawLine(`- ${time}${title}`, 12, fontBold, TEXT, 8);
+      await drawLine(`- ${time}${title}`, 12, fontBold, TEXT, 8, true);
       const notes = String(source.notes || "").trim();
-      if (notes) drawLine(`Notes: ${notes}`, 11, font, TEXT, 20);
+      if (notes) await drawLine(`Notes: ${notes}`, 11, font, TEXT, 20);
       if (item.price && item.price > 0) {
-        drawLine(`Cost: $${item.price.toLocaleString()}`, 11, font, MUTED, 20);
+        await drawLine(`Cost: $${item.price.toLocaleString()}`, 11, font, MUTED, 20);
       }
       const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
       const mapUrl = sanitizeMapUrl(rawUrl) || rawUrl;
-      if (mapUrl) drawLine(`Map: ${mapUrl}`, 10, font, MUTED, 20);
+      if (mapUrl) await drawLine(`Map: ${mapUrl}`, 10, font, MUTED, 20);
       y -= itemGap;
     }
+    // Yield between days so the UI can breathe during very long fallback exports
+    await yieldToLoop();
   }
 
   console.info("[pdf-export] PDF save start", { mode: "lightweight" });
