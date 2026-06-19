@@ -1,31 +1,25 @@
 /**
  * Offscreen renderer used during PDF export.
  *
- * Renders a card-style cover + every Day of a project at a fixed width
- * (PDF-friendly), waits for fonts + images to be ready, then
- * html2canvas-captures each node.
+ * IMPORTANT: This component does NOT capture snapshots. It only mounts the
+ * DOM (cover card + every Day) far off-screen, waits for fonts/images to
+ * settle, then hands the root element back to the caller via onReady.
  *
- * The cover snapshot is returned with dayNumber = 0 (sentinel).
- *
- * The container is positioned far off-screen so it never affects the live UI.
+ * The PDF export module (`src/lib/pdf-export.ts`) walks the root and
+ * captures one node at a time, embeds it into the PDF immediately, and
+ * releases the canvas before moving on. This guarantees only ONE large
+ * canvas/image exists in memory at a time — critical for mobile reliability.
  */
 import { useEffect, useRef } from "react";
 import { TravelProject } from "@/types/travel";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
-
-export interface CapturedMapLink {
-  url: string;
-  xPct: number;
-  yPct: number;
-  wPct: number;
-  hPct: number;
-}
 
 export interface CapturedCardBounds {
   topPct: number;
   bottomPct: number;
 }
 
+/** Returned by sequential capture in pdf-export. */
 export interface CapturedDay {
   /** 0 = cover snapshot, 1..N = actual day */
   dayNumber: number;
@@ -34,7 +28,6 @@ export interface CapturedDay {
   dataUrl: string;
   widthPx: number;
   heightPx: number;
-  mapLinks: CapturedMapLink[];
   cardBounds: CapturedCardBounds[];
 }
 
@@ -42,8 +35,11 @@ interface Props {
   project: TravelProject;
   /** Pre-signed cover image URL (so html2canvas can fetch it). */
   coverImageUrl?: string;
-  onReady: (days: CapturedDay[] | null, error?: unknown) => void;
+  /** Called once DOM is mounted and fonts/images have settled. */
+  onReady: (root: HTMLElement | null, error?: unknown) => void;
 }
+
+export const PDF_CAPTURE_WIDTH = 760;
 
 function fmtDate(value: unknown): string {
   if (!value) return "";
@@ -56,8 +52,6 @@ function fmtDate(value: unknown): string {
 }
 
 const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const CAPTURE_WIDTH = 760;
-const HTML2CANVAS_TIMEOUT_MS = 18000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -128,7 +122,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
 
     (async () => {
       const root = ref.current;
-      console.info("[pdf-capture] capture start", { hasRoot: !!root, runId });
+      console.info("[pdf-capture] mount", { hasRoot: !!root, runId });
       if (!root) {
         onReady(null, new Error("PdfCaptureRoot mounted without root element"));
         return;
@@ -155,113 +149,9 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
         console.info("[pdf-capture] images settled");
         await new Promise((r) => setTimeout(r, 150));
         if (cancelled || runId !== runIdRef.current) return;
-
-        let html2canvas: typeof import("html2canvas-pro").default;
-        try {
-          html2canvas = await withTimeout(
-            import("html2canvas-pro").then((m) => m.default),
-            8000,
-            "html2canvas-pro import",
-          );
-          console.info("[pdf-capture] html2canvas loaded");
-        } catch (e) {
-          console.error("[pdf-capture] html2canvas-pro import failed", e);
-          if (!cancelled) onReady(null, e);
-          return;
-        }
-
-        const isMobile =
-          typeof navigator !== "undefined" &&
-          /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const captureScale = isMobile ? 0.6 : 2;
-        const jpegQuality = isMobile ? 0.5 : 0.85;
-        console.info("[pdf-capture] capture profile", { isMobile, captureScale, jpegQuality });
-
-        const captureNode = async (node: HTMLElement, label: string): Promise<{ dataUrl: string; w: number; h: number } | null> => {
-          const rect = node.getBoundingClientRect();
-          try {
-            const canvasPromise = html2canvas(node, {
-              backgroundColor: "#ffffff",
-              scale: captureScale,
-              useCORS: true,
-              allowTaint: false,
-              logging: false,
-              imageTimeout: 6000,
-              windowWidth: CAPTURE_WIDTH,
-              width: Math.ceil(node.scrollWidth || rect.width || CAPTURE_WIDTH),
-              height: Math.ceil(node.scrollHeight || rect.height || 1),
-              scrollX: 0,
-              scrollY: 0,
-            });
-            const canvas = await withTimeout(canvasPromise, HTML2CANVAS_TIMEOUT_MS, label);
-            const dataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
-            const w = canvas.width;
-            const h = canvas.height;
-            // Release memory immediately
-            try { canvas.width = 0; canvas.height = 0; } catch { /* ignore */ }
-            return { dataUrl, w, h };
-          } catch (e) {
-            console.warn("[pdf-capture] capture failed", label, e);
-            return null;
-          }
-        };
-
-
-        const result: CapturedDay[] = [];
-
-        // Cover
-        const coverNode = root.querySelector<HTMLElement>("[data-pdf-cover]");
-        if (coverNode) {
-          console.info("[pdf-capture] capture cover");
-          const shot = await captureNode(coverNode, "capture cover");
-          if (shot) {
-            result.push({
-              dayNumber: 0,
-              date: "",
-              dataUrl: shot.dataUrl,
-              widthPx: shot.w,
-              heightPx: shot.h,
-              mapLinks: [],
-              cardBounds: [],
-            });
-          }
-        }
-
-        // Days
-        const dayNodes = Array.from(root.querySelectorAll<HTMLElement>("[data-pdf-day]"));
-        console.info("[pdf-capture] day nodes found", { count: dayNodes.length });
-        for (const node of dayNodes) {
-          if (cancelled || runId !== runIdRef.current) return;
-          const dayNumber = Number(node.dataset.pdfDay);
-          const date = node.dataset.pdfDate || "";
-          const nodeRect = node.getBoundingClientRect();
-          const cardBounds = Array.from(node.querySelectorAll<HTMLElement>("[data-pdf-card]")).map((card) => {
-            const r = card.getBoundingClientRect();
-            return {
-              topPct: (r.top - nodeRect.top) / nodeRect.height,
-              bottomPct: (r.bottom - nodeRect.top) / nodeRect.height,
-            };
-          });
-
-          const shot = await captureNode(node, `capture day${dayNumber}`);
-          if (shot) {
-            console.info(`[pdf-capture] day${dayNumber} canvas`, {
-              width: shot.w, height: shot.h, fileSizeKb: Math.round(shot.dataUrl.length / 1024),
-            });
-            result.push({
-              dayNumber, date, dataUrl: shot.dataUrl,
-              widthPx: shot.w, heightPx: shot.h, mapLinks: [], cardBounds,
-            });
-          } else {
-            result.push({
-              dayNumber, date, dataUrl: "", widthPx: 0, heightPx: 0, mapLinks: [], cardBounds: [],
-            });
-          }
-        }
-        console.info("[pdf-capture] capture complete", { snapshots: result.length });
-        if (!cancelled && runId === runIdRef.current) onReady(result);
+        onReady(root);
       } catch (e) {
-        console.error("[pdf-capture] capture failed", e);
+        console.error("[pdf-capture] mount/settle failed", e);
         if (!cancelled) onReady(null, e);
       }
     })();
@@ -279,7 +169,6 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
     if (!i.price || i.price <= 0) return s;
     return s + Math.round(i.price / (i.persons || 1));
   }, 0);
-  const maxPersons = allItems.reduce((m, i) => Math.max(m, i.persons || 1), 1);
   const totalDays = (() => {
     const sd = project.startDate instanceof Date ? project.startDate : new Date(project.startDate as unknown as string);
     const ed = project.endDate instanceof Date ? project.endDate : new Date(project.endDate as unknown as string);
@@ -295,19 +184,19 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
         position: "fixed",
         left: -10000,
         top: 0,
-        width: CAPTURE_WIDTH,
+        width: PDF_CAPTURE_WIDTH,
         background: "#ffffff",
         visibility: "visible",
         opacity: 1,
         pointerEvents: "none",
       }}
     >
-      <div ref={ref} style={{ width: CAPTURE_WIDTH, background: "#ffffff" }}>
+      <div ref={ref} style={{ width: PDF_CAPTURE_WIDTH, background: "#ffffff" }}>
         {/* ====== COVER (card-style, matches lobby project card) ====== */}
         <div
           data-pdf-cover
           style={{
-            width: CAPTURE_WIDTH,
+            width: PDF_CAPTURE_WIDTH,
             padding: "40px 36px 44px",
             boxSizing: "border-box",
             background: "linear-gradient(180deg, #f8fbff 0%, #ffffff 70%)",
@@ -457,7 +346,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
             data-pdf-day={day.dayNumber}
             data-pdf-date={fmtDate(day.date)}
             style={{
-              width: CAPTURE_WIDTH,
+              width: PDF_CAPTURE_WIDTH,
               padding: "28px 24px 32px",
               background: "#ffffff",
               boxSizing: "border-box",

@@ -24,8 +24,11 @@ import {
 import fontkit from "@pdf-lib/fontkit";
 import type { TravelProject, ItineraryItem, DayItinerary } from "@/types/travel";
 import { getSignedImageUrl } from "@/lib/supabase-storage";
-import type { CapturedDay } from "@/components/PdfCaptureRoot";
+import type { CapturedDay, CapturedCardBounds } from "@/components/PdfCaptureRoot";
+import { PDF_CAPTURE_WIDTH } from "@/components/PdfCaptureRoot";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
+
+const HTML2CANVAS_TIMEOUT_MS = 18000;
 
 // ---------- Fonts ----------
 const FONT_REGULAR_URL =
@@ -124,7 +127,7 @@ export type PdfExportWarning = "font-fallback" | "image-skipped" | "day-snapshot
 async function embedPdfFonts(
   doc: PDFDocument,
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
-): Promise<{ font: PDFFont; fontBold: PDFFont }> {
+): Promise<{ font: PDFFont; fontBold: PDFFont; fallback: boolean }> {
   try {
     const { regular, bold, source } = await loadFonts();
     const [font, fontBold] = await withTimeout(
@@ -137,7 +140,7 @@ async function embedPdfFonts(
     );
     if (source === "local") onWarning?.("font-fallback", "bundled Noto Sans TC");
     console.info("[pdf-export] load font success", { source });
-    return { font, fontBold };
+    return { font, fontBold, fallback: false };
   } catch (e) {
     console.warn("[pdf-export] load font fail; using Helvetica fallback", e);
     onWarning?.("font-fallback", e);
@@ -145,7 +148,7 @@ async function embedPdfFonts(
       doc.embedFont(StandardFonts.Helvetica),
       doc.embedFont(StandardFonts.HelveticaBold),
     ]);
-    return { font, fontBold };
+    return { font, fontBold, fallback: true };
   }
 }
 
@@ -442,8 +445,94 @@ function addLinkAnnotation(
 export interface ExportOptions {
   now?: Date;
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void;
-  /** Captured day snapshots from PdfCaptureRoot. */
-  capturedDays: CapturedDay[];
+  /**
+   * DOM root rendered by PdfCaptureRoot. The exporter captures one node at a
+   * time, embeds it into the PDF immediately, and releases the canvas before
+   * moving on. Only ONE large canvas exists in memory at any moment.
+   *
+   * When null/undefined, the exporter falls back to the lightweight text PDF.
+   */
+  captureRoot?: HTMLElement | null;
+}
+
+// ---------- Sequential capture (one canvas in memory at a time) ----------
+interface CaptureResult { dataUrl: string; w: number; h: number }
+type Html2Canvas = typeof import("html2canvas-pro").default;
+
+let html2canvasPromise: Promise<Html2Canvas> | null = null;
+async function loadHtml2Canvas(): Promise<Html2Canvas> {
+  if (!html2canvasPromise) {
+    html2canvasPromise = withTimeout(
+      import("html2canvas-pro").then((m) => m.default),
+      8000,
+      "html2canvas-pro import",
+    );
+  }
+  return html2canvasPromise;
+}
+
+function captureProfile(): { scale: number; jpegQuality: number; isMobile: boolean } {
+  const isMobile =
+    typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  return { isMobile, scale: isMobile ? 0.6 : 2, jpegQuality: isMobile ? 0.5 : 0.85 };
+}
+
+async function captureSingleNode(
+  html2canvas: Html2Canvas,
+  node: HTMLElement,
+  scale: number,
+  jpegQuality: number,
+  label: string,
+): Promise<CaptureResult | null> {
+  const rect = node.getBoundingClientRect();
+  let canvas: HTMLCanvasElement | null = null;
+  try {
+    canvas = await withTimeout(
+      html2canvas(node, {
+        backgroundColor: "#ffffff",
+        scale,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        imageTimeout: 6000,
+        windowWidth: PDF_CAPTURE_WIDTH,
+        width: Math.ceil(node.scrollWidth || rect.width || PDF_CAPTURE_WIDTH),
+        height: Math.ceil(node.scrollHeight || rect.height || 1),
+        scrollX: 0,
+        scrollY: 0,
+      }),
+      HTML2CANVAS_TIMEOUT_MS,
+      label,
+    );
+    const dataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
+    const w = canvas.width;
+    const h = canvas.height;
+    return { dataUrl, w, h };
+  } catch (e) {
+    console.warn("[pdf-export] capture failed", label, e);
+    return null;
+  } finally {
+    // Release canvas memory immediately
+    if (canvas) {
+      try { canvas.width = 0; canvas.height = 0; } catch { /* ignore */ }
+    }
+  }
+}
+
+function collectCardBounds(node: HTMLElement): CapturedCardBounds[] {
+  const nodeRect = node.getBoundingClientRect();
+  return Array.from(node.querySelectorAll<HTMLElement>("[data-pdf-card]")).map((card) => {
+    const r = card.getBoundingClientRect();
+    return {
+      topPct: (r.top - nodeRect.top) / nodeRect.height,
+      bottomPct: (r.bottom - nodeRect.top) / nodeRect.height,
+    };
+  });
+}
+
+/** Yield to the event loop so memory can be reclaimed between heavy ops. */
+function yieldToLoop(): Promise<void> {
+  return new Promise((r) => setTimeout(r, 0));
 }
 
 export async function exportProjectToPdf(
@@ -453,10 +542,9 @@ export async function exportProjectToPdf(
   console.info("[pdf-export] PDF snapshot export start", {
     projectId: project.id,
     projectName: project.name,
-    capturedDays: opts.capturedDays?.length ?? 0,
+    hasCaptureRoot: !!opts.captureRoot,
   });
-  const hasSnapshots = Array.isArray(opts.capturedDays) && opts.capturedDays.length > 0;
-  if (hasSnapshots) {
+  if (opts.captureRoot) {
     try {
       return await buildPdfBytes(project, opts);
     } catch (e) {
@@ -469,7 +557,7 @@ export async function exportProjectToPdf(
   } else {
     console.warn(
       "[pdf-export] PDF snapshot export failed, switching to lightweight text PDF",
-      "no captured days",
+      "no capture root",
     );
   }
   try {
@@ -493,7 +581,12 @@ async function buildLightweightPdfBytes(
   });
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
+  const { font, fontBold, fallback } = await embedPdfFonts(doc, opts.onWarning);
+  // When the embedded font is Helvetica (CJK font failed to load), we MUST
+  // route non-ASCII text through the canvas-PNG path or the PDF shows
+  // garbled glyphs. ASCII still uses safeDrawText for speed.
+  const useImageForNonAscii = fallback;
+  const hasNonAscii = (t: string) => /[^\x20-\x7e]/.test(t);
 
   const lineH = 14;
   const headerH = 22;
@@ -508,44 +601,51 @@ async function buildLightweightPdfBytes(
     }
   };
 
-  const drawLine = (
+  const drawLine = async (
     text: string,
     size: number,
     f: PDFFont,
     color: ReturnType<typeof rgb>,
     indent = 0,
+    bold = false,
   ) => {
     if (!text) return;
     const maxW = CONTENT_W - indent;
     const lines = wrapByWidth(text, f, size, maxW);
     for (const line of lines) {
       ensureSpace(size + 4);
-      safeDrawText(page, line, { x: MARGIN + indent, y: y - size, size, font: f, color });
+      if (useImageForNonAscii && hasNonAscii(line)) {
+        await drawPdfText(doc, page, line, {
+          x: MARGIN + indent, y: y - size, size, font: f, color, bold, forceImage: true,
+        });
+      } else {
+        safeDrawText(page, line, { x: MARGIN + indent, y: y - size, size, font: f, color });
+      }
       y -= size + 4;
     }
   };
 
   // Trip header
-  drawLine(project.name || "Trip", 20, fontBold, PRIMARY);
+  await drawLine(project.name || "Trip", 20, fontBold, PRIMARY, 0, true);
   y -= 4;
   const sd = safeDate(project.startDate);
   const ed = safeDate(project.endDate);
   let totalDays = Array.isArray(project.itinerary) ? project.itinerary.length : 0;
   if (sd && ed) {
     totalDays = Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1;
-    drawLine(`${fmtDateYMD(sd)}  -  ${fmtDateYMD(ed)}`, 12, font, MUTED);
+    await drawLine(`${fmtDateYMD(sd)}  -  ${fmtDateYMD(ed)}`, 12, font, MUTED);
   }
-  drawLine(`Total Days: ${totalDays}`, 12, font, MUTED);
+  await drawLine(`Total Days: ${totalDays}`, 12, font, MUTED);
   y -= 10;
 
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   for (const day of itinerary) {
     ensureSpace(headerH + lineH);
     y -= 4;
-    drawLine(`Day ${day.dayNumber}`, 16, fontBold, PRIMARY);
+    await drawLine(`Day ${day.dayNumber}`, 16, fontBold, PRIMARY, 0, true);
     const items = Array.isArray(day.items) ? day.items : [];
     if (items.length === 0) {
-      drawLine("(no items)", 11, font, MUTED, 12);
+      await drawLine("(no items)", 11, font, MUTED, 12);
       continue;
     }
     const sorted = [...items].sort((a, b) =>
@@ -564,17 +664,19 @@ async function buildLightweightPdfBytes(
       const title =
         String(source.title || source.name || source.description || "").trim() ||
         "(untitled)";
-      drawLine(`- ${time}${title}`, 12, fontBold, TEXT, 8);
+      await drawLine(`- ${time}${title}`, 12, fontBold, TEXT, 8, true);
       const notes = String(source.notes || "").trim();
-      if (notes) drawLine(`Notes: ${notes}`, 11, font, TEXT, 20);
+      if (notes) await drawLine(`Notes: ${notes}`, 11, font, TEXT, 20);
       if (item.price && item.price > 0) {
-        drawLine(`Cost: $${item.price.toLocaleString()}`, 11, font, MUTED, 20);
+        await drawLine(`Cost: $${item.price.toLocaleString()}`, 11, font, MUTED, 20);
       }
       const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
       const mapUrl = sanitizeMapUrl(rawUrl) || rawUrl;
-      if (mapUrl) drawLine(`Map: ${mapUrl}`, 10, font, MUTED, 20);
+      if (mapUrl) await drawLine(`Map: ${mapUrl}`, 10, font, MUTED, 20);
       y -= itemGap;
     }
+    // Yield between days so the UI can breathe during very long fallback exports
+    await yieldToLoop();
   }
 
   console.info("[pdf-export] PDF save start", { mode: "lightweight" });
@@ -590,36 +692,75 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   doc.registerFontkit(fontkit);
   const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
 
-  const allSnapshots = opts.capturedDays ?? [];
-  const coverSnapshot = allSnapshots.find((d) => d.dayNumber === 0) ?? null;
-  const days = allSnapshots.filter((d) => d.dayNumber > 0);
+  const root = opts.captureRoot;
+  if (!root) throw new Error("captureRoot missing");
 
-  // ===== Cover =====
-  if (coverSnapshot && coverSnapshot.dataUrl && coverSnapshot.widthPx && coverSnapshot.heightPx) {
-    try {
-      await drawCoverSnapshotPage(doc, coverSnapshot, opts.onWarning);
-    } catch (e) {
-      console.warn("[pdf-export] cover snapshot failed; falling back to programmatic cover", e);
-      await drawCover(doc, font, fontBold, project, opts.now ?? new Date(), opts.onWarning);
+  const html2canvas = await loadHtml2Canvas();
+  const profile = captureProfile();
+  console.info("[pdf-export] capture profile", profile);
+
+  // ===== Cover (capture → embed → page → release) =====
+  const coverNode = root.querySelector<HTMLElement>("[data-pdf-cover]");
+  let coverDrawn = false;
+  if (coverNode) {
+    const shot = await captureSingleNode(html2canvas, coverNode, profile.scale, profile.jpegQuality, "capture cover");
+    if (shot) {
+      try {
+        await drawCoverSnapshotPage(doc, {
+          dataUrl: shot.dataUrl, widthPx: shot.w, heightPx: shot.h,
+        }, opts.onWarning);
+        coverDrawn = true;
+      } catch (e) {
+        console.warn("[pdf-export] cover snapshot embed failed; using programmatic cover", e);
+      }
     }
-  } else {
+    // Drop reference so the base64 string can be GC'd before next capture
+    if (shot) (shot as { dataUrl: string }).dataUrl = "";
+    await yieldToLoop();
+  }
+  if (!coverDrawn) {
     await drawCover(doc, font, fontBold, project, opts.now ?? new Date(), opts.onWarning);
   }
 
-  // ===== One page per Day (snapshot + fixed map-links section) =====
+  // ===== One Day at a time: capture → embed → page → release → yield =====
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
-  for (const cap of days) {
-    const dayData = itinerary.find((d) => d.dayNumber === cap.dayNumber);
+  const dayNodes = Array.from(root.querySelectorAll<HTMLElement>("[data-pdf-day]"));
+  console.info("[pdf-export] day nodes", { count: dayNodes.length });
+  for (const node of dayNodes) {
+    const dayNumber = Number(node.dataset.pdfDay);
+    const date = node.dataset.pdfDate || "";
+    const dayData = itinerary.find((d) => d.dayNumber === dayNumber);
+    const cardBounds = collectCardBounds(node);
+
+    const shot = await captureSingleNode(
+      html2canvas,
+      node,
+      profile.scale,
+      profile.jpegQuality,
+      `capture day${dayNumber}`,
+    );
     try {
-      if (!cap.dataUrl || !cap.widthPx || !cap.heightPx) {
-        throw new Error("missing snapshot");
-      }
+      if (!shot) throw new Error("snapshot capture failed");
+      const cap: CapturedDay = {
+        dayNumber, date,
+        dataUrl: shot.dataUrl,
+        widthPx: shot.w, heightPx: shot.h,
+        cardBounds,
+      };
+      console.info(`[pdf-export] day${dayNumber} canvas`, {
+        width: shot.w, height: shot.h, fileSizeKb: Math.round(shot.dataUrl.length / 1024),
+      });
       await drawDaySnapshotPage(doc, cap, font, fontBold, dayData, opts.onWarning);
+      // Release the base64 reference held by `cap` and `shot`
+      cap.dataUrl = "";
     } catch (e) {
-      console.warn("[pdf-export] day render failed; inserting fallback page", { day: cap.dayNumber, error: e });
-      opts.onWarning?.("day-snapshot-skipped", { day: cap.dayNumber, error: e });
-      await drawDayFallbackPage(doc, font, fontBold, cap.dayNumber, dayData);
+      console.warn("[pdf-export] day render failed; inserting fallback page", { day: dayNumber, error: e });
+      opts.onWarning?.("day-snapshot-skipped", { day: dayNumber, error: e });
+      await drawDayFallbackPage(doc, font, fontBold, dayNumber, dayData);
+    } finally {
+      if (shot) (shot as { dataUrl: string }).dataUrl = "";
     }
+    await yieldToLoop();
   }
 
   // ===== Closing page =====
