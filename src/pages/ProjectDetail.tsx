@@ -69,11 +69,12 @@ function ProjectDetailInner() {
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
-  // When set, mounts the offscreen PdfCaptureRoot which captures day snapshots
-  // and calls back with the result via captureResolverRef.
+  // When set, mounts the offscreen PdfCaptureRoot which renders the DOM
+  // offscreen and resolves with the root element. The PDF exporter then
+  // captures one node at a time and embeds it sequentially.
   const [capturingForPdf, setCapturingForPdf] = useState(false);
   const captureResolverRef = useRef<
-    ((days: CapturedDay[] | null, error?: unknown) => void) | null
+    ((root: HTMLElement | null, error?: unknown) => void) | null
   >(null);
 
   // Track if we're currently performing a local update to skip realtime reload
@@ -90,15 +91,15 @@ function ProjectDetailInner() {
   // Get signed URL for cover image
   const signedCoverImage = useSignedImageUrl(project?.coverImageUrl);
 
-  const captureDays = useCallback((): Promise<CapturedDay[]> => {
+  const captureRoot = useCallback((): Promise<HTMLElement> => {
     return new Promise((resolve, reject) => {
       console.info("[pdf-export] mount PdfCaptureRoot");
-      captureResolverRef.current = (days, err) => {
-        console.info("[pdf-export] PdfCaptureRoot callback", { days: days?.length ?? null, hasError: !!err });
+      captureResolverRef.current = (root, err) => {
+        console.info("[pdf-export] PdfCaptureRoot callback", { hasRoot: !!root, hasError: !!err });
         captureResolverRef.current = null;
-        setCapturingForPdf(false);
-        if (err || !days) reject(err ?? new Error("capture failed"));
-        else resolve(days);
+        // Keep root mounted until PDF generation completes (caller unmounts).
+        if (err || !root) reject(err ?? new Error("capture failed"));
+        else resolve(root);
       };
       setCapturingForPdf(true);
     });
@@ -117,10 +118,10 @@ function ProjectDetailInner() {
     try {
       logStep("capture start", { projectId: project.id, days: project.itinerary?.length ?? 0 });
       const captureTimeoutMs = Math.min(180000, 20000 + Math.max(1, project.itinerary?.length ?? 1) * 22000);
-      let capturedDays: CapturedDay[] = [];
+      let rootEl: HTMLElement | null = null;
       try {
-        capturedDays = await withTimeout(captureDays(), captureTimeoutMs, "Day capture");
-        logStep("capture complete", { count: capturedDays.length });
+        rootEl = await withTimeout(captureRoot(), captureTimeoutMs, "Day capture");
+        logStep("capture root ready");
       } catch (capErr) {
         console.warn("[pdf-export] capture failed; will use lightweight text PDF", capErr);
         logStep("capture failed (fallback to lightweight)", { error: String(capErr) });
@@ -133,10 +134,10 @@ function ProjectDetailInner() {
         8000,
         "PDF module import",
       );
-      logStep("pdf create start", { mode: capturedDays.length ? "snapshot" : "lightweight" });
+      logStep("pdf create start", { mode: rootEl ? "snapshot" : "lightweight" });
       const bytes = await withTimeout(
         exportProjectToPdf(project, {
-          capturedDays,
+          captureRoot: rootEl,
           onWarning: (warning) => {
             if (warning === "font-fallback" && !fontFallbackToastShown) {
               fontFallbackToastShown = true;
