@@ -462,9 +462,9 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
                 }}
               >
                 Day {day.dayNumber}｜{fmtDate(day.date)}
-              </div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
-                {weekday(day.date)}
+                <span style={{ color: "#94a3b8", fontWeight: 500, marginLeft: 8 }}>
+                  ({weekday(day.date)})
+                </span>
               </div>
             </div>
             <ItineraryList
