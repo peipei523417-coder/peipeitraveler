@@ -181,26 +181,40 @@ function safeDate(value: unknown): Date | null {
 }
 
 function fmtDateYMD(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}/${m}/${day}`;
 }
 
 function fmtDateCompact(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}${m}${day}`;
 }
 
-export function buildPdfFilename(projectName: string, date: Date): string {
+/**
+ * Filename date is the trip's first day, NOT today.
+ * Accepts a Date (read in UTC to avoid TZ drift) or a 'YYYY-MM-DD' string.
+ * Falls back to today if neither is usable.
+ */
+export function buildPdfFilename(projectName: string, tripStart: Date | string | undefined | null): string {
   const cleaned = (projectName || "trip")
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "")
     .replace(/\s+/g, "_")
     .trim()
     .slice(0, 40) || "trip";
-  return `${cleaned}_${fmtDateCompact(date)}.pdf`;
+  let compact = "";
+  if (typeof tripStart === "string") {
+    // 'YYYY-MM-DD' → 'YYYYMMDD' (no timezone conversion)
+    const m = tripStart.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) compact = `${m[1]}${m[2]}${m[3]}`;
+  } else if (tripStart instanceof Date && !isNaN(tripStart.getTime())) {
+    compact = fmtDateCompact(tripStart);
+  }
+  if (!compact) compact = fmtDateCompact(new Date());
+  return `${cleaned}_${compact}.pdf`;
 }
 
 function perPerson(item: ItineraryItem): number {
@@ -332,11 +346,23 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   doc.registerFontkit(fontkit);
   const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
 
+  const allSnapshots = opts.capturedDays ?? [];
+  const coverSnapshot = allSnapshots.find((d) => d.dayNumber === 0) ?? null;
+  const days = allSnapshots.filter((d) => d.dayNumber > 0);
+
   // ===== Cover =====
-  await drawCover(doc, font, fontBold, project, opts.now ?? new Date(), opts.onWarning);
+  if (coverSnapshot && coverSnapshot.dataUrl && coverSnapshot.widthPx && coverSnapshot.heightPx) {
+    try {
+      await drawCoverSnapshotPage(doc, coverSnapshot, opts.onWarning);
+    } catch (e) {
+      console.warn("[pdf-export] cover snapshot failed; falling back to programmatic cover", e);
+      await drawCover(doc, font, fontBold, project, opts.now ?? new Date(), opts.onWarning);
+    }
+  } else {
+    await drawCover(doc, font, fontBold, project, opts.now ?? new Date(), opts.onWarning);
+  }
 
   // ===== One page per Day (snapshot + fixed map-links section) =====
-  const days = opts.capturedDays ?? [];
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   for (const cap of days) {
     const dayData = itinerary.find((d) => d.dayNumber === cap.dayNumber);
@@ -352,12 +378,73 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
     }
   }
 
+  // ===== Closing page =====
+  drawEndPage(doc, font, fontBold);
+
   console.info("pdf save start");
   const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
   console.info("pdf save complete", { bytes: bytes.length });
-  console.info("pdf create complete", { bytes: bytes.length, pages: doc.getPageCount() });
   console.info("[pdf-export] create pdf success", { bytes: bytes.length, pages: doc.getPageCount() });
   return bytes;
+}
+
+// ---------- Cover from snapshot ----------
+async function drawCoverSnapshotPage(
+  doc: PDFDocument,
+  cap: { dataUrl: string; widthPx: number; heightPx: number },
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
+) {
+  const base64 = cap.dataUrl.split(",")[1] || "";
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const isPng = cap.dataUrl.startsWith("data:image/png");
+  const img = await withTimeout(
+    isPng ? doc.embedPng(bytes) : doc.embedJpg(bytes),
+    IMAGE_EMBED_TIMEOUT_MS,
+    "cover snapshot embed",
+  );
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+  // Top accent
+  page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
+  // Fit cover image into content area, centred, preserving aspect
+  const ratio = img.width / img.height;
+  let drawW = CONTENT_W;
+  let drawH = drawW / ratio;
+  const maxH = PAGE_H - MARGIN * 2 - 18;
+  if (drawH > maxH) {
+    drawH = maxH;
+    drawW = drawH * ratio;
+  }
+  const x = (PAGE_W - drawW) / 2;
+  const yBottom = (PAGE_H - drawH) / 2;
+  page.drawImage(img, { x, y: yBottom, width: drawW, height: drawH });
+  void onWarning;
+}
+
+// ---------- Closing page ----------
+function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+  const lines: Array<{ text: string; size: number; font: PDFFont; color: ReturnType<typeof rgb>; gap: number }> = [
+    { text: "🎉 旅途順利，玩得開心", size: 22, font: fontBold, color: rgb(0.28, 0.32, 0.4), gap: 26 },
+    { text: "此行程由 PeiTravel App 匯出完成", size: 13, font, color: rgb(0.55, 0.59, 0.66), gap: 60 },
+    { text: "PeiTravel", size: 14, font: fontBold, color: rgb(0.6, 0.66, 0.74), gap: 0 },
+  ];
+  // Vertically centre block
+  const totalH = lines.reduce((s, l) => s + l.size + l.gap, 0) - lines[lines.length - 1].gap;
+  let y = PAGE_H / 2 + totalH / 2;
+  for (const l of lines) {
+    let w = 0;
+    try { w = l.font.widthOfTextAtSize(l.text, l.size); } catch { w = l.text.length * l.size * 0.6; }
+    safeDrawText(page, l.text, {
+      x: (PAGE_W - w) / 2,
+      y: y - l.size,
+      size: l.size,
+      font: l.font,
+      color: l.color,
+    });
+    y -= l.size + l.gap;
+  }
 }
 
 // ---------- Map links section ----------
@@ -387,57 +474,71 @@ function drawMapLinksSection(
   links: DayMapLink[],
 ) {
   if (links.length === 0) return;
-  const lineH = 16;
-  const itemBlockH = 36; // title + link line
-  const headerH = 28;
-  let page = doc.addPage([PAGE_W, PAGE_H]);
-  let y = PAGE_H - MARGIN;
-  safeDrawText(page, `Day ${dayNumber}｜地圖連結`, {
-    x: MARGIN, y: y - 20, size: 16, font: fontBold, color: PRIMARY,
-  });
-  y -= headerH + 6;
-  page.drawLine({
-    start: { x: MARGIN, y },
-    end: { x: PAGE_W - MARGIN, y },
-    thickness: 0.6,
-    color: PRIMARY_LIGHT,
-  });
-  y -= 12;
+  // Card layout
+  const cardPad = 14;
+  const titleSize = 12;
+  const buttonSize = 11;
+  const buttonH = 26;
+  const cardH = cardPad + titleSize + 10 + buttonH + cardPad; // title + gap + button + paddings
+  const cardGap = 12;
+  const headerH = 36;
+  const startNewPage = (continuation: boolean): { page: PDFPage; y: number } => {
+    const page = doc.addPage([PAGE_W, PAGE_H]);
+    page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
+    safeDrawText(page, `Day ${dayNumber}｜地圖導航${continuation ? "（續）" : ""}`, {
+      x: MARGIN, y: PAGE_H - MARGIN - 12, size: 16, font: fontBold, color: PRIMARY,
+    });
+    return { page, y: PAGE_H - MARGIN - headerH };
+  };
+  let { page, y } = startNewPage(false);
 
   for (const link of links) {
-    if (y - itemBlockH < MARGIN + 24) {
-      page = doc.addPage([PAGE_W, PAGE_H]);
-      y = PAGE_H - MARGIN;
-      safeDrawText(page, `Day ${dayNumber}｜地圖連結（續）`, {
-        x: MARGIN, y: y - 20, size: 14, font: fontBold, color: PRIMARY,
-      });
-      y -= headerH + 6;
+    if (y - cardH < MARGIN + 20) {
+      const next = startNewPage(true);
+      page = next.page;
+      y = next.y;
     }
-    // Title (wrapped to 1 line, truncated)
-    const titleLines = wrapByWidth(link.title, font, 11.5, CONTENT_W);
+    const cardTop = y;
+    const cardBottom = y - cardH;
+    // Card background
+    page.drawRectangle({
+      x: MARGIN, y: cardBottom, width: CONTENT_W, height: cardH,
+      color: rgb(0.97, 0.98, 1),
+      borderColor: rgb(0.86, 0.92, 0.98),
+      borderWidth: 0.8,
+    });
+    // Title (truncated to width)
+    const titleLines = wrapByWidth(link.title, fontBold, titleSize, CONTENT_W - cardPad * 2);
     safeDrawText(page, titleLines[0] ?? "", {
-      x: MARGIN, y, size: 11.5, font, color: TEXT,
+      x: MARGIN + cardPad,
+      y: cardTop - cardPad - titleSize + 2,
+      size: titleSize,
+      font: fontBold,
+      color: TEXT,
     });
-    y -= lineH;
-    // Clickable provider label
-    const linkText = `${link.label}（點擊開啟）`;
-    const linkSize = 12;
-    let linkW = CONTENT_W;
-    try {
-      linkW = fontBold.widthOfTextAtSize(linkText, linkSize);
-    } catch { /* keep default */ }
-    safeDrawText(page, linkText, {
-      x: MARGIN, y, size: linkSize, font: fontBold, color: PRIMARY,
-    });
-    // underline
-    page.drawLine({
-      start: { x: MARGIN, y: y - 2 },
-      end: { x: MARGIN + linkW, y: y - 2 },
-      thickness: 0.6,
+    // Button
+    const buttonText = `開啟 ${link.label} ↗`;
+    let textW = 120;
+    try { textW = fontBold.widthOfTextAtSize(buttonText, buttonSize); } catch { /* keep */ }
+    const btnW = Math.min(CONTENT_W - cardPad * 2, textW + 28);
+    const btnX = MARGIN + cardPad;
+    const btnY = cardBottom + cardPad;
+    page.drawRectangle({
+      x: btnX, y: btnY, width: btnW, height: buttonH,
       color: PRIMARY,
     });
-    addLinkAnnotation(page, link.url, MARGIN - 2, y - 4, linkW + 4, linkSize + 6);
-    y -= lineH + 6;
+    safeDrawText(page, buttonText, {
+      x: btnX + (btnW - textW) / 2,
+      y: btnY + (buttonH - buttonSize) / 2 + 2,
+      size: buttonSize,
+      font: fontBold,
+      color: rgb(1, 1, 1),
+    });
+    addLinkAnnotation(page, link.url, btnX, btnY, btnW, buttonH);
+    // Whole card also clickable
+    addLinkAnnotation(page, link.url, MARGIN, cardBottom, CONTENT_W, cardH);
+
+    y = cardBottom - cardGap;
   }
 }
 

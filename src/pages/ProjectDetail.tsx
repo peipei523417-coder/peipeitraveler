@@ -141,7 +141,12 @@ function ProjectDetailInner() {
         "PDF generation",
       );
       logStep("pdf create complete", { bytes: bytes.length });
-      const filename = buildPdfFilename(project.name, new Date());
+      // Filename date = trip's first day (NOT today). Use raw string when available
+      // to avoid timezone drift.
+      const rawStart =
+        (project as unknown as { start_date?: string }).start_date ??
+        project.startDate;
+      const filename = buildPdfFilename(project.name, rawStart);
       logStep("share/download start", { filename, bytes: bytes.length });
       await withTimeout(deliverPdf(bytes, filename), 15000, "PDF share/download");
       logStep("share/download complete", { filename });
@@ -795,6 +800,7 @@ function ProjectDetailInner() {
       {capturingForPdf && project && (
         <PdfCaptureRoot
           project={project}
+          coverImageUrl={signedCoverImage}
           onReady={(days, err) => captureResolverRef.current?.(days, err)}
         />
       )}
