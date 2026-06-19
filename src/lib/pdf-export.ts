@@ -699,7 +699,7 @@ async function drawCover(
 
   const stats: Array<[string, string]> = [
     ["總天數", `${days} 天`],
-    ["人數", `${maxPersons} 人`],
+    ["行程數", `${allItems.length} 項`],
     ["總花費", `$${totalRaw.toLocaleString()}`],
     ["單人總花費", `$${totalPerPerson.toLocaleString()}`],
     ["匯出日期", fmtDateYMD(now)],
