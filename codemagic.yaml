@@ -106,15 +106,15 @@ workflows:
                 config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
-                config.build_settings['MARKETING_VERSION'] = '6.1.44'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '80'  # ⭐ must be > 78 (previously uploaded build)
+                config.build_settings['MARKETING_VERSION'] = '6.1.45'
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '81'  # ⭐ must be > 78 (previously uploaded build)
               end
             end
           end
 
           project.save
-          puts "MARKETING_VERSION: 6.1.44"
-          puts "CURRENT_PROJECT_VERSION: 80"
+          puts "MARKETING_VERSION: 6.1.45"
+          puts "CURRENT_PROJECT_VERSION: 81"
 
           RUBY
 
