@@ -422,29 +422,70 @@ async function drawCoverSnapshotPage(
   void onWarning;
 }
 
-// ---------- Closing page ----------
-function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
-  const page = doc.addPage([PAGE_W, PAGE_H]);
-  const lines: Array<{ text: string; size: number; font: PDFFont; color: ReturnType<typeof rgb>; gap: number }> = [
-    { text: "🎉 旅途順利，玩得開心", size: 22, font: fontBold, color: rgb(0.28, 0.32, 0.4), gap: 26 },
-    { text: "此行程由 PeiTravel App 匯出完成", size: 13, font, color: rgb(0.55, 0.59, 0.66), gap: 60 },
-    { text: "PeiTravel", size: 14, font: fontBold, color: rgb(0.6, 0.66, 0.74), gap: 0 },
-  ];
-  // Vertically centre block
-  const totalH = lines.reduce((s, l) => s + l.size + l.gap, 0) - lines[lines.length - 1].gap;
-  let y = PAGE_H / 2 + totalH / 2;
-  for (const l of lines) {
-    let w = 0;
-    try { w = l.font.widthOfTextAtSize(l.text, l.size); } catch { w = l.text.length * l.size * 0.6; }
-    safeDrawText(page, l.text, {
-      x: (PAGE_W - w) / 2,
-      y: y - l.size,
-      size: l.size,
-      font: l.font,
-      color: l.color,
-    });
-    y -= l.size + l.gap;
+// ---------- App logo (end page) ----------
+let endLogoBytes: ArrayBuffer | null = null;
+async function loadEndLogo(): Promise<ArrayBuffer | null> {
+  if (endLogoBytes) return endLogoBytes;
+  try {
+    const url = `${import.meta.env.BASE_URL}pdf-app-logo.png`;
+    const res = await fetch(url, { cache: "force-cache" });
+    if (!res.ok) return null;
+    endLogoBytes = await res.arrayBuffer();
+    return endLogoBytes;
+  } catch (e) {
+    console.warn("[pdf-export] end logo load failed", e);
+    return null;
   }
+}
+
+// ---------- Closing page ----------
+async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+
+  const line1 = "🎉 旅途順利，玩得開心";
+  const line2 = "此行程由 PeiTravel App 匯出完成";
+  const wordmark = "PeiTravel";
+  const size1 = 20;
+  const size2 = 14;
+  const sizeWord = 12;
+  const logoSize = 60;
+  const gap1 = 22; // line1 -> line2
+  const gap2 = 44; // line2 -> logo
+  const gap3 = 14; // logo -> wordmark
+
+  // Stack: line1 / line2 / (gap) / logo / wordmark — centred vertically
+  const totalH = size1 + gap1 + size2 + gap2 + logoSize + gap3 + sizeWord;
+  let y = PAGE_H / 2 + totalH / 2;
+
+  const drawCentred = (text: string, size: number, f: PDFFont, color: ReturnType<typeof rgb>) => {
+    let w = 0;
+    try { w = f.widthOfTextAtSize(text, size); } catch { w = text.length * size * 0.6; }
+    safeDrawText(page, text, { x: (PAGE_W - w) / 2, y: y - size, size, font: f, color });
+    y -= size;
+  };
+
+  drawCentred(line1, size1, fontBold, rgb(0.32, 0.36, 0.44));
+  y -= gap1;
+  drawCentred(line2, size2, font, rgb(0.5, 0.55, 0.62));
+  y -= gap2;
+
+  // Logo
+  const logoBytes = await loadEndLogo();
+  if (logoBytes) {
+    try {
+      const img = await withTimeout(doc.embedPng(logoBytes), IMAGE_EMBED_TIMEOUT_MS, "end logo embed");
+      page.drawImage(img, {
+        x: (PAGE_W - logoSize) / 2,
+        y: y - logoSize,
+        width: logoSize,
+        height: logoSize,
+      });
+    } catch (e) {
+      console.warn("[pdf-export] end logo embed failed", e);
+    }
+  }
+  y -= logoSize + gap3;
+  drawCentred(wordmark, sizeWord, fontBold, rgb(0.55, 0.6, 0.68));
 }
 
 // ---------- Map links section ----------
@@ -460,7 +501,8 @@ function collectDayMapLinks(day: DayItinerary | undefined): DayMapLink[] {
   for (const item of day.items) {
     const url = sanitizeMapUrl(item.googleMapsUrl);
     if (!url) continue;
-    const title = (item.description || "").split("\n")[0].trim() || "（未命名行程）";
+    const rawTitle = (item.description || "").split("\n")[0].trim();
+    const title = rawTitle || "景點連結";
     links.push({ title, url, label: getMapProviderLabel(url) });
   }
   return links;
@@ -474,19 +516,24 @@ function drawMapLinksSection(
   links: DayMapLink[],
 ) {
   if (links.length === 0) return;
-  // Card layout
+  // Card layout — title + provider label + clear CTA button
   const cardPad = 14;
-  const titleSize = 12;
+  const titleSize = 13;
+  const providerSize = 10.5;
   const buttonSize = 11;
-  const buttonH = 26;
-  const cardH = cardPad + titleSize + 10 + buttonH + cardPad; // title + gap + button + paddings
+  const buttonH = 28;
+  // height = pad + title + 6 + provider + 12 + button + pad
+  const cardH = cardPad + titleSize + 6 + providerSize + 12 + buttonH + cardPad;
   const cardGap = 12;
-  const headerH = 36;
+  const headerH = 52;
   const startNewPage = (continuation: boolean): { page: PDFPage; y: number } => {
     const page = doc.addPage([PAGE_W, PAGE_H]);
     page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
-    safeDrawText(page, `Day ${dayNumber}｜地圖導航${continuation ? "（續）" : ""}`, {
-      x: MARGIN, y: PAGE_H - MARGIN - 12, size: 16, font: fontBold, color: PRIMARY,
+    safeDrawText(page, `Day ${dayNumber}｜導航連結${continuation ? "（續）" : ""}`, {
+      x: MARGIN, y: PAGE_H - MARGIN - 14, size: 17, font: fontBold, color: PRIMARY,
+    });
+    safeDrawText(page, "以下連結可直接開啟導航", {
+      x: MARGIN, y: PAGE_H - MARGIN - 34, size: 11, font, color: MUTED,
     });
     return { page, y: PAGE_H - MARGIN - headerH };
   };
@@ -504,23 +551,32 @@ function drawMapLinksSection(
     page.drawRectangle({
       x: MARGIN, y: cardBottom, width: CONTENT_W, height: cardH,
       color: rgb(0.97, 0.98, 1),
-      borderColor: rgb(0.86, 0.92, 0.98),
+      borderColor: rgb(0.84, 0.9, 0.97),
       borderWidth: 0.8,
     });
-    // Title (truncated to width)
-    const titleLines = wrapByWidth(link.title, fontBold, titleSize, CONTENT_W - cardPad * 2);
-    safeDrawText(page, titleLines[0] ?? "", {
+    // Title — 📍 + first line of description, single line (truncated)
+    const titleText = `📍 ${link.title}`;
+    const titleLines = wrapByWidth(titleText, fontBold, titleSize, CONTENT_W - cardPad * 2);
+    safeDrawText(page, titleLines[0] ?? titleText, {
       x: MARGIN + cardPad,
       y: cardTop - cardPad - titleSize + 2,
       size: titleSize,
       font: fontBold,
       color: TEXT,
     });
-    // Button
+    // Provider label (small, muted)
+    safeDrawText(page, link.label, {
+      x: MARGIN + cardPad,
+      y: cardTop - cardPad - titleSize - 6 - providerSize + 2,
+      size: providerSize,
+      font,
+      color: MUTED,
+    });
+    // CTA button
     const buttonText = `開啟 ${link.label} ↗`;
     let textW = 120;
     try { textW = fontBold.widthOfTextAtSize(buttonText, buttonSize); } catch { /* keep */ }
-    const btnW = Math.min(CONTENT_W - cardPad * 2, textW + 28);
+    const btnW = Math.min(CONTENT_W - cardPad * 2, textW + 32);
     const btnX = MARGIN + cardPad;
     const btnY = cardBottom + cardPad;
     page.drawRectangle({
