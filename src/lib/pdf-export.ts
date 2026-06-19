@@ -282,12 +282,8 @@ async function ensurePdfCanvasFonts(): Promise<void> {
   if (!pdfCanvasFontsReady) {
     pdfCanvasFontsReady = (async () => {
       const fonts = document.fonts;
-      const regular = new FontFace("PeiTravelPdfNoto", `url(${resolveAssetUrl(ASSET_FONT_REGULAR_URL)})`, {
-        weight: "400",
-      });
-      const bold = new FontFace("PeiTravelPdfNoto", `url(${resolveAssetUrl(ASSET_FONT_BOLD_URL)})`, {
-        weight: "700",
-      });
+      const regular = new FontFace("PeiTravelPdfNoto", `url(${resolveAssetUrl(LOCAL_FONT_REGULAR_URL)})`, { weight: "400" });
+      const bold = new FontFace("PeiTravelPdfNoto", `url(${resolveAssetUrl(LOCAL_FONT_BOLD_URL)})`, { weight: "700" });
       const loaded = await Promise.all([regular.load(), bold.load()]);
       loaded.forEach((fontFace) => fonts.add(fontFace));
       await fonts.ready;
