@@ -695,7 +695,7 @@ async function drawCover(
   const allItems = itinerary.flatMap((d) => (Array.isArray(d?.items) ? d.items : []));
   const totalPerPerson = allItems.reduce((s, i) => s + perPerson(i), 0);
   const totalRaw = allItems.reduce((s, i) => s + (i.price ?? 0), 0);
-  const maxPersons = allItems.reduce((m, i) => Math.max(m, i.persons || 1), 1);
+  // maxPersons intentionally not shown on cover
 
   const stats: Array<[string, string]> = [
     ["總天數", `${days} 天`],
