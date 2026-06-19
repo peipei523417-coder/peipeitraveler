@@ -269,6 +269,34 @@ function safeDrawText(
 }
 
 const pdfIconCache = new Map<string, ArrayBuffer>();
+let pdfCanvasFontsReady: Promise<void> | null = null;
+
+function resolveAssetUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  if (typeof window !== "undefined" && url.startsWith("/")) return `${window.location.origin}${url}`;
+  return url;
+}
+
+async function ensurePdfCanvasFonts(): Promise<void> {
+  if (typeof document === "undefined" || typeof FontFace === "undefined") return;
+  if (!pdfCanvasFontsReady) {
+    pdfCanvasFontsReady = (async () => {
+      const fonts = document.fonts;
+      const regular = new FontFace("PeiTravelPdfNoto", `url(${resolveAssetUrl(ASSET_FONT_REGULAR_URL)})`, {
+        weight: "400",
+      });
+      const bold = new FontFace("PeiTravelPdfNoto", `url(${resolveAssetUrl(ASSET_FONT_BOLD_URL)})`, {
+        weight: "700",
+      });
+      const loaded = await Promise.all([regular.load(), bold.load()]);
+      loaded.forEach((fontFace) => fonts.add(fontFace));
+      await fonts.ready;
+    })().catch((e) => {
+      console.warn("[pdf-export] PDF canvas font load failed; using system fallback", e);
+    });
+  }
+  await pdfCanvasFontsReady;
+}
 
 async function embedPdfIcon(doc: PDFDocument, fileName: string): Promise<PDFImage | null> {
   let bytes = pdfIconCache.get(fileName);
