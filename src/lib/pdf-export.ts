@@ -127,7 +127,7 @@ export type PdfExportWarning = "font-fallback" | "image-skipped" | "day-snapshot
 async function embedPdfFonts(
   doc: PDFDocument,
   onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
-): Promise<{ font: PDFFont; fontBold: PDFFont }> {
+): Promise<{ font: PDFFont; fontBold: PDFFont; fallback: boolean }> {
   try {
     const { regular, bold, source } = await loadFonts();
     const [font, fontBold] = await withTimeout(
@@ -140,7 +140,7 @@ async function embedPdfFonts(
     );
     if (source === "local") onWarning?.("font-fallback", "bundled Noto Sans TC");
     console.info("[pdf-export] load font success", { source });
-    return { font, fontBold };
+    return { font, fontBold, fallback: false };
   } catch (e) {
     console.warn("[pdf-export] load font fail; using Helvetica fallback", e);
     onWarning?.("font-fallback", e);
@@ -148,7 +148,7 @@ async function embedPdfFonts(
       doc.embedFont(StandardFonts.Helvetica),
       doc.embedFont(StandardFonts.HelveticaBold),
     ]);
-    return { font, fontBold };
+    return { font, fontBold, fallback: true };
   }
 }
 
