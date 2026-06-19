@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDF QA</title>
+</head>
+<body>
+<script type="module">
+  import { __debugBuildPdfBytes } from '/src/lib/pdf-export.ts';
+  async function imgDataUrl(path) {
+    const res = await fetch(path);
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  }
+  const project = {
+    id: 'pdf-qa',
+    name: '大阪美食與夜景測試',
+    startDate: new Date('2026-07-13T00:00:00Z'),
+    endDate: new Date('2026-07-14T00:00:00Z'),
+    createdAt: new Date('2026-07-01T00:00:00Z'),
+    updatedAt: new Date('2026-07-01T00:00:00Z'),
+    itinerary: [
+      { dayNumber: 1, date: new Date('2026-07-13T00:00:00Z'), items: [
+        { id: 'g1', startTime: '09:00', endTime: '10:00', description: '在地拉麵 / 章魚燒', googleMapsUrl: 'https://www.google.com/maps/place/Dotonbori', title: '在地拉麵 / 章魚燒' },
+        { id: 'n1', startTime: '13:00', endTime: '15:00', description: '首爾咖啡測試', googleMapsUrl: 'https://map.naver.com/p/search/cafe', title: '首爾咖啡測試' },
+        { id: 'a1', startTime: '19:00', endTime: '21:00', description: '上海外灘夜景', googleMapsUrl: 'https://amap.com/place/Bund', title: '上海外灘夜景' },
+        { id: 'bad1', startTime: '22:00', endTime: '23:00', description: '不應出現 YouTube', googleMapsUrl: 'https://youtube.com/watch?v=bad', title: '不應出現 YouTube' },
+      ]},
+      { dayNumber: 2, date: new Date('2026-07-14T00:00:00Z'), items: [
+        { id: 'g2', startTime: '10:00', endTime: '12:00', description: '梅田 空中庭院夜景', googleMapsUrl: 'https://maps.app.goo.gl/example', title: '梅田 空中庭院夜景' },
+      ]},
+    ],
+  };
+  const bytes = await __debugBuildPdfBytes(project, {
+    now: new Date('2026-07-20T00:00:00Z'),
+    capturedDays: [
+      { dayNumber: 1, date: '2026/07/13', dataUrl: await imgDataUrl('/assets/pdf-qa/day-success.png'), widthPx: 760, heightPx: 520, mapLinks: [], cardBounds: [] },
+      { dayNumber: 2, date: '2026/07/14', dataUrl: '', widthPx: 0, heightPx: 0, mapLinks: [], cardBounds: [] },
+    ],
+  });
+  window.__PDF_QA_BYTES__ = Array.from(bytes);
+  document.body.textContent = JSON.stringify({ bytes: bytes.length });
+</script>
+</body>
+</html>
