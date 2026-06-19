@@ -55,7 +55,7 @@ function fmtDate(value: unknown): string {
   return `${y}/${m}/${day}`;
 }
 
-const WEEKDAY = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const CAPTURE_WIDTH = 760;
 const HTML2CANVAS_TIMEOUT_MS = 18000;
 
@@ -373,19 +373,18 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
                 {fmtDate(project.startDate)} － {fmtDate(project.endDate)}
               </div>
 
-              {/* Stats grid */}
+              {/* Stats grid — no 人數 on cover */}
               <div
                 style={{
                   marginTop: 22,
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gridTemplateColumns: "1fr 1fr",
                   gap: 10,
                 }}
               >
                 {[
                   { k: "總天數", v: `${totalDays} 天` },
                   { k: "行程數", v: `${totalItems} 項` },
-                  { k: "人數", v: `${maxPersons} 人` },
                 ].map((s) => (
                   <div
                     key={s.k}
@@ -463,9 +462,9 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
                 }}
               >
                 Day {day.dayNumber}｜{fmtDate(day.date)}
-              </div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
-                {weekday(day.date)}
+                <span style={{ color: "#94a3b8", fontWeight: 500, marginLeft: 8 }}>
+                  ({weekday(day.date)})
+                </span>
               </div>
             </div>
             <ItineraryList
