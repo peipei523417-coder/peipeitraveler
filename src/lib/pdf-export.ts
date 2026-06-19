@@ -26,6 +26,8 @@ import type { TravelProject, ItineraryItem, DayItinerary } from "@/types/travel"
 import { getSignedImageUrl } from "@/lib/supabase-storage";
 import type { CapturedDay } from "@/components/PdfCaptureRoot";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
+import notoSansRegularAsset from "../../public/fonts/NotoSansTC-Regular.ttf.asset.json";
+import notoSansBoldAsset from "../../public/fonts/NotoSansTC-Bold.ttf.asset.json";
 
 // ---------- Fonts ----------
 const FONT_REGULAR_URL =
@@ -34,6 +36,8 @@ const FONT_BOLD_URL =
   "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf";
 const LOCAL_FONT_REGULAR_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Regular.otf`;
 const LOCAL_FONT_BOLD_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Bold.otf`;
+const ASSET_FONT_REGULAR_URL = notoSansRegularAsset.url;
+const ASSET_FONT_BOLD_URL = notoSansBoldAsset.url;
 
 const FONT_TIMEOUT_MS = 7000;
 const FONT_EMBED_TIMEOUT_MS = 9000;
