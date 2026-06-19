@@ -55,7 +55,7 @@ function fmtDate(value: unknown): string {
   return `${y}/${m}/${day}`;
 }
 
-const WEEKDAY = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const CAPTURE_WIDTH = 760;
 const HTML2CANVAS_TIMEOUT_MS = 18000;
 
