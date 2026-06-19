@@ -179,11 +179,11 @@ function ProjectDetailInner() {
       // Ensure capture root is unmounted even on failure
       if (captureResolverRef.current) {
         captureResolverRef.current = null;
-        setCapturingForPdf(false);
       }
+      setCapturingForPdf(false);
       setExportingPdf(false);
     }
-  }, [exportingPdf, project, t, captureDays]);
+  }, [exportingPdf, project, t, captureRoot]);
 
 
 
