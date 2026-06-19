@@ -474,57 +474,71 @@ function drawMapLinksSection(
   links: DayMapLink[],
 ) {
   if (links.length === 0) return;
-  const lineH = 16;
-  const itemBlockH = 36; // title + link line
-  const headerH = 28;
-  let page = doc.addPage([PAGE_W, PAGE_H]);
-  let y = PAGE_H - MARGIN;
-  safeDrawText(page, `Day ${dayNumber}｜地圖連結`, {
-    x: MARGIN, y: y - 20, size: 16, font: fontBold, color: PRIMARY,
-  });
-  y -= headerH + 6;
-  page.drawLine({
-    start: { x: MARGIN, y },
-    end: { x: PAGE_W - MARGIN, y },
-    thickness: 0.6,
-    color: PRIMARY_LIGHT,
-  });
-  y -= 12;
+  // Card layout
+  const cardPad = 14;
+  const titleSize = 12;
+  const buttonSize = 11;
+  const buttonH = 26;
+  const cardH = cardPad + titleSize + 10 + buttonH + cardPad; // title + gap + button + paddings
+  const cardGap = 12;
+  const headerH = 36;
+  const startNewPage = (continuation: boolean): { page: PDFPage; y: number } => {
+    const page = doc.addPage([PAGE_W, PAGE_H]);
+    page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
+    safeDrawText(page, `Day ${dayNumber}｜地圖導航${continuation ? "（續）" : ""}`, {
+      x: MARGIN, y: PAGE_H - MARGIN - 12, size: 16, font: fontBold, color: PRIMARY,
+    });
+    return { page, y: PAGE_H - MARGIN - headerH };
+  };
+  let { page, y } = startNewPage(false);
 
   for (const link of links) {
-    if (y - itemBlockH < MARGIN + 24) {
-      page = doc.addPage([PAGE_W, PAGE_H]);
-      y = PAGE_H - MARGIN;
-      safeDrawText(page, `Day ${dayNumber}｜地圖連結（續）`, {
-        x: MARGIN, y: y - 20, size: 14, font: fontBold, color: PRIMARY,
-      });
-      y -= headerH + 6;
+    if (y - cardH < MARGIN + 20) {
+      const next = startNewPage(true);
+      page = next.page;
+      y = next.y;
     }
-    // Title (wrapped to 1 line, truncated)
-    const titleLines = wrapByWidth(link.title, font, 11.5, CONTENT_W);
+    const cardTop = y;
+    const cardBottom = y - cardH;
+    // Card background
+    page.drawRectangle({
+      x: MARGIN, y: cardBottom, width: CONTENT_W, height: cardH,
+      color: rgb(0.97, 0.98, 1),
+      borderColor: rgb(0.86, 0.92, 0.98),
+      borderWidth: 0.8,
+    });
+    // Title (truncated to width)
+    const titleLines = wrapByWidth(link.title, fontBold, titleSize, CONTENT_W - cardPad * 2);
     safeDrawText(page, titleLines[0] ?? "", {
-      x: MARGIN, y, size: 11.5, font, color: TEXT,
+      x: MARGIN + cardPad,
+      y: cardTop - cardPad - titleSize + 2,
+      size: titleSize,
+      font: fontBold,
+      color: TEXT,
     });
-    y -= lineH;
-    // Clickable provider label
-    const linkText = `${link.label}（點擊開啟）`;
-    const linkSize = 12;
-    let linkW = CONTENT_W;
-    try {
-      linkW = fontBold.widthOfTextAtSize(linkText, linkSize);
-    } catch { /* keep default */ }
-    safeDrawText(page, linkText, {
-      x: MARGIN, y, size: linkSize, font: fontBold, color: PRIMARY,
-    });
-    // underline
-    page.drawLine({
-      start: { x: MARGIN, y: y - 2 },
-      end: { x: MARGIN + linkW, y: y - 2 },
-      thickness: 0.6,
+    // Button
+    const buttonText = `開啟 ${link.label} ↗`;
+    let textW = 120;
+    try { textW = fontBold.widthOfTextAtSize(buttonText, buttonSize); } catch { /* keep */ }
+    const btnW = Math.min(CONTENT_W - cardPad * 2, textW + 28);
+    const btnX = MARGIN + cardPad;
+    const btnY = cardBottom + cardPad;
+    page.drawRectangle({
+      x: btnX, y: btnY, width: btnW, height: buttonH,
       color: PRIMARY,
     });
-    addLinkAnnotation(page, link.url, MARGIN - 2, y - 4, linkW + 4, linkSize + 6);
-    y -= lineH + 6;
+    safeDrawText(page, buttonText, {
+      x: btnX + (btnW - textW) / 2,
+      y: btnY + (buttonH - buttonSize) / 2 + 2,
+      size: buttonSize,
+      font: fontBold,
+      color: rgb(1, 1, 1),
+    });
+    addLinkAnnotation(page, link.url, btnX, btnY, btnW, buttonH);
+    // Whole card also clickable
+    addLinkAnnotation(page, link.url, MARGIN, cardBottom, CONTENT_W, cardH);
+
+    y = cardBottom - cardGap;
   }
 }
 
