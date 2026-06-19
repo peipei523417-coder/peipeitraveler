@@ -334,7 +334,7 @@ function browserMeasureText(text: string, size: number, bold = false): number | 
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  ctx.font = `${bold ? 700 : 400} ${size}px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif`;
+  ctx.font = `${bold ? 700 : 400} ${size}px "PeiTravelPdfNoto", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif`;
   return ctx.measureText(text).width;
 }
 
