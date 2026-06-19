@@ -170,12 +170,19 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
           return;
         }
 
+        const isMobile =
+          typeof navigator !== "undefined" &&
+          /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const captureScale = isMobile ? 0.6 : 2;
+        const jpegQuality = isMobile ? 0.5 : 0.85;
+        console.info("[pdf-capture] capture profile", { isMobile, captureScale, jpegQuality });
+
         const captureNode = async (node: HTMLElement, label: string): Promise<{ dataUrl: string; w: number; h: number } | null> => {
           const rect = node.getBoundingClientRect();
           try {
             const canvasPromise = html2canvas(node, {
               backgroundColor: "#ffffff",
-              scale: 2,
+              scale: captureScale,
               useCORS: true,
               allowTaint: false,
               logging: false,
@@ -187,12 +194,18 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
               scrollY: 0,
             });
             const canvas = await withTimeout(canvasPromise, HTML2CANVAS_TIMEOUT_MS, label);
-            return { dataUrl: canvas.toDataURL("image/jpeg", 0.85), w: canvas.width, h: canvas.height };
+            const dataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
+            const w = canvas.width;
+            const h = canvas.height;
+            // Release memory immediately
+            try { canvas.width = 0; canvas.height = 0; } catch { /* ignore */ }
+            return { dataUrl, w, h };
           } catch (e) {
             console.warn("[pdf-capture] capture failed", label, e);
             return null;
           }
         };
+
 
         const result: CapturedDay[] = [];
 

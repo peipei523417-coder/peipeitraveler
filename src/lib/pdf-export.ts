@@ -42,7 +42,7 @@ const FONT_EMBED_TIMEOUT_MS = 9000;
 const SIGNED_URL_TIMEOUT_MS = 5000;
 const IMAGE_FETCH_TIMEOUT_MS = 10000;
 const IMAGE_EMBED_TIMEOUT_MS = 6000;
-const PDF_SAVE_TIMEOUT_MS = 15000;
+const PDF_SAVE_TIMEOUT_MS = 180000;
 const SHARE_TIMEOUT_MS = 12000;
 
 // A4
@@ -450,18 +450,139 @@ export async function exportProjectToPdf(
   project: TravelProject,
   opts: ExportOptions,
 ): Promise<Uint8Array> {
-  console.info("[pdf-export] start export", {
+  console.info("[pdf-export] PDF snapshot export start", {
     projectId: project.id,
     projectName: project.name,
     capturedDays: opts.capturedDays?.length ?? 0,
   });
+  const hasSnapshots = Array.isArray(opts.capturedDays) && opts.capturedDays.length > 0;
+  if (hasSnapshots) {
+    try {
+      return await buildPdfBytes(project, opts);
+    } catch (e) {
+      console.warn(
+        "[pdf-export] PDF snapshot export failed, switching to lightweight text PDF",
+        e,
+      );
+      opts.onWarning?.("day-snapshot-skipped", e);
+    }
+  } else {
+    console.warn(
+      "[pdf-export] PDF snapshot export failed, switching to lightweight text PDF",
+      "no captured days",
+    );
+  }
   try {
-    return await buildPdfBytes(project, opts);
+    return await buildLightweightPdfBytes(project, opts);
   } catch (e) {
-    console.info("[pdf-export] create pdf fail", { error: e });
+    console.error("[pdf-export] create pdf fail", { error: e });
     throw e;
   }
 }
+
+// ---------- Lightweight text-only fallback ----------
+// Designed for maximum reliability: no images, no canvas-PNG text, no link
+// annotations. Even very large itineraries (20 days) export successfully.
+async function buildLightweightPdfBytes(
+  project: TravelProject,
+  opts: ExportOptions,
+): Promise<Uint8Array> {
+  console.info("[pdf-export] PDF lightweight export start", {
+    projectId: project.id,
+    days: project.itinerary?.length ?? 0,
+  });
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
+  const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
+
+  const lineH = 14;
+  const headerH = 22;
+  const itemGap = 6;
+  let page = doc.addPage([PAGE_W, PAGE_H]);
+  let y = PAGE_H - MARGIN;
+
+  const ensureSpace = (needed: number) => {
+    if (y - needed < MARGIN) {
+      page = doc.addPage([PAGE_W, PAGE_H]);
+      y = PAGE_H - MARGIN;
+    }
+  };
+
+  const drawLine = (
+    text: string,
+    size: number,
+    f: PDFFont,
+    color: ReturnType<typeof rgb>,
+    indent = 0,
+  ) => {
+    if (!text) return;
+    const maxW = CONTENT_W - indent;
+    const lines = wrapByWidth(text, f, size, maxW);
+    for (const line of lines) {
+      ensureSpace(size + 4);
+      safeDrawText(page, line, { x: MARGIN + indent, y: y - size, size, font: f, color });
+      y -= size + 4;
+    }
+  };
+
+  // Trip header
+  drawLine(project.name || "Trip", 20, fontBold, PRIMARY);
+  y -= 4;
+  const sd = safeDate(project.startDate);
+  const ed = safeDate(project.endDate);
+  let totalDays = Array.isArray(project.itinerary) ? project.itinerary.length : 0;
+  if (sd && ed) {
+    totalDays = Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1;
+    drawLine(`${fmtDateYMD(sd)}  -  ${fmtDateYMD(ed)}`, 12, font, MUTED);
+  }
+  drawLine(`Total Days: ${totalDays}`, 12, font, MUTED);
+  y -= 10;
+
+  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
+  for (const day of itinerary) {
+    ensureSpace(headerH + lineH);
+    y -= 4;
+    drawLine(`Day ${day.dayNumber}`, 16, fontBold, PRIMARY);
+    const items = Array.isArray(day.items) ? day.items : [];
+    if (items.length === 0) {
+      drawLine("(no items)", 11, font, MUTED, 12);
+      continue;
+    }
+    const sorted = [...items].sort((a, b) =>
+      (a.startTime || "").localeCompare(b.startTime || ""),
+    );
+    for (const item of sorted) {
+      const source = item as ItineraryItem & {
+        title?: unknown;
+        name?: unknown;
+        map_url?: unknown;
+        location_url?: unknown;
+        notes?: unknown;
+        description?: unknown;
+      };
+      const time = item.startTime ? `${item.startTime}  ` : "";
+      const title =
+        String(source.title || source.name || source.description || "").trim() ||
+        "(untitled)";
+      drawLine(`- ${time}${title}`, 12, fontBold, TEXT, 8);
+      const notes = String(source.notes || "").trim();
+      if (notes) drawLine(`Notes: ${notes}`, 11, font, TEXT, 20);
+      if (item.price && item.price > 0) {
+        drawLine(`Cost: $${item.price.toLocaleString()}`, 11, font, MUTED, 20);
+      }
+      const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
+      const mapUrl = sanitizeMapUrl(rawUrl) || rawUrl;
+      if (mapUrl) drawLine(`Map: ${mapUrl}`, 10, font, MUTED, 20);
+      y -= itemGap;
+    }
+  }
+
+  console.info("[pdf-export] PDF save start", { mode: "lightweight" });
+  const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
+  console.info("[pdf-export] PDF save done", { mode: "lightweight", bytes: bytes.length });
+  return bytes;
+}
+
 
 async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promise<Uint8Array> {
   console.info("pdf create start");
@@ -504,10 +625,9 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   // ===== Closing page =====
   await drawEndPage(doc, font, fontBold);
 
-  console.info("pdf save start");
+  console.info("[pdf-export] PDF save start", { mode: "snapshot" });
   const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
-  console.info("pdf save complete", { bytes: bytes.length });
-  console.info("[pdf-export] create pdf success", { bytes: bytes.length, pages: doc.getPageCount() });
+  console.info("[pdf-export] PDF save done", { mode: "snapshot", bytes: bytes.length, pages: doc.getPageCount() });
   return bytes;
 }
 

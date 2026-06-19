@@ -117,16 +117,23 @@ function ProjectDetailInner() {
     try {
       logStep("capture start", { projectId: project.id, days: project.itinerary?.length ?? 0 });
       const captureTimeoutMs = Math.min(180000, 20000 + Math.max(1, project.itinerary?.length ?? 1) * 22000);
-      const capturedDays = await withTimeout(captureDays(), captureTimeoutMs, "Day capture");
-      logStep("capture complete", { count: capturedDays.length });
-      console.info("[pdf-export] captured days", { count: capturedDays.length });
+      let capturedDays: CapturedDay[] = [];
+      try {
+        capturedDays = await withTimeout(captureDays(), captureTimeoutMs, "Day capture");
+        logStep("capture complete", { count: capturedDays.length });
+      } catch (capErr) {
+        console.warn("[pdf-export] capture failed; will use lightweight text PDF", capErr);
+        logStep("capture failed (fallback to lightweight)", { error: String(capErr) });
+        captureResolverRef.current = null;
+        setCapturingForPdf(false);
+      }
       logStep("pdf module import");
       const { exportProjectToPdf, deliverPdf, buildPdfFilename } = await withTimeout(
         import("@/lib/pdf-export"),
         8000,
         "PDF module import",
       );
-      logStep("pdf create start");
+      logStep("pdf create start", { mode: capturedDays.length ? "snapshot" : "lightweight" });
       const bytes = await withTimeout(
         exportProjectToPdf(project, {
           capturedDays,
@@ -137,7 +144,7 @@ function ProjectDetailInner() {
             }
           },
         }),
-        60000,
+        200000,
         "PDF generation",
       );
       logStep("pdf create complete", { bytes: bytes.length });
