@@ -379,7 +379,7 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   }
 
   // ===== Closing page =====
-  drawEndPage(doc, font, fontBold);
+  await drawEndPage(doc, font, fontBold);
 
   console.info("pdf save start");
   const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
