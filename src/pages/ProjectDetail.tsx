@@ -24,7 +24,7 @@ import { useSignedImageUrl } from "@/hooks/useSignedImageUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 import { TripOverviewDialog } from "@/components/TripOverviewDialog";
-import { PdfCaptureRoot, type CapturedDay } from "@/components/PdfCaptureRoot";
+import { PdfCaptureRoot } from "@/components/PdfCaptureRoot";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectErrorBoundary } from "@/components/ProjectErrorBoundary";
 
