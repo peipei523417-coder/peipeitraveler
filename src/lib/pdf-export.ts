@@ -678,36 +678,75 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   doc.registerFontkit(fontkit);
   const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
 
-  const allSnapshots = opts.capturedDays ?? [];
-  const coverSnapshot = allSnapshots.find((d) => d.dayNumber === 0) ?? null;
-  const days = allSnapshots.filter((d) => d.dayNumber > 0);
+  const root = opts.captureRoot;
+  if (!root) throw new Error("captureRoot missing");
 
-  // ===== Cover =====
-  if (coverSnapshot && coverSnapshot.dataUrl && coverSnapshot.widthPx && coverSnapshot.heightPx) {
-    try {
-      await drawCoverSnapshotPage(doc, coverSnapshot, opts.onWarning);
-    } catch (e) {
-      console.warn("[pdf-export] cover snapshot failed; falling back to programmatic cover", e);
-      await drawCover(doc, font, fontBold, project, opts.now ?? new Date(), opts.onWarning);
+  const html2canvas = await loadHtml2Canvas();
+  const profile = captureProfile();
+  console.info("[pdf-export] capture profile", profile);
+
+  // ===== Cover (capture → embed → page → release) =====
+  const coverNode = root.querySelector<HTMLElement>("[data-pdf-cover]");
+  let coverDrawn = false;
+  if (coverNode) {
+    const shot = await captureSingleNode(html2canvas, coverNode, profile.scale, profile.jpegQuality, "capture cover");
+    if (shot) {
+      try {
+        await drawCoverSnapshotPage(doc, {
+          dataUrl: shot.dataUrl, widthPx: shot.w, heightPx: shot.h,
+        }, opts.onWarning);
+        coverDrawn = true;
+      } catch (e) {
+        console.warn("[pdf-export] cover snapshot embed failed; using programmatic cover", e);
+      }
     }
-  } else {
+    // Drop reference so the base64 string can be GC'd before next capture
+    if (shot) (shot as { dataUrl: string }).dataUrl = "";
+    await yieldToLoop();
+  }
+  if (!coverDrawn) {
     await drawCover(doc, font, fontBold, project, opts.now ?? new Date(), opts.onWarning);
   }
 
-  // ===== One page per Day (snapshot + fixed map-links section) =====
+  // ===== One Day at a time: capture → embed → page → release → yield =====
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
-  for (const cap of days) {
-    const dayData = itinerary.find((d) => d.dayNumber === cap.dayNumber);
+  const dayNodes = Array.from(root.querySelectorAll<HTMLElement>("[data-pdf-day]"));
+  console.info("[pdf-export] day nodes", { count: dayNodes.length });
+  for (const node of dayNodes) {
+    const dayNumber = Number(node.dataset.pdfDay);
+    const date = node.dataset.pdfDate || "";
+    const dayData = itinerary.find((d) => d.dayNumber === dayNumber);
+    const cardBounds = collectCardBounds(node);
+
+    const shot = await captureSingleNode(
+      html2canvas,
+      node,
+      profile.scale,
+      profile.jpegQuality,
+      `capture day${dayNumber}`,
+    );
     try {
-      if (!cap.dataUrl || !cap.widthPx || !cap.heightPx) {
-        throw new Error("missing snapshot");
-      }
+      if (!shot) throw new Error("snapshot capture failed");
+      const cap: CapturedDay = {
+        dayNumber, date,
+        dataUrl: shot.dataUrl,
+        widthPx: shot.w, heightPx: shot.h,
+        cardBounds,
+      };
+      console.info(`[pdf-export] day${dayNumber} canvas`, {
+        width: shot.w, height: shot.h, fileSizeKb: Math.round(shot.dataUrl.length / 1024),
+      });
       await drawDaySnapshotPage(doc, cap, font, fontBold, dayData, opts.onWarning);
+      // Release the base64 reference held by `cap` and `shot`
+      cap.dataUrl = "";
     } catch (e) {
-      console.warn("[pdf-export] day render failed; inserting fallback page", { day: cap.dayNumber, error: e });
-      opts.onWarning?.("day-snapshot-skipped", { day: cap.dayNumber, error: e });
-      await drawDayFallbackPage(doc, font, fontBold, cap.dayNumber, dayData);
+      console.warn("[pdf-export] day render failed; inserting fallback page", { day: dayNumber, error: e });
+      opts.onWarning?.("day-snapshot-skipped", { day: dayNumber, error: e });
+      await drawDayFallbackPage(doc, font, fontBold, dayNumber, dayData);
+    } finally {
+      if (shot) (shot as { dataUrl: string }).dataUrl = "";
     }
+    await yieldToLoop();
   }
 
   // ===== Closing page =====
