@@ -31,9 +31,9 @@ import notoSansBoldAsset from "../../public/fonts/NotoSansTC-Bold.ttf.asset.json
 
 // ---------- Fonts ----------
 const FONT_REGULAR_URL =
-  "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Regular.otf";
+  "https://github.com/googlefonts/noto-cjk/raw/main/Sans/Variable/TTF/Subset/NotoSansTC-VF.ttf";
 const FONT_BOLD_URL =
-  "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf";
+  "https://github.com/googlefonts/noto-cjk/raw/main/Sans/Variable/TTF/Subset/NotoSansTC-VF.ttf";
 const LOCAL_FONT_REGULAR_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Regular.otf`;
 const LOCAL_FONT_BOLD_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Bold.otf`;
 const ASSET_FONT_REGULAR_URL = notoSansRegularAsset.url;
@@ -62,7 +62,7 @@ const MUTED = rgb(0.42, 0.46, 0.55);
 // ---------- Font loading ----------
 let fontRegularBytes: ArrayBuffer | null = null;
 let fontBoldBytes: ArrayBuffer | null = null;
-let fontSource: "cdn" | "local" = "cdn";
+let fontSource: "cdn" | "asset" | "local" = "cdn";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -88,7 +88,7 @@ async function fetchBuffer(url: string, timeoutMs = FONT_TIMEOUT_MS): Promise<Ar
   }
 }
 
-async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer; source: "cdn" | "local" }> {
+async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer; source: "cdn" | "asset" | "local" }> {
   if (!fontRegularBytes || !fontBoldBytes) {
     let r: ArrayBuffer;
     let b: ArrayBuffer;
@@ -99,12 +99,21 @@ async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer; s
       ]);
       fontSource = "cdn";
     } catch (e) {
-      console.warn("[pdf-export] jsDelivr font fetch failed; trying bundled fallback", e);
-      [r, b] = await Promise.all([
-        fontRegularBytes ?? fetchBuffer(LOCAL_FONT_REGULAR_URL),
-        fontBoldBytes ?? fetchBuffer(LOCAL_FONT_BOLD_URL),
-      ]);
-      fontSource = "local";
+      console.warn("[pdf-export] CDN font fetch failed; trying external asset fallback", e);
+      try {
+        [r, b] = await Promise.all([
+          fontRegularBytes ?? fetchBuffer(ASSET_FONT_REGULAR_URL),
+          fontBoldBytes ?? fetchBuffer(ASSET_FONT_BOLD_URL),
+        ]);
+        fontSource = "asset";
+      } catch (assetError) {
+        console.warn("[pdf-export] asset font fetch failed; trying bundled OTF fallback", assetError);
+        [r, b] = await Promise.all([
+          fontRegularBytes ?? fetchBuffer(LOCAL_FONT_REGULAR_URL),
+          fontBoldBytes ?? fetchBuffer(LOCAL_FONT_BOLD_URL),
+        ]);
+        fontSource = "local";
+      }
     }
     fontRegularBytes = r;
     fontBoldBytes = b;
