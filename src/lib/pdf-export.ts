@@ -24,8 +24,11 @@ import {
 import fontkit from "@pdf-lib/fontkit";
 import type { TravelProject, ItineraryItem, DayItinerary } from "@/types/travel";
 import { getSignedImageUrl } from "@/lib/supabase-storage";
-import type { CapturedDay } from "@/components/PdfCaptureRoot";
+import type { CapturedDay, CapturedCardBounds } from "@/components/PdfCaptureRoot";
+import { PDF_CAPTURE_WIDTH } from "@/components/PdfCaptureRoot";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
+
+const HTML2CANVAS_TIMEOUT_MS = 18000;
 
 // ---------- Fonts ----------
 const FONT_REGULAR_URL =
