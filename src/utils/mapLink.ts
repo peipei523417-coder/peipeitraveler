@@ -5,7 +5,8 @@
  *   - Naver / Amap "Share" actions often copy a block of text that includes the
  *     place name, address, newlines, AND the share URL. We must store ONLY the
  *     pure https URL — never the surrounding Chinese/Korean text.
- *   - Sanitize to https-only to avoid javascript:, data:, file:, etc.
+ *   - Sanitize to supported map https URLs only to avoid javascript:, data:, file:,
+ *     YouTube, Instagram, general websites, etc.
  *   - Provide a provider-aware label so UI doesn't hard-code "Google Maps".
  *   - No network calls, no short-link expansion (keeps it fast + reliable).
  */
@@ -46,30 +47,12 @@ export function sanitizeMapUrl(input: string | null | undefined): string | null 
   try {
     const u = new URL(candidate);
     if (u.protocol !== "https:") return null;
+    if (detectMapProvider(u.toString()) === "other") return null;
     return u.toString();
   } catch {
     return null;
   }
 }
-
-const GOOGLE_HOSTS = [
-  /(^|\.)maps\.google\.[a-z.]+$/i,
-  /(^|\.)google\.[a-z.]+$/i,
-  /(^|\.)maps\.app\.goo\.gl$/i,
-  /(^|\.)goo\.gl$/i,
-];
-
-const AMAP_HOSTS = [
-  /(^|\.)amap\.com$/i,
-  /(^|\.)surl\.amap\.com$/i,
-  /(^|\.)gaode\.com$/i,
-];
-
-const NAVER_HOSTS = [
-  /(^|\.)naver\.com$/i,
-  /(^|\.)map\.naver\.com$/i,
-  /(^|\.)naver\.me$/i,
-];
 
 /**
  * Detect provider from a (possibly pre-sanitized) URL. Falls back to "other"
@@ -83,19 +66,19 @@ export function detectMapProvider(url: string | null | undefined): MapProvider {
   } catch {
     return "other";
   }
-  const host = parsed.host.toLowerCase();
+  const host = parsed.hostname.toLowerCase();
   const path = parsed.pathname;
 
-  if (GOOGLE_HOSTS.some((re) => re.test(host))) {
-    // google.com requires /maps path to count; maps.google.*, maps.app.goo.gl & goo.gl already pass.
-    if (/(^|\.)google\.[a-z.]+$/i.test(host) && !/(^|\.)maps\.google\.[a-z.]+$/i.test(host) && !/\/maps(\/|$)/i.test(path)) {
-      // Plain google.com without /maps isn't a map link.
-      return "other";
-    }
+  if (/^maps\.google\.[a-z.]+$/i.test(host)) return "google";
+  if (/^maps\.app\.goo\.gl$/i.test(host)) return "google";
+  if (/^goo\.gl$/i.test(host) && /^\/maps(\/|$)/i.test(path)) return "google";
+  if (/^(?:[a-z0-9-]+\.)?google\.[a-z.]+$/i.test(host) && /^\/maps(\/|$)/i.test(path)) {
     return "google";
   }
-  if (AMAP_HOSTS.some((re) => re.test(host))) return "amap";
-  if (NAVER_HOSTS.some((re) => re.test(host))) return "naver";
+  if (/^(m\.)?map\.naver\.com$/i.test(host)) return "naver";
+  if (/^naver\.me$/i.test(host)) return "naver";
+  if (/^(www\.|ditu\.|uri\.|surl\.)?amap\.com$/i.test(host)) return "amap";
+  if (/^(www\.)?gaode\.com$/i.test(host)) return "amap";
   return "other";
 }
 

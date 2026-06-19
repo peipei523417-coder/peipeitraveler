@@ -96,6 +96,8 @@ function ItemRow({
   dragListeners,
   isDragging,
 }: RowProps) {
+  const safeMapUrl = sanitizeMapUrl(item.googleMapsUrl);
+  const normalizedMapUrl = normalizeMapUrl(safeMapUrl);
   return (
     <div className={cn("relative flex gap-4", isDragging && "opacity-60")} data-pdf-card>
       {/* Timeline icon (NOT a drag handle — pointer-events stay on the picker) */}
@@ -150,10 +152,10 @@ function ItemRow({
               )}
 
               <div className="flex flex-wrap gap-2">
-                {item.googleMapsUrl && (
+                {safeMapUrl && normalizedMapUrl && (
                   <button
                     type="button"
-                    data-pdf-map-url={normalizeMapUrl(sanitizeMapUrl(item.googleMapsUrl) || item.googleMapsUrl) || ""}
+                    data-pdf-map-url={normalizedMapUrl}
                     // Block drag start so opening Maps doesn't start a sortable drag.
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={async (e) => {
@@ -161,8 +163,8 @@ function ItemRow({
                       e.stopPropagation();
                       // Sanitize first (handles mixed text from Naver/Amap share),
                       // then normalize via the existing whitelist before opening.
-                      const sanitized = sanitizeMapUrl(item.googleMapsUrl);
-                      const normalizedUrl = normalizeMapUrl(sanitized || item.googleMapsUrl);
+                      const sanitized = safeMapUrl;
+                      const normalizedUrl = normalizedMapUrl;
                       console.log("[MAP_OPEN]", {
                         title: item.description,
                         map_url: item.googleMapsUrl,
@@ -189,7 +191,7 @@ function ItemRow({
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
                   >
                     <MapPin className="w-3.5 h-3.5" />
-                    {getMapProviderLabel(sanitizeMapUrl(item.googleMapsUrl) || item.googleMapsUrl)}
+                    {getMapProviderLabel(safeMapUrl)}
                     <ExternalLink className="w-3 h-3" />
                   </button>
                 )}

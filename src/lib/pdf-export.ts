@@ -13,6 +13,7 @@
 import {
   PDFDocument,
   PDFFont,
+  PDFImage,
   PDFPage,
   rgb,
   PDFName,
@@ -28,11 +29,13 @@ import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 
 // ---------- Fonts ----------
 const FONT_REGULAR_URL =
-  "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Regular.otf";
+  "https://github.com/googlefonts/noto-cjk/raw/main/Sans/Variable/TTF/Subset/NotoSansTC-VF.ttf";
 const FONT_BOLD_URL =
-  "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf";
+  "https://github.com/googlefonts/noto-cjk/raw/main/Sans/Variable/TTF/Subset/NotoSansTC-VF.ttf";
 const LOCAL_FONT_REGULAR_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Regular.otf`;
 const LOCAL_FONT_BOLD_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Bold.otf`;
+const ASSET_FONT_REGULAR_URL = "/__l5e/assets-v1/f9a6a994-72d6-49cc-9fdb-163b5ecc7077/NotoSansTC-Regular.ttf";
+const ASSET_FONT_BOLD_URL = "/__l5e/assets-v1/3047ff04-e319-4a39-b924-4a2d955a196b/NotoSansTC-Bold.ttf";
 
 const FONT_TIMEOUT_MS = 7000;
 const FONT_EMBED_TIMEOUT_MS = 9000;
@@ -57,7 +60,7 @@ const MUTED = rgb(0.42, 0.46, 0.55);
 // ---------- Font loading ----------
 let fontRegularBytes: ArrayBuffer | null = null;
 let fontBoldBytes: ArrayBuffer | null = null;
-let fontSource: "cdn" | "local" = "cdn";
+let fontSource: "cdn" | "asset" | "local" = "cdn";
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -83,7 +86,7 @@ async function fetchBuffer(url: string, timeoutMs = FONT_TIMEOUT_MS): Promise<Ar
   }
 }
 
-async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer; source: "cdn" | "local" }> {
+async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer; source: "cdn" | "asset" | "local" }> {
   if (!fontRegularBytes || !fontBoldBytes) {
     let r: ArrayBuffer;
     let b: ArrayBuffer;
@@ -94,12 +97,21 @@ async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer; s
       ]);
       fontSource = "cdn";
     } catch (e) {
-      console.warn("[pdf-export] jsDelivr font fetch failed; trying bundled fallback", e);
-      [r, b] = await Promise.all([
-        fontRegularBytes ?? fetchBuffer(LOCAL_FONT_REGULAR_URL),
-        fontBoldBytes ?? fetchBuffer(LOCAL_FONT_BOLD_URL),
-      ]);
-      fontSource = "local";
+      console.warn("[pdf-export] CDN font fetch failed; trying external asset fallback", e);
+      try {
+        [r, b] = await Promise.all([
+          fontRegularBytes ?? fetchBuffer(ASSET_FONT_REGULAR_URL),
+          fontBoldBytes ?? fetchBuffer(ASSET_FONT_BOLD_URL),
+        ]);
+        fontSource = "asset";
+      } catch (assetError) {
+        console.warn("[pdf-export] asset font fetch failed; trying bundled OTF fallback", assetError);
+        [r, b] = await Promise.all([
+          fontRegularBytes ?? fetchBuffer(LOCAL_FONT_REGULAR_URL),
+          fontBoldBytes ?? fetchBuffer(LOCAL_FONT_BOLD_URL),
+        ]);
+        fontSource = "local";
+      }
     }
     fontRegularBytes = r;
     fontBoldBytes = b;
@@ -254,6 +266,117 @@ function safeDrawText(
   }
 }
 
+const pdfIconCache = new Map<string, ArrayBuffer>();
+let pdfCanvasFontsReady: Promise<void> | null = null;
+
+function resolveAssetUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  if (typeof window !== "undefined" && url.startsWith("/")) return `${window.location.origin}${url}`;
+  return url;
+}
+
+async function ensurePdfCanvasFonts(): Promise<void> {
+  if (typeof document === "undefined" || typeof FontFace === "undefined") return;
+  if (!pdfCanvasFontsReady) {
+    pdfCanvasFontsReady = (async () => {
+      const fonts = document.fonts;
+      const regular = new FontFace("PeiTravelPdfNoto", `url(${resolveAssetUrl(LOCAL_FONT_REGULAR_URL)})`, { weight: "400" });
+      const bold = new FontFace("PeiTravelPdfNoto", `url(${resolveAssetUrl(LOCAL_FONT_BOLD_URL)})`, { weight: "700" });
+      const loaded = await Promise.all([regular.load(), bold.load()]);
+      loaded.forEach((fontFace) => fonts.add(fontFace));
+      await fonts.ready;
+    })().catch((e) => {
+      console.warn("[pdf-export] PDF canvas font load failed; using system fallback", e);
+    });
+  }
+  await pdfCanvasFontsReady;
+}
+
+async function embedPdfIcon(doc: PDFDocument, fileName: string): Promise<PDFImage | null> {
+  let bytes = pdfIconCache.get(fileName);
+  if (!bytes) {
+    const res = await fetch(`${import.meta.env.BASE_URL}${fileName}`, { cache: "force-cache" });
+    if (!res.ok) return null;
+    bytes = await res.arrayBuffer();
+    pdfIconCache.set(fileName, bytes);
+  }
+  try {
+    return await withTimeout(doc.embedPng(bytes), IMAGE_EMBED_TIMEOUT_MS, `PDF icon ${fileName} embed`);
+  } catch (e) {
+    console.warn("[pdf-export] PDF icon embed failed", { fileName, error: e });
+    return null;
+  }
+}
+
+async function drawPdfIcon(doc: PDFDocument, page: PDFPage, fileName: string, fallback: string, x: number, y: number, size: number) {
+  const img = await embedPdfIcon(doc, fileName);
+  if (img) {
+    page.drawImage(img, { x, y, width: size, height: size });
+    return;
+  }
+  safeDrawText(page, fallback, { x, y: y + 1, size, font: await doc.embedFont(StandardFonts.Helvetica), color: TEXT });
+}
+
+function pdfColorToCss(color?: ReturnType<typeof rgb>): string {
+  const c = (color ?? TEXT) as unknown as { red?: number; green?: number; blue?: number };
+  const toHex = (v = 0) => Math.max(0, Math.min(255, Math.round(v * 255))).toString(16).padStart(2, "0");
+  return `#${toHex(c.red)}${toHex(c.green)}${toHex(c.blue)}`;
+}
+
+function browserMeasureText(text: string, size: number, bold = false): number | null {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.font = `${bold ? 700 : 400} ${size}px "PeiTravelPdfNoto", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif`;
+  return ctx.measureText(text).width;
+}
+
+async function measurePdfText(text: string, font: PDFFont, size: number, bold = false): Promise<number> {
+  await ensurePdfCanvasFonts();
+  const measured = browserMeasureText(text, size, bold);
+  if (measured !== null) return measured;
+  try { return font.widthOfTextAtSize(text, size); } catch { return Array.from(text).length * size * 0.62; }
+}
+
+async function drawPdfText(
+  doc: PDFDocument,
+  page: PDFPage,
+  text: string,
+  opts: { x: number; y: number; size: number; font: PDFFont; color?: ReturnType<typeof rgb>; bold?: boolean; forceImage?: boolean },
+): Promise<number> {
+  if (!text) return 0;
+  await ensurePdfCanvasFonts();
+  const needsImage = opts.forceImage || /[^\x20-\x7e]/.test(text);
+  if (typeof document !== "undefined" && needsImage) {
+    const scale = 3;
+    const measured = browserMeasureText(text, opts.size, opts.bold) ?? Array.from(text).length * opts.size * 0.62;
+    const widthPt = Math.ceil(measured + 6);
+    const heightPt = Math.ceil(opts.size * 1.45);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.ceil(widthPt * scale));
+    canvas.height = Math.max(1, Math.ceil(heightPt * scale));
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.scale(scale, scale);
+      ctx.clearRect(0, 0, widthPt, heightPt);
+      ctx.font = `${opts.bold ? 700 : 400} ${opts.size}px "PeiTravelPdfNoto", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif`;
+      ctx.fillStyle = pdfColorToCss(opts.color);
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(text, 2, opts.size + 1);
+      try {
+        const img = await withTimeout(doc.embedPng(canvas.toDataURL("image/png")), IMAGE_EMBED_TIMEOUT_MS, "text image embed");
+        page.drawImage(img, { x: opts.x, y: opts.y - (heightPt - opts.size), width: widthPt, height: heightPt });
+        return widthPt;
+      } catch (e) {
+        console.warn("[pdf-export] text image embed failed; falling back to font text", { text, error: e });
+      }
+    }
+  }
+  safeDrawText(page, text, { x: opts.x, y: opts.y, size: opts.size, font: opts.font, color: opts.color });
+  return measurePdfText(text, opts.font, opts.size, opts.bold);
+}
+
 function wrapByWidth(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
   for (const para of (text ?? "").split("\n")) {
@@ -374,7 +497,7 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
     } catch (e) {
       console.warn("[pdf-export] day render failed; inserting fallback page", { day: cap.dayNumber, error: e });
       opts.onWarning?.("day-snapshot-skipped", { day: cap.dayNumber, error: e });
-      drawDayFallbackPage(doc, font, fontBold, cap.dayNumber, dayData);
+      await drawDayFallbackPage(doc, font, fontBold, cap.dayNumber, dayData);
     }
   }
 
@@ -386,6 +509,11 @@ async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promi
   console.info("pdf save complete", { bytes: bytes.length });
   console.info("[pdf-export] create pdf success", { bytes: bytes.length, pages: doc.getPageCount() });
   return bytes;
+}
+
+/** Internal smoke-test hook for generating a deterministic PDF preview in Vitest/QA. */
+export async function __debugBuildPdfBytes(project: TravelProject, opts: ExportOptions): Promise<Uint8Array> {
+  return buildPdfBytes(project, opts);
 }
 
 // ---------- Cover from snapshot ----------
@@ -442,7 +570,7 @@ async function loadEndLogo(): Promise<ArrayBuffer | null> {
 async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
   const page = doc.addPage([PAGE_W, PAGE_H]);
 
-  const line1 = "🎉 旅途順利，玩得開心";
+  const line1 = "旅途順利，玩得開心";
   const line2 = "此行程由 PeiTravel App 匯出完成";
   const wordmark = "PeiTravel";
   const size1 = 20;
@@ -457,16 +585,28 @@ async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
   const totalH = size1 + gap1 + size2 + gap2 + logoSize + gap3 + sizeWord;
   let y = PAGE_H / 2 + totalH / 2;
 
-  const drawCentred = (text: string, size: number, f: PDFFont, color: ReturnType<typeof rgb>) => {
-    let w = 0;
-    try { w = f.widthOfTextAtSize(text, size); } catch { w = text.length * size * 0.6; }
-    safeDrawText(page, text, { x: (PAGE_W - w) / 2, y: y - size, size, font: f, color });
+  const drawCentred = async (text: string, size: number, f: PDFFont, color: ReturnType<typeof rgb>, bold = false) => {
+    const w = await measurePdfText(text, f, size, bold);
+    await drawPdfText(doc, page, text, { x: (PAGE_W - w) / 2, y: y - size, size, font: f, color, bold });
     y -= size;
   };
 
-  drawCentred(line1, size1, fontBold, rgb(0.32, 0.36, 0.44));
+  const line1W = await measurePdfText(line1, fontBold, size1, true);
+  const emojiGap = 8;
+  const line1TotalW = logoSize / 3 + emojiGap + line1W;
+  const line1X = (PAGE_W - line1TotalW) / 2;
+  await drawPdfIcon(doc, page, "pdf-party.png", "*", line1X, y - size1 - 1, logoSize / 3);
+  await drawPdfText(doc, page, line1, {
+    x: line1X + logoSize / 3 + emojiGap,
+    y: y - size1,
+    size: size1,
+    font: fontBold,
+    color: rgb(0.32, 0.36, 0.44),
+    bold: true,
+  });
+  y -= size1;
   y -= gap1;
-  drawCentred(line2, size2, font, rgb(0.5, 0.55, 0.62));
+  await drawCentred(line2, size2, font, rgb(0.5, 0.55, 0.62));
   y -= gap2;
 
   // Logo
@@ -485,7 +625,7 @@ async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
     }
   }
   y -= logoSize + gap3;
-  drawCentred(wordmark, sizeWord, fontBold, rgb(0.55, 0.6, 0.68));
+  await drawCentred(wordmark, sizeWord, fontBold, rgb(0.55, 0.6, 0.68), true);
 }
 
 // ---------- Map links section ----------
@@ -495,20 +635,28 @@ interface DayMapLink {
   label: string;
 }
 
+function getMapButtonText(provider: string): string {
+  return provider === "高德地圖" ? "開啟高德地圖 ↗" : `開啟 ${provider} ↗`;
+}
+
 function collectDayMapLinks(day: DayItinerary | undefined): DayMapLink[] {
   if (!day || !Array.isArray(day.items)) return [];
   const links: DayMapLink[] = [];
   for (const item of day.items) {
-    const url = sanitizeMapUrl(item.googleMapsUrl);
+    const source = item as ItineraryItem & { title?: unknown; name?: unknown; map_url?: unknown; location_url?: unknown };
+    const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
+    const url = sanitizeMapUrl(rawUrl);
     if (!url) continue;
-    const rawTitle = (item.description || "").split("\n")[0].trim();
+    const rawTitle = String(source.title || source.name || item.description || "")
+      .split("\n")[0]
+      .trim();
     const title = rawTitle || "景點連結";
     links.push({ title, url, label: getMapProviderLabel(url) });
   }
   return links;
 }
 
-function drawMapLinksSection(
+async function drawMapLinksSection(
   doc: PDFDocument,
   font: PDFFont,
   fontBold: PDFFont,
@@ -526,22 +674,23 @@ function drawMapLinksSection(
   const cardH = cardPad + titleSize + 6 + providerSize + 12 + buttonH + cardPad;
   const cardGap = 12;
   const headerH = 52;
-  const startNewPage = (continuation: boolean): { page: PDFPage; y: number } => {
+  const startNewPage = async (continuation: boolean): Promise<{ page: PDFPage; y: number }> => {
     const page = doc.addPage([PAGE_W, PAGE_H]);
     page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
-    safeDrawText(page, `Day ${dayNumber}｜導航連結${continuation ? "（續）" : ""}`, {
+    await drawPdfText(doc, page, `Day ${dayNumber}｜導航連結${continuation ? "（續）" : ""}`, {
       x: MARGIN, y: PAGE_H - MARGIN - 14, size: 17, font: fontBold, color: PRIMARY,
+      bold: true,
     });
-    safeDrawText(page, "以下連結可直接開啟導航", {
+    await drawPdfText(doc, page, "以下連結可直接開啟導航", {
       x: MARGIN, y: PAGE_H - MARGIN - 34, size: 11, font, color: MUTED,
     });
     return { page, y: PAGE_H - MARGIN - headerH };
   };
-  let { page, y } = startNewPage(false);
+  let { page, y } = await startNewPage(false);
 
   for (const link of links) {
     if (y - cardH < MARGIN + 20) {
-      const next = startNewPage(true);
+      const next = await startNewPage(true);
       page = next.page;
       y = next.y;
     }
@@ -554,18 +703,20 @@ function drawMapLinksSection(
       borderColor: rgb(0.84, 0.9, 0.97),
       borderWidth: 0.8,
     });
-    // Title — 📍 + first line of description, single line (truncated)
-    const titleText = `📍 ${link.title}`;
+    // Title — pin icon + first line of item title, single line (truncated)
+    const titleText = link.title;
     const titleLines = wrapByWidth(titleText, fontBold, titleSize, CONTENT_W - cardPad * 2);
-    safeDrawText(page, titleLines[0] ?? titleText, {
-      x: MARGIN + cardPad,
+    await drawPdfIcon(doc, page, "pdf-pin.png", "•", MARGIN + cardPad, cardTop - cardPad - titleSize + 1, titleSize);
+    await drawPdfText(doc, page, titleLines[0] ?? titleText, {
+      x: MARGIN + cardPad + titleSize + 6,
       y: cardTop - cardPad - titleSize + 2,
       size: titleSize,
       font: fontBold,
       color: TEXT,
+      bold: true,
     });
     // Provider label (small, muted)
-    safeDrawText(page, link.label, {
+    await drawPdfText(doc, page, link.label, {
       x: MARGIN + cardPad,
       y: cardTop - cardPad - titleSize - 6 - providerSize + 2,
       size: providerSize,
@@ -573,9 +724,9 @@ function drawMapLinksSection(
       color: MUTED,
     });
     // CTA button
-    const buttonText = `開啟 ${link.label} ↗`;
+    const buttonText = getMapButtonText(link.label);
     let textW = 120;
-    try { textW = fontBold.widthOfTextAtSize(buttonText, buttonSize); } catch { /* keep */ }
+    textW = await measurePdfText(buttonText, fontBold, buttonSize, true);
     const btnW = Math.min(CONTENT_W - cardPad * 2, textW + 32);
     const btnX = MARGIN + cardPad;
     const btnY = cardBottom + cardPad;
@@ -583,12 +734,13 @@ function drawMapLinksSection(
       x: btnX, y: btnY, width: btnW, height: buttonH,
       color: PRIMARY,
     });
-    safeDrawText(page, buttonText, {
+    await drawPdfText(doc, page, buttonText, {
       x: btnX + (btnW - textW) / 2,
       y: btnY + (buttonH - buttonSize) / 2 + 2,
       size: buttonSize,
       font: fontBold,
       color: rgb(1, 1, 1),
+      bold: true,
     });
     addLinkAnnotation(page, link.url, btnX, btnY, btnW, buttonH);
     // Whole card also clickable
@@ -599,7 +751,7 @@ function drawMapLinksSection(
 }
 
 // ---------- Day fallback (snapshot failed) ----------
-function drawDayFallbackPage(
+async function drawDayFallbackPage(
   doc: PDFDocument,
   font: PDFFont,
   fontBold: PDFFont,
@@ -616,7 +768,7 @@ function drawDayFallbackPage(
   // Still show map links so user gets value
   const links = collectDayMapLinks(day);
   if (links.length > 0) {
-    drawMapLinksSection(doc, font, fontBold, dayNumber, links);
+      await drawMapLinksSection(doc, font, fontBold, dayNumber, links);
   }
 }
 
@@ -811,7 +963,7 @@ async function drawDaySnapshotPage(
   // Fixed map-links section (no DOM coordinate math, fully reliable)
   const links = collectDayMapLinks(dayData);
   if (links.length > 0) {
-    drawMapLinksSection(doc, font, fontBold, cap.dayNumber, links);
+    await drawMapLinksSection(doc, font, fontBold, cap.dayNumber, links);
   }
 }
 
