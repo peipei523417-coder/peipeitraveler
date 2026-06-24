@@ -1,50 +1,31 @@
 /**
- * PDF export — "Cover + Day Snapshots" mode.
+ * PDF export — ALL-IMAGE pipeline.
  *
- *  - Page 1: cover (PeiTravel branding, title, dates, cover photo, stats).
- *  - Page 2..N: one A4 page per Day, embedded JPG snapshot of the live UI.
- *    Each map button on the live UI gets a clickable PDF link annotation
- *    mapped to the same on-page position.
+ * Every PDF page is produced by:
+ *   DOM node  →  html2canvas  →  JPEG  →  pdf-lib embedJpg  →  A4 page
  *
- * This avoids re-laying out the itinerary in pdf-lib (which was losing text,
- * misordering items, and breaking emoji / CJK glyphs).
+ * No pdf-lib drawText, no embedFont, no StandardFonts, no CJK font fallback.
+ * This eliminates an entire class of mobile reliability bugs (garbled CJK /
+ * KR / JP, missing emoji, font download timeouts, Helvetica fallback flicker).
+ *
+ * Memory: sequential capture, one canvas at a time, immediate JPEG, immediate
+ * embed, immediate canvas release, yield between pages. 20-day itineraries
+ * stay below the mobile memory budget.
+ *
+ * Page order:  cover → 📍 overview → Day 1..N → 導航連結 (consolidated)
+ *              → 🎉 旅途順利.
+ *
+ * Hyperlinks: map-link cards in the consolidated section get real PDF link
+ * annotations so iOS Files / Android PDF Viewer / Adobe Reader / Mac Preview
+ * can all open the underlying map URL.
  */
 
-import {
-  PDFDocument,
-  PDFFont,
-  PDFImage,
-  PDFPage,
-  rgb,
-  PDFName,
-  PDFString,
-  PDFArray,
-  StandardFonts,
-} from "pdf-lib";
-import fontkit from "@pdf-lib/fontkit";
-import type { TravelProject, ItineraryItem, DayItinerary } from "@/types/travel";
-import { getSignedImageUrl } from "@/lib/supabase-storage";
-import type { CapturedDay, CapturedCardBounds } from "@/components/PdfCaptureRoot";
+import { PDFDocument, PDFPage, rgb, PDFName, PDFString, PDFArray } from "pdf-lib";
+import type { TravelProject } from "@/types/travel";
 import { PDF_CAPTURE_WIDTH } from "@/components/PdfCaptureRoot";
-import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 
 const HTML2CANVAS_TIMEOUT_MS = 18000;
-
-// ---------- Fonts ----------
-const FONT_REGULAR_URL =
-  "https://github.com/googlefonts/noto-cjk/raw/main/Sans/Variable/TTF/Subset/NotoSansTC-VF.ttf";
-const FONT_BOLD_URL =
-  "https://github.com/googlefonts/noto-cjk/raw/main/Sans/Variable/TTF/Subset/NotoSansTC-VF.ttf";
-const LOCAL_FONT_REGULAR_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Regular.otf`;
-const LOCAL_FONT_BOLD_URL = `${import.meta.env.BASE_URL}fonts/NotoSansTC-Bold.otf`;
-const ASSET_FONT_REGULAR_URL = "/__l5e/assets-v1/f9a6a994-72d6-49cc-9fdb-163b5ecc7077/NotoSansTC-Regular.ttf";
-const ASSET_FONT_BOLD_URL = "/__l5e/assets-v1/3047ff04-e319-4a39-b924-4a2d955a196b/NotoSansTC-Bold.ttf";
-
-const FONT_TIMEOUT_MS = 7000;
-const FONT_EMBED_TIMEOUT_MS = 9000;
-const SIGNED_URL_TIMEOUT_MS = 5000;
-const IMAGE_FETCH_TIMEOUT_MS = 10000;
-const IMAGE_EMBED_TIMEOUT_MS = 6000;
+const IMAGE_EMBED_TIMEOUT_MS = 8000;
 const PDF_SAVE_TIMEOUT_MS = 180000;
 const SHARE_TIMEOUT_MS = 12000;
 
@@ -55,16 +36,24 @@ const MARGIN = 36;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 const CONTENT_H = PAGE_H - MARGIN * 2;
 
-const PRIMARY = rgb(0.008, 0.522, 0.78);
-const PRIMARY_LIGHT = rgb(0.86, 0.94, 0.99);
-const TEXT = rgb(0.07, 0.09, 0.15);
-const MUTED = rgb(0.42, 0.46, 0.55);
+export type PdfExportWarning = "image-skipped" | "day-snapshot-skipped" | "section-skipped";
+export type PdfExportStage = "cover" | "overview" | "day" | "maplinks" | "end";
 
-// ---------- Font loading ----------
-let fontRegularBytes: ArrayBuffer | null = null;
-let fontBoldBytes: ArrayBuffer | null = null;
-let fontSource: "cdn" | "asset" | "local" = "cdn";
+export interface PdfProgress {
+  stage: PdfExportStage;
+  dayIndex?: number;
+  totalDays?: number;
+}
 
+export interface ExportOptions {
+  now?: Date;
+  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void;
+  onProgress?: (p: PdfProgress) => void;
+  /** DOM root rendered by PdfCaptureRoot. Required for snapshot export. */
+  captureRoot?: HTMLElement | null;
+}
+
+// ---------- Helpers ----------
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
@@ -77,129 +66,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
   ]);
 }
 
-async function fetchBuffer(url: string, timeoutMs = FONT_TIMEOUT_MS): Promise<ArrayBuffer> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { cache: "force-cache", signal: controller.signal });
-    if (!res.ok) throw new Error(`font fetch failed: ${res.status}`);
-    return await res.arrayBuffer();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function loadFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuffer; source: "cdn" | "asset" | "local" }> {
-  if (!fontRegularBytes || !fontBoldBytes) {
-    let r: ArrayBuffer;
-    let b: ArrayBuffer;
-    try {
-      [r, b] = await Promise.all([
-        fontRegularBytes ?? fetchBuffer(FONT_REGULAR_URL),
-        fontBoldBytes ?? fetchBuffer(FONT_BOLD_URL),
-      ]);
-      fontSource = "cdn";
-    } catch (e) {
-      console.warn("[pdf-export] CDN font fetch failed; trying external asset fallback", e);
-      try {
-        [r, b] = await Promise.all([
-          fontRegularBytes ?? fetchBuffer(ASSET_FONT_REGULAR_URL),
-          fontBoldBytes ?? fetchBuffer(ASSET_FONT_BOLD_URL),
-        ]);
-        fontSource = "asset";
-      } catch (assetError) {
-        console.warn("[pdf-export] asset font fetch failed; trying bundled OTF fallback", assetError);
-        [r, b] = await Promise.all([
-          fontRegularBytes ?? fetchBuffer(LOCAL_FONT_REGULAR_URL),
-          fontBoldBytes ?? fetchBuffer(LOCAL_FONT_BOLD_URL),
-        ]);
-        fontSource = "local";
-      }
-    }
-    fontRegularBytes = r;
-    fontBoldBytes = b;
-  }
-  return { regular: fontRegularBytes!, bold: fontBoldBytes!, source: fontSource };
-}
-
-export type PdfExportWarning = "font-fallback" | "image-skipped" | "day-snapshot-skipped";
-
-async function embedPdfFonts(
-  doc: PDFDocument,
-  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
-): Promise<{ font: PDFFont; fontBold: PDFFont; fallback: boolean }> {
-  try {
-    const { regular, bold, source } = await loadFonts();
-    const [font, fontBold] = await withTimeout(
-      Promise.all([
-        doc.embedFont(regular, { subset: true }),
-        doc.embedFont(bold, { subset: true }),
-      ]),
-      FONT_EMBED_TIMEOUT_MS,
-      "font embed",
-    );
-    if (source === "local") onWarning?.("font-fallback", "bundled Noto Sans TC");
-    console.info("[pdf-export] load font success", { source });
-    return { font, fontBold, fallback: false };
-  } catch (e) {
-    console.warn("[pdf-export] load font fail; using Helvetica fallback", e);
-    onWarning?.("font-fallback", e);
-    const [font, fontBold] = await Promise.all([
-      doc.embedFont(StandardFonts.Helvetica),
-      doc.embedFont(StandardFonts.HelveticaBold),
-    ]);
-    return { font, fontBold, fallback: true };
-  }
-}
-
-// ---------- Image loading (cover) ----------
-async function loadImage(
-  url: string,
-  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
-): Promise<{ bytes: ArrayBuffer; type: "png" | "jpg" } | null> {
-  try {
-    let resolved = url;
-    if (url.includes("/project-images/") && !url.includes("token=")) {
-      const signed = await withTimeout(getSignedImageUrl(url, 3600), SIGNED_URL_TIMEOUT_MS, "signed URL");
-      if (signed) resolved = signed;
-    }
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
-    const res = await fetch(resolved, { cache: "force-cache", signal: controller.signal }).finally(() => {
-      clearTimeout(timer);
-    });
-    if (!res.ok) {
-      onWarning?.("image-skipped", res.status);
-      return null;
-    }
-    const buf = await res.arrayBuffer();
-    const head = new Uint8Array(buf.slice(0, 4));
-    const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
-    return { bytes: buf, type: isPng ? "png" : "jpg" };
-  } catch (e) {
-    console.warn("[pdf-export] cover image load failed", e);
-    onWarning?.("image-skipped", e);
-    return null;
-  }
-}
-
-// ---------- Helpers ----------
-function safeDate(value: unknown): Date | null {
-  if (!value) return null;
-  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
-  try {
-    const d = new Date(value as string);
-    return isNaN(d.getTime()) ? null : d;
-  } catch {
-    return null;
-  }
-}
-
-function fmtDateYMD(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}/${m}/${day}`;
+function yieldToLoop(): Promise<void> {
+  return new Promise((r) => setTimeout(r, 0));
 }
 
 function fmtDateCompact(d: Date): string {
@@ -209,11 +77,6 @@ function fmtDateCompact(d: Date): string {
   return `${y}${m}${day}`;
 }
 
-/**
- * Filename date is the trip's first day, NOT today.
- * Accepts a Date (read in UTC to avoid TZ drift) or a 'YYYY-MM-DD' string.
- * Falls back to today if neither is usable.
- */
 export function buildPdfFilename(projectName: string, tripStart: Date | string | undefined | null): string {
   const cleaned = (projectName || "trip")
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "")
@@ -222,7 +85,6 @@ export function buildPdfFilename(projectName: string, tripStart: Date | string |
     .slice(0, 40) || "trip";
   let compact = "";
   if (typeof tripStart === "string") {
-    // 'YYYY-MM-DD' → 'YYYYMMDD' (no timezone conversion)
     const m = tripStart.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (m) compact = `${m[1]}${m[2]}${m[3]}`;
   } else if (tripStart instanceof Date && !isNaN(tripStart.getTime())) {
@@ -232,182 +94,120 @@ export function buildPdfFilename(projectName: string, tripStart: Date | string |
   return `${cleaned}_${compact}.pdf`;
 }
 
-function perPerson(item: ItineraryItem): number {
-  if (!item.price || item.price <= 0) return 0;
-  const p = item.persons || 1;
-  return Math.round(item.price / p);
+// ---------- html2canvas profile ----------
+type Html2Canvas = typeof import("html2canvas-pro").default;
+let html2canvasPromise: Promise<Html2Canvas> | null = null;
+async function loadHtml2Canvas(): Promise<Html2Canvas> {
+  if (!html2canvasPromise) {
+    html2canvasPromise = withTimeout(
+      import("html2canvas-pro").then((m) => m.default),
+      8000,
+      "html2canvas-pro import",
+    );
+  }
+  return html2canvasPromise;
 }
 
-/** Try-safe drawText. Substitutes missing glyphs with "·". */
-function safeDrawText(
-  page: PDFPage,
-  text: string,
-  opts: { x: number; y: number; size: number; font: PDFFont; color?: ReturnType<typeof rgb> },
-) {
-  if (!text) return;
+function captureProfile(): { scale: number; jpegQuality: number; isMobile: boolean } {
+  const isMobile =
+    typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  return { isMobile, scale: isMobile ? 0.6 : 2, jpegQuality: isMobile ? 0.55 : 0.85 };
+}
+
+interface CaptureResult {
+  dataUrl: string;
+  widthPx: number;
+  heightPx: number;
+  /** CSS-px width of the captured node (for mapping link rects). */
+  nodeCssWidth: number;
+  /** CSS-px height of the captured node. */
+  nodeCssHeight: number;
+}
+
+async function captureNode(
+  html2canvas: Html2Canvas,
+  node: HTMLElement,
+  scale: number,
+  jpegQuality: number,
+  label: string,
+): Promise<CaptureResult | null> {
+  const rect = node.getBoundingClientRect();
+  const cssW = Math.ceil(node.scrollWidth || rect.width || PDF_CAPTURE_WIDTH);
+  const cssH = Math.ceil(node.scrollHeight || rect.height || 1);
+  let canvas: HTMLCanvasElement | null = null;
   try {
-    page.drawText(text, opts);
-    return;
-  } catch {
-    /* fall through */
-  }
-  const safe = Array.from(text)
-    .map((ch) => {
-      try {
-        opts.font.widthOfTextAtSize(ch, opts.size);
-        return ch;
-      } catch {
-        return "·";
-      }
-    })
-    .join("");
-  if (!safe) return;
-  try {
-    page.drawText(safe, opts);
-  } catch {
-    /* give up */
-  }
-}
-
-const pdfIconCache = new Map<string, ArrayBuffer>();
-let pdfCanvasFontsReady: Promise<void> | null = null;
-
-function resolveAssetUrl(url: string): string {
-  if (/^https?:\/\//i.test(url)) return url;
-  if (typeof window !== "undefined" && url.startsWith("/")) return `${window.location.origin}${url}`;
-  return url;
-}
-
-async function ensurePdfCanvasFonts(): Promise<void> {
-  if (typeof document === "undefined" || typeof FontFace === "undefined") return;
-  if (!pdfCanvasFontsReady) {
-    pdfCanvasFontsReady = (async () => {
-      const fonts = document.fonts;
-      const regular = new FontFace("PeiTravelPdfNoto", `url(${resolveAssetUrl(LOCAL_FONT_REGULAR_URL)})`, { weight: "400" });
-      const bold = new FontFace("PeiTravelPdfNoto", `url(${resolveAssetUrl(LOCAL_FONT_BOLD_URL)})`, { weight: "700" });
-      const loaded = await Promise.all([regular.load(), bold.load()]);
-      loaded.forEach((fontFace) => fonts.add(fontFace));
-      await fonts.ready;
-    })().catch((e) => {
-      console.warn("[pdf-export] PDF canvas font load failed; using system fallback", e);
-    });
-  }
-  await pdfCanvasFontsReady;
-}
-
-async function embedPdfIcon(doc: PDFDocument, fileName: string): Promise<PDFImage | null> {
-  let bytes = pdfIconCache.get(fileName);
-  if (!bytes) {
-    const res = await fetch(`${import.meta.env.BASE_URL}${fileName}`, { cache: "force-cache" });
-    if (!res.ok) return null;
-    bytes = await res.arrayBuffer();
-    pdfIconCache.set(fileName, bytes);
-  }
-  try {
-    return await withTimeout(doc.embedPng(bytes), IMAGE_EMBED_TIMEOUT_MS, `PDF icon ${fileName} embed`);
+    canvas = await withTimeout(
+      html2canvas(node, {
+        backgroundColor: "#ffffff",
+        scale,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        imageTimeout: 6000,
+        windowWidth: PDF_CAPTURE_WIDTH,
+        width: cssW,
+        height: cssH,
+        scrollX: 0,
+        scrollY: 0,
+      }),
+      HTML2CANVAS_TIMEOUT_MS,
+      label,
+    );
+    const dataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
+    return { dataUrl, widthPx: canvas.width, heightPx: canvas.height, nodeCssWidth: cssW, nodeCssHeight: cssH };
   } catch (e) {
-    console.warn("[pdf-export] PDF icon embed failed", { fileName, error: e });
+    console.warn("[pdf-export] capture failed", label, e);
     return null;
-  }
-}
-
-async function drawPdfIcon(doc: PDFDocument, page: PDFPage, fileName: string, fallback: string, x: number, y: number, size: number) {
-  const img = await embedPdfIcon(doc, fileName);
-  if (img) {
-    page.drawImage(img, { x, y, width: size, height: size });
-    return;
-  }
-  safeDrawText(page, fallback, { x, y: y + 1, size, font: await doc.embedFont(StandardFonts.Helvetica), color: TEXT });
-}
-
-function pdfColorToCss(color?: ReturnType<typeof rgb>): string {
-  const c = (color ?? TEXT) as unknown as { red?: number; green?: number; blue?: number };
-  const toHex = (v = 0) => Math.max(0, Math.min(255, Math.round(v * 255))).toString(16).padStart(2, "0");
-  return `#${toHex(c.red)}${toHex(c.green)}${toHex(c.blue)}`;
-}
-
-function browserMeasureText(text: string, size: number, bold = false): number | null {
-  if (typeof document === "undefined") return null;
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.font = `${bold ? 700 : 400} ${size}px "PeiTravelPdfNoto", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif`;
-  return ctx.measureText(text).width;
-}
-
-async function measurePdfText(text: string, font: PDFFont, size: number, bold = false): Promise<number> {
-  await ensurePdfCanvasFonts();
-  const measured = browserMeasureText(text, size, bold);
-  if (measured !== null) return measured;
-  try { return font.widthOfTextAtSize(text, size); } catch { return Array.from(text).length * size * 0.62; }
-}
-
-async function drawPdfText(
-  doc: PDFDocument,
-  page: PDFPage,
-  text: string,
-  opts: { x: number; y: number; size: number; font: PDFFont; color?: ReturnType<typeof rgb>; bold?: boolean; forceImage?: boolean },
-): Promise<number> {
-  if (!text) return 0;
-  await ensurePdfCanvasFonts();
-  const needsImage = opts.forceImage || /[^\x20-\x7e]/.test(text);
-  if (typeof document !== "undefined" && needsImage) {
-    const scale = 3;
-    const measured = browserMeasureText(text, opts.size, opts.bold) ?? Array.from(text).length * opts.size * 0.62;
-    const widthPt = Math.ceil(measured + 6);
-    const heightPt = Math.ceil(opts.size * 1.45);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.ceil(widthPt * scale));
-    canvas.height = Math.max(1, Math.ceil(heightPt * scale));
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.scale(scale, scale);
-      ctx.clearRect(0, 0, widthPt, heightPt);
-      ctx.font = `${opts.bold ? 700 : 400} ${opts.size}px "PeiTravelPdfNoto", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif`;
-      ctx.fillStyle = pdfColorToCss(opts.color);
-      ctx.textBaseline = "alphabetic";
-      ctx.fillText(text, 2, opts.size + 1);
+  } finally {
+    if (canvas) {
       try {
-        const img = await withTimeout(doc.embedPng(canvas.toDataURL("image/png")), IMAGE_EMBED_TIMEOUT_MS, "text image embed");
-        page.drawImage(img, { x: opts.x, y: opts.y - (heightPt - opts.size), width: widthPt, height: heightPt });
-        return widthPt;
-      } catch (e) {
-        console.warn("[pdf-export] text image embed failed; falling back to font text", { text, error: e });
-      }
-    }
-  }
-  safeDrawText(page, text, { x: opts.x, y: opts.y, size: opts.size, font: opts.font, color: opts.color });
-  return measurePdfText(text, opts.font, opts.size, opts.bold);
-}
-
-function wrapByWidth(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-  const lines: string[] = [];
-  for (const para of (text ?? "").split("\n")) {
-    if (!para) {
-      lines.push("");
-      continue;
-    }
-    let cur = "";
-    let curW = 0;
-    for (const ch of Array.from(para)) {
-      let w = size * 0.6;
-      try {
-        w = font.widthOfTextAtSize(ch, size);
+        canvas.width = 0;
+        canvas.height = 0;
       } catch {
-        w = /[\x20-\x7e]/.test(ch) ? size * 0.55 : size;
-      }
-      if (curW + w > maxWidth && cur) {
-        lines.push(cur);
-        cur = ch;
-        curW = w;
-      } else {
-        cur += ch;
-        curW += w;
+        /* ignore */
       }
     }
-    if (cur) lines.push(cur);
   }
-  return lines;
+}
+
+// ---------- Link rects (for map-link annotations) ----------
+interface LinkRect {
+  url: string;
+  /** Fractions of nodeCssHeight / nodeCssWidth. */
+  topPct: number;
+  bottomPct: number;
+  leftPct: number;
+  rightPct: number;
+}
+
+function collectLinkRects(node: HTMLElement): LinkRect[] {
+  const nodeRect = node.getBoundingClientRect();
+  const w = nodeRect.width || 1;
+  const h = nodeRect.height || 1;
+  return Array.from(node.querySelectorAll<HTMLElement>("[data-pdf-link]")).map((el) => {
+    const r = el.getBoundingClientRect();
+    return {
+      url: el.getAttribute("data-pdf-link") || "",
+      topPct: (r.top - nodeRect.top) / h,
+      bottomPct: (r.bottom - nodeRect.top) / h,
+      leftPct: (r.left - nodeRect.left) / w,
+      rightPct: (r.right - nodeRect.left) / w,
+    };
+  });
+}
+
+interface CardBound {
+  topPct: number;
+  bottomPct: number;
+}
+
+function collectCardBounds(node: HTMLElement): CardBound[] {
+  const nodeRect = node.getBoundingClientRect();
+  const h = nodeRect.height || 1;
+  return Array.from(node.querySelectorAll<HTMLElement>("[data-pdf-card]")).map((card) => {
+    const r = card.getBoundingClientRect();
+    return { topPct: (r.top - nodeRect.top) / h, bottomPct: (r.bottom - nodeRect.top) / h };
+  });
 }
 
 // ---------- Link annotation ----------
@@ -425,11 +225,7 @@ function addLinkAnnotation(
     Subtype: "Link",
     Rect: [x, y, x + width, y + height],
     Border: [0, 0, 0],
-    A: {
-      Type: "Action",
-      S: "URI",
-      URI: PDFString.of(url),
-    },
+    A: { Type: "Action", S: "URI", URI: PDFString.of(url) },
   });
   const linkRef = doc.context.register(linkDict);
   const existing = page.node.lookup(PDFName.of("Annots"), PDFArray);
@@ -441,348 +237,13 @@ function addLinkAnnotation(
   }
 }
 
-// ---------- Main export ----------
-export interface ExportOptions {
-  now?: Date;
-  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void;
-  /**
-   * DOM root rendered by PdfCaptureRoot. The exporter captures one node at a
-   * time, embeds it into the PDF immediately, and releases the canvas before
-   * moving on. Only ONE large canvas exists in memory at any moment.
-   *
-   * When null/undefined, the exporter falls back to the lightweight text PDF.
-   */
-  captureRoot?: HTMLElement | null;
-}
-
-// ---------- Sequential capture (one canvas in memory at a time) ----------
-interface CaptureResult { dataUrl: string; w: number; h: number }
-type Html2Canvas = typeof import("html2canvas-pro").default;
-
-let html2canvasPromise: Promise<Html2Canvas> | null = null;
-async function loadHtml2Canvas(): Promise<Html2Canvas> {
-  if (!html2canvasPromise) {
-    html2canvasPromise = withTimeout(
-      import("html2canvas-pro").then((m) => m.default),
-      8000,
-      "html2canvas-pro import",
-    );
-  }
-  return html2canvasPromise;
-}
-
-function captureProfile(): { scale: number; jpegQuality: number; isMobile: boolean } {
-  const isMobile =
-    typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  return { isMobile, scale: isMobile ? 0.6 : 2, jpegQuality: isMobile ? 0.5 : 0.85 };
-}
-
-async function captureSingleNode(
-  html2canvas: Html2Canvas,
-  node: HTMLElement,
-  scale: number,
-  jpegQuality: number,
-  label: string,
-): Promise<CaptureResult | null> {
-  const rect = node.getBoundingClientRect();
-  let canvas: HTMLCanvasElement | null = null;
-  try {
-    canvas = await withTimeout(
-      html2canvas(node, {
-        backgroundColor: "#ffffff",
-        scale,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        imageTimeout: 6000,
-        windowWidth: PDF_CAPTURE_WIDTH,
-        width: Math.ceil(node.scrollWidth || rect.width || PDF_CAPTURE_WIDTH),
-        height: Math.ceil(node.scrollHeight || rect.height || 1),
-        scrollX: 0,
-        scrollY: 0,
-      }),
-      HTML2CANVAS_TIMEOUT_MS,
-      label,
-    );
-    const dataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
-    const w = canvas.width;
-    const h = canvas.height;
-    return { dataUrl, w, h };
-  } catch (e) {
-    console.warn("[pdf-export] capture failed", label, e);
-    return null;
-  } finally {
-    // Release canvas memory immediately
-    if (canvas) {
-      try { canvas.width = 0; canvas.height = 0; } catch { /* ignore */ }
-    }
-  }
-}
-
-function collectCardBounds(node: HTMLElement): CapturedCardBounds[] {
-  const nodeRect = node.getBoundingClientRect();
-  return Array.from(node.querySelectorAll<HTMLElement>("[data-pdf-card]")).map((card) => {
-    const r = card.getBoundingClientRect();
-    return {
-      topPct: (r.top - nodeRect.top) / nodeRect.height,
-      bottomPct: (r.bottom - nodeRect.top) / nodeRect.height,
-    };
-  });
-}
-
-/** Yield to the event loop so memory can be reclaimed between heavy ops. */
-function yieldToLoop(): Promise<void> {
-  return new Promise((r) => setTimeout(r, 0));
-}
-
-export async function exportProjectToPdf(
-  project: TravelProject,
-  opts: ExportOptions,
-): Promise<Uint8Array> {
-  console.info("[pdf-export] PDF snapshot export start", {
-    projectId: project.id,
-    projectName: project.name,
-    hasCaptureRoot: !!opts.captureRoot,
-  });
-  if (opts.captureRoot) {
-    try {
-      return await buildPdfBytes(project, opts);
-    } catch (e) {
-      console.warn(
-        "[pdf-export] PDF snapshot export failed, switching to lightweight text PDF",
-        e,
-      );
-      opts.onWarning?.("day-snapshot-skipped", e);
-    }
-  } else {
-    console.warn(
-      "[pdf-export] PDF snapshot export failed, switching to lightweight text PDF",
-      "no capture root",
-    );
-  }
-  try {
-    return await buildLightweightPdfBytes(project, opts);
-  } catch (e) {
-    console.error("[pdf-export] create pdf fail", { error: e });
-    throw e;
-  }
-}
-
-// ---------- Lightweight text-only fallback ----------
-// Designed for maximum reliability: no images, no canvas-PNG text, no link
-// annotations. Even very large itineraries (20 days) export successfully.
-async function buildLightweightPdfBytes(
-  project: TravelProject,
-  opts: ExportOptions,
-): Promise<Uint8Array> {
-  console.info("[pdf-export] PDF lightweight export start", {
-    projectId: project.id,
-    days: project.itinerary?.length ?? 0,
-  });
-  const doc = await PDFDocument.create();
-  doc.registerFontkit(fontkit);
-  const { font, fontBold, fallback } = await embedPdfFonts(doc, opts.onWarning);
-  // When the embedded font is Helvetica (CJK font failed to load), we MUST
-  // route non-ASCII text through the canvas-PNG path or the PDF shows
-  // garbled glyphs. ASCII still uses safeDrawText for speed.
-  const useImageForNonAscii = fallback;
-  const hasNonAscii = (t: string) => /[^\x20-\x7e]/.test(t);
-
-  const lineH = 14;
-  const headerH = 22;
-  const itemGap = 6;
-  let page = doc.addPage([PAGE_W, PAGE_H]);
-  let y = PAGE_H - MARGIN;
-
-  const ensureSpace = (needed: number) => {
-    if (y - needed < MARGIN) {
-      page = doc.addPage([PAGE_W, PAGE_H]);
-      y = PAGE_H - MARGIN;
-    }
-  };
-
-  const drawLine = async (
-    text: string,
-    size: number,
-    f: PDFFont,
-    color: ReturnType<typeof rgb>,
-    indent = 0,
-    bold = false,
-  ) => {
-    if (!text) return;
-    const maxW = CONTENT_W - indent;
-    const lines = wrapByWidth(text, f, size, maxW);
-    for (const line of lines) {
-      ensureSpace(size + 4);
-      if (useImageForNonAscii && hasNonAscii(line)) {
-        await drawPdfText(doc, page, line, {
-          x: MARGIN + indent, y: y - size, size, font: f, color, bold, forceImage: true,
-        });
-      } else {
-        safeDrawText(page, line, { x: MARGIN + indent, y: y - size, size, font: f, color });
-      }
-      y -= size + 4;
-    }
-  };
-
-  // Trip header
-  await drawLine(project.name || "Trip", 20, fontBold, PRIMARY, 0, true);
-  y -= 4;
-  const sd = safeDate(project.startDate);
-  const ed = safeDate(project.endDate);
-  let totalDays = Array.isArray(project.itinerary) ? project.itinerary.length : 0;
-  if (sd && ed) {
-    totalDays = Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1;
-    await drawLine(`${fmtDateYMD(sd)}  -  ${fmtDateYMD(ed)}`, 12, font, MUTED);
-  }
-  await drawLine(`Total Days: ${totalDays}`, 12, font, MUTED);
-  y -= 10;
-
-  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
-  for (const day of itinerary) {
-    ensureSpace(headerH + lineH);
-    y -= 4;
-    await drawLine(`Day ${day.dayNumber}`, 16, fontBold, PRIMARY, 0, true);
-    const items = Array.isArray(day.items) ? day.items : [];
-    if (items.length === 0) {
-      await drawLine("(no items)", 11, font, MUTED, 12);
-      continue;
-    }
-    const sorted = [...items].sort((a, b) =>
-      (a.startTime || "").localeCompare(b.startTime || ""),
-    );
-    for (const item of sorted) {
-      const source = item as ItineraryItem & {
-        title?: unknown;
-        name?: unknown;
-        map_url?: unknown;
-        location_url?: unknown;
-        notes?: unknown;
-        description?: unknown;
-      };
-      const time = item.startTime ? `${item.startTime}  ` : "";
-      const title =
-        String(source.title || source.name || source.description || "").trim() ||
-        "(untitled)";
-      await drawLine(`- ${time}${title}`, 12, fontBold, TEXT, 8, true);
-      const notes = String(source.notes || "").trim();
-      if (notes) await drawLine(`Notes: ${notes}`, 11, font, TEXT, 20);
-      if (item.price && item.price > 0) {
-        await drawLine(`Cost: $${item.price.toLocaleString()}`, 11, font, MUTED, 20);
-      }
-      const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
-      const mapUrl = sanitizeMapUrl(rawUrl) || rawUrl;
-      if (mapUrl) await drawLine(`Map: ${mapUrl}`, 10, font, MUTED, 20);
-      y -= itemGap;
-    }
-    // Yield between days so the UI can breathe during very long fallback exports
-    await yieldToLoop();
-  }
-
-  console.info("[pdf-export] PDF save start", { mode: "lightweight" });
-  const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
-  console.info("[pdf-export] PDF save done", { mode: "lightweight", bytes: bytes.length });
-  return bytes;
-}
-
-
-async function buildPdfBytes(project: TravelProject, opts: ExportOptions): Promise<Uint8Array> {
-  console.info("pdf create start");
-  const doc = await PDFDocument.create();
-  doc.registerFontkit(fontkit);
-  const { font, fontBold } = await embedPdfFonts(doc, opts.onWarning);
-
-  const root = opts.captureRoot;
-  if (!root) throw new Error("captureRoot missing");
-
-  const html2canvas = await loadHtml2Canvas();
-  const profile = captureProfile();
-  console.info("[pdf-export] capture profile", profile);
-
-  // ===== Cover (capture → embed → page → release) =====
-  const coverNode = root.querySelector<HTMLElement>("[data-pdf-cover]");
-  let coverDrawn = false;
-  if (coverNode) {
-    const shot = await captureSingleNode(html2canvas, coverNode, profile.scale, profile.jpegQuality, "capture cover");
-    if (shot) {
-      try {
-        await drawCoverSnapshotPage(doc, {
-          dataUrl: shot.dataUrl, widthPx: shot.w, heightPx: shot.h,
-        }, opts.onWarning);
-        coverDrawn = true;
-      } catch (e) {
-        console.warn("[pdf-export] cover snapshot embed failed; using programmatic cover", e);
-      }
-    }
-    // Drop reference so the base64 string can be GC'd before next capture
-    if (shot) (shot as { dataUrl: string }).dataUrl = "";
-    await yieldToLoop();
-  }
-  if (!coverDrawn) {
-    await drawCover(doc, font, fontBold, project, opts.now ?? new Date(), opts.onWarning);
-  }
-
-  // ===== One Day at a time: capture → embed → page → release → yield =====
-  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
-  const dayNodes = Array.from(root.querySelectorAll<HTMLElement>("[data-pdf-day]"));
-  console.info("[pdf-export] day nodes", { count: dayNodes.length });
-  for (const node of dayNodes) {
-    const dayNumber = Number(node.dataset.pdfDay);
-    const date = node.dataset.pdfDate || "";
-    const dayData = itinerary.find((d) => d.dayNumber === dayNumber);
-    const cardBounds = collectCardBounds(node);
-
-    const shot = await captureSingleNode(
-      html2canvas,
-      node,
-      profile.scale,
-      profile.jpegQuality,
-      `capture day${dayNumber}`,
-    );
-    try {
-      if (!shot) throw new Error("snapshot capture failed");
-      const cap: CapturedDay = {
-        dayNumber, date,
-        dataUrl: shot.dataUrl,
-        widthPx: shot.w, heightPx: shot.h,
-        cardBounds,
-      };
-      console.info(`[pdf-export] day${dayNumber} canvas`, {
-        width: shot.w, height: shot.h, fileSizeKb: Math.round(shot.dataUrl.length / 1024),
-      });
-      await drawDaySnapshotPage(doc, cap, font, fontBold, dayData, opts.onWarning);
-      // Release the base64 reference held by `cap` and `shot`
-      cap.dataUrl = "";
-    } catch (e) {
-      console.warn("[pdf-export] day render failed; inserting fallback page", { day: dayNumber, error: e });
-      opts.onWarning?.("day-snapshot-skipped", { day: dayNumber, error: e });
-      await drawDayFallbackPage(doc, font, fontBold, dayNumber, dayData);
-    } finally {
-      if (shot) (shot as { dataUrl: string }).dataUrl = "";
-    }
-    await yieldToLoop();
-  }
-
-  // ===== Closing page =====
-  await drawEndPage(doc, font, fontBold);
-
-  console.info("[pdf-export] PDF save start", { mode: "snapshot" });
-  const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
-  console.info("[pdf-export] PDF save done", { mode: "snapshot", bytes: bytes.length, pages: doc.getPageCount() });
-  return bytes;
-}
-
-/** Internal smoke-test hook for generating a deterministic PDF preview in Vitest/QA. */
-export async function __debugBuildPdfBytes(project: TravelProject, opts: ExportOptions): Promise<Uint8Array> {
-  return buildPdfBytes(project, opts);
-}
-
-// ---------- Cover from snapshot ----------
-async function drawCoverSnapshotPage(
+// ---------- Place captured node into PDF (slice if too tall) ----------
+async function placeCapturedNode(
   doc: PDFDocument,
-  cap: { dataUrl: string; widthPx: number; heightPx: number },
-  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
-) {
+  cap: CaptureResult,
+  cardBounds: CardBound[],
+  linkRects: LinkRect[],
+): Promise<void> {
   const base64 = cap.dataUrl.split(",")[1] || "";
   const bin = atob(base64);
   const bytes = new Uint8Array(bin.length);
@@ -791,448 +252,240 @@ async function drawCoverSnapshotPage(
   const img = await withTimeout(
     isPng ? doc.embedPng(bytes) : doc.embedJpg(bytes),
     IMAGE_EMBED_TIMEOUT_MS,
-    "cover snapshot embed",
+    "node snapshot embed",
   );
-  const page = doc.addPage([PAGE_W, PAGE_H]);
-  // Top accent
-  page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
-  // Fit cover image into content area, centred, preserving aspect
-  const ratio = img.width / img.height;
-  let drawW = CONTENT_W;
-  let drawH = drawW / ratio;
-  const maxH = PAGE_H - MARGIN * 2 - 18;
-  if (drawH > maxH) {
-    drawH = maxH;
-    drawW = drawH * ratio;
-  }
-  const x = (PAGE_W - drawW) / 2;
-  const yBottom = (PAGE_H - drawH) / 2;
-  page.drawImage(img, { x, y: yBottom, width: drawW, height: drawH });
-  void onWarning;
-}
 
-// ---------- App logo (end page) ----------
-let endLogoBytes: ArrayBuffer | null = null;
-async function loadEndLogo(): Promise<ArrayBuffer | null> {
-  if (endLogoBytes) return endLogoBytes;
-  try {
-    const url = `${import.meta.env.BASE_URL}pdf-app-logo.png`;
-    const res = await fetch(url, { cache: "force-cache" });
-    if (!res.ok) return null;
-    endLogoBytes = await res.arrayBuffer();
-    return endLogoBytes;
-  } catch (e) {
-    console.warn("[pdf-export] end logo load failed", e);
-    return null;
-  }
-}
+  const imgRatio = img.width / img.height;
+  const drawW = CONTENT_W;
+  const drawH = drawW / imgRatio;
 
-// ---------- Closing page ----------
-async function drawEndPage(doc: PDFDocument, font: PDFFont, fontBold: PDFFont) {
-  const page = doc.addPage([PAGE_W, PAGE_H]);
-
-  const line1 = "🎉  旅途順利";
-  const line2 = "此行程由 PeiTravel App 匯出完成";
-  const wordmark = "PeiTravel";
-  const size1 = 18;
-  const size2 = 14;
-  const sizeWord = 12;
-  const logoSize = 44;
-  const gap1 = 18;  // line1 -> line2
-  const gap2 = 60;  // line2 -> logo
-  const gap3 = 12;  // logo -> wordmark
-
-  const totalH = size1 + gap1 + size2 + gap2 + logoSize + gap3 + sizeWord;
-  let y = PAGE_H / 2 + totalH / 2;
-
-  const drawCentred = async (text: string, size: number, f: PDFFont, color: ReturnType<typeof rgb>, bold = false) => {
-    const w = await measurePdfText(text, f, size, bold);
-    await drawPdfText(doc, page, text, { x: (PAGE_W - w) / 2, y: y - size, size, font: f, color, bold, forceImage: true });
-    y -= size;
-  };
-
-  await drawCentred(line1, size1, fontBold, rgb(0.27, 0.30, 0.38), true);
-  y -= gap1;
-  await drawCentred(line2, size2, font, rgb(0.55, 0.60, 0.68));
-  y -= gap2;
-
-  // Logo (small)
-  const logoBytes = await loadEndLogo();
-  if (logoBytes) {
-    try {
-      const img = await withTimeout(doc.embedPng(logoBytes), IMAGE_EMBED_TIMEOUT_MS, "end logo embed");
-      page.drawImage(img, {
-        x: (PAGE_W - logoSize) / 2,
-        y: y - logoSize,
-        width: logoSize,
-        height: logoSize,
-      });
-    } catch (e) {
-      console.warn("[pdf-export] end logo embed failed", e);
+  if (drawH <= CONTENT_H) {
+    // Fits on one page.
+    const page = doc.addPage([PAGE_W, PAGE_H]);
+    const x = MARGIN;
+    const yBottom = (PAGE_H - MARGIN) - drawH;
+    page.drawImage(img, { x, y: yBottom, width: drawW, height: drawH });
+    // Link annotations
+    for (const lr of linkRects) {
+      const lx = x + lr.leftPct * drawW;
+      const lw = (lr.rightPct - lr.leftPct) * drawW;
+      const lTopOnImage = lr.topPct * drawH;
+      const lBotOnImage = lr.bottomPct * drawH;
+      const ly = (PAGE_H - MARGIN) - lBotOnImage;
+      const lh = lBotOnImage - lTopOnImage;
+      addLinkAnnotation(page, lr.url, lx, ly, lw, lh);
     }
+    return;
   }
-  y -= logoSize + gap3;
-  await drawCentred(wordmark, sizeWord, fontBold, rgb(0.60, 0.65, 0.72), true);
-}
 
-// ---------- Map links section ----------
-interface DayMapLink {
-  title: string;        // may contain '\n' — preserve user formatting
-  url: string;
-  label: string;        // provider, used only for button text
-}
+  // Slice into multiple A4 pages, preferring breaks between cards.
+  const slices: Array<{ start: number; end: number }> = [];
+  const minUsefulSlice = CONTENT_H * 0.35;
+  const bounds = cardBounds
+    .map((b) => ({ top: b.topPct * drawH, bottom: b.bottomPct * drawH }))
+    .filter((b) => Number.isFinite(b.top) && Number.isFinite(b.bottom) && b.bottom > b.top)
+    .sort((a, b) => a.top - b.top);
 
-function getMapButtonText(provider: string): string {
-  return provider === "高德地圖" ? "開啟高德地圖 ↗" : `開啟 ${provider} ↗`;
-}
-
-function collectDayMapLinks(day: DayItinerary | undefined): DayMapLink[] {
-  if (!day || !Array.isArray(day.items)) return [];
-  const links: DayMapLink[] = [];
-  for (const item of day.items) {
-    const source = item as ItineraryItem & { title?: unknown; name?: unknown; map_url?: unknown; location_url?: unknown };
-    const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
-    const url = sanitizeMapUrl(rawUrl);
-    if (!url) continue;
-    // Preserve user's full title verbatim, including line breaks (CJK / KR / JP).
-    const rawTitle = String(source.title || source.name || item.description || "").replace(/\s+$/g, "");
-    const title = rawTitle || "景點連結";
-    links.push({ title, url, label: getMapProviderLabel(url) });
-  }
-  return links;
-}
-
-async function drawMapLinksSection(
-  doc: PDFDocument,
-  font: PDFFont,
-  fontBold: PDFFont,
-  dayNumber: number,
-  links: DayMapLink[],
-) {
-  if (links.length === 0) return;
-
-  // Layout constants
-  const cardPad = 16;
-  const titleSize = 13;
-  const titleLineH = 18;
-  const titleToButton = 12;
-  const buttonSize = 11;
-  const buttonH = 30;
-  const cardGap = 12;
-  const headerH = 52;
-  const pinSize = titleSize + 1;
-  const pinGap = 6;
-
-  const startNewPage = async (continuation: boolean): Promise<{ page: PDFPage; y: number }> => {
-    const p = doc.addPage([PAGE_W, PAGE_H]);
-    p.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
-    await drawPdfText(doc, p, `Day ${dayNumber}｜導航連結${continuation ? "（續）" : ""}`, {
-      x: MARGIN, y: PAGE_H - MARGIN - 14, size: 17, font: fontBold, color: PRIMARY, bold: true, forceImage: true,
-    });
-    await drawPdfText(doc, p, "點擊卡片即可開啟導航", {
-      x: MARGIN, y: PAGE_H - MARGIN - 34, size: 11, font, color: MUTED, forceImage: true,
-    });
-    return { page: p, y: PAGE_H - MARGIN - headerH };
-  };
-
-  let { page, y } = await startNewPage(false);
-
-  for (const link of links) {
-    const titleLines = link.title.split("\n");
-    const titleBlockH = titleLines.length * titleLineH;
-    const cardH = cardPad + titleBlockH + titleToButton + buttonH + cardPad;
-
-    if (y - cardH < MARGIN + 20) {
-      const next = await startNewPage(true);
-      page = next.page;
-      y = next.y;
+  let s = 0;
+  while (s < drawH - 1) {
+    let e = Math.min(s + CONTENT_H, drawH);
+    if (e < drawH) {
+      const crossing = bounds.find((b) => b.top < e && b.bottom > e);
+      if (crossing && crossing.top - s >= minUsefulSlice) {
+        e = crossing.top;
+      }
     }
-    const cardTop = y;
-    const cardBottom = y - cardH;
+    if (e <= s + 8) e = Math.min(s + CONTENT_H, drawH);
+    slices.push({ start: s, end: e });
+    s = e;
+  }
 
-    // Card background
+  for (let i = 0; i < slices.length; i++) {
+    const slice = slices[i];
+    const page = doc.addPage([PAGE_W, PAGE_H]);
+    const visibleH = slice.end - slice.start;
+    const x = MARGIN;
+    // Position the full scaled image so that slice.start of image aligns with page top.
+    const imageBottomY = (PAGE_H - MARGIN) + slice.start - drawH;
+    page.drawImage(img, { x, y: imageBottomY, width: drawW, height: drawH });
+    // Mask outside slice.
+    page.drawRectangle({ x: 0, y: PAGE_H - MARGIN, width: PAGE_W, height: MARGIN, color: rgb(1, 1, 1) });
     page.drawRectangle({
-      x: MARGIN, y: cardBottom, width: CONTENT_W, height: cardH,
-      color: rgb(0.97, 0.98, 1),
-      borderColor: rgb(0.84, 0.9, 0.97),
-      borderWidth: 0.8,
-    });
-
-    // 📍 pin (rendered via canvas-PNG so it appears on every platform)
-    const pinY = cardTop - cardPad - titleSize + 1;
-    await drawPdfText(doc, page, "📍", {
-      x: MARGIN + cardPad,
-      y: pinY,
-      size: pinSize,
-      font: fontBold,
-      color: TEXT,
-      bold: true,
-      forceImage: true,
-    });
-
-    // Title — preserve user line breaks verbatim
-    const titleX = MARGIN + cardPad + pinSize + pinGap;
-    let lineY = cardTop - cardPad - titleSize + 2;
-    for (const line of titleLines) {
-      await drawPdfText(doc, page, line, {
-        x: titleX,
-        y: lineY,
-        size: titleSize,
-        font: fontBold,
-        color: TEXT,
-        bold: true,
-        forceImage: true,
-      });
-      lineY -= titleLineH;
-    }
-
-    // CTA button (single line, provider in button text only)
-    const buttonText = getMapButtonText(link.label);
-    const textW = await measurePdfText(buttonText, fontBold, buttonSize, true);
-    const btnW = Math.min(CONTENT_W - cardPad * 2, textW + 36);
-    const btnX = MARGIN + cardPad;
-    const btnY = cardBottom + cardPad;
-    page.drawRectangle({ x: btnX, y: btnY, width: btnW, height: buttonH, color: PRIMARY });
-    await drawPdfText(doc, page, buttonText, {
-      x: btnX + (btnW - textW) / 2,
-      y: btnY + (buttonH - buttonSize) / 2 + 2,
-      size: buttonSize,
-      font: fontBold,
+      x: 0,
+      y: 0,
+      width: PAGE_W,
+      height: PAGE_H - MARGIN - visibleH,
       color: rgb(1, 1, 1),
-      bold: true,
-      forceImage: true,
     });
-    addLinkAnnotation(page, link.url, btnX, btnY, btnW, buttonH);
-    // Whole card is clickable
-    addLinkAnnotation(page, link.url, MARGIN, cardBottom, CONTENT_W, cardH);
-
-    y = cardBottom - cardGap;
+    // Link annotations within this slice
+    for (const lr of linkRects) {
+      const lTopOnImage = lr.topPct * drawH;
+      const lBotOnImage = lr.bottomPct * drawH;
+      const linkMid = (lTopOnImage + lBotOnImage) / 2;
+      if (linkMid < slice.start || linkMid > slice.end) continue;
+      const clippedTop = Math.max(lTopOnImage, slice.start);
+      const clippedBot = Math.min(lBotOnImage, slice.end);
+      const lx = x + lr.leftPct * drawW;
+      const lw = (lr.rightPct - lr.leftPct) * drawW;
+      const ly = (PAGE_H - MARGIN) - (clippedBot - slice.start);
+      const lh = clippedBot - clippedTop;
+      addLinkAnnotation(page, lr.url, lx, ly, lw, lh);
+    }
   }
 }
 
-// ---------- Day fallback (snapshot failed) ----------
-async function drawDayFallbackPage(
-  doc: PDFDocument,
-  font: PDFFont,
-  fontBold: PDFFont,
-  dayNumber: number,
-  day: DayItinerary | undefined,
-) {
-  const page = doc.addPage([PAGE_W, PAGE_H]);
-  safeDrawText(page, `Day ${dayNumber}`, {
-    x: MARGIN, y: PAGE_H - MARGIN - 24, size: 22, font: fontBold, color: PRIMARY,
-  });
-  safeDrawText(page, "此天畫面匯出失敗，請回 App 查看完整內容。", {
-    x: MARGIN, y: PAGE_H - MARGIN - 56, size: 12, font, color: MUTED,
-  });
-  // Still show map links so user gets value
-  const links = collectDayMapLinks(day);
-  if (links.length > 0) {
-      await drawMapLinksSection(doc, font, fontBold, dayNumber, links);
-  }
-}
-
-// ---------- Cover ----------
-async function drawCover(
-  doc: PDFDocument,
-  font: PDFFont,
-  fontBold: PDFFont,
+// ---------- Main export ----------
+export async function exportProjectToPdf(
   project: TravelProject,
-  now: Date,
-  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
-) {
-  const page = doc.addPage([PAGE_W, PAGE_H]);
-
-  // Top accent bar
-  page.drawRectangle({ x: 0, y: PAGE_H - 6, width: PAGE_W, height: 6, color: PRIMARY });
-
-  let y = PAGE_H - 56;
-
-  safeDrawText(page, "PeiTravel", {
-    x: MARGIN, y, size: 13, font: fontBold, color: PRIMARY,
+  opts: ExportOptions,
+): Promise<Uint8Array> {
+  console.info("[pdf-export] PDF snapshot export start", {
+    projectId: project.id,
+    hasCaptureRoot: !!opts.captureRoot,
   });
-  y -= 28;
+  const root = opts.captureRoot;
+  if (!root) throw new Error("PDF export requires captureRoot DOM element");
 
-  // Title
-  const titleLines = wrapByWidth(project.name || "未命名行程", fontBold, 26, CONTENT_W);
-  for (const line of titleLines.slice(0, 3)) {
-    safeDrawText(page, line, { x: MARGIN, y, size: 26, font: fontBold, color: TEXT });
-    y -= 34;
-  }
-  y -= 4;
+  const doc = await PDFDocument.create();
+  const html2canvas = await loadHtml2Canvas();
+  const profile = captureProfile();
+  console.info("[pdf-export] capture profile", profile);
 
-  // Date range
-  const sd = safeDate(project.startDate);
-  const ed = safeDate(project.endDate);
-  let days = 0;
-  if (sd && ed) {
-    days = Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1;
-    safeDrawText(page, `${fmtDateYMD(sd)}  ─  ${fmtDateYMD(ed)}`, {
-      x: MARGIN, y, size: 13, font, color: MUTED,
-    });
-    y -= 22;
-  }
+  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
+  const totalDays = itinerary.length;
 
-  // Cover image
-  if (project.coverImageUrl) {
-    const img = await loadImage(project.coverImageUrl, onWarning);
-    if (img) {
+  // ---- 1. Cover ----
+  opts.onProgress?.({ stage: "cover" });
+  const coverNode = root.querySelector<HTMLElement>("[data-pdf-cover]");
+  if (coverNode) {
+    const shot = await captureNode(html2canvas, coverNode, profile.scale, profile.jpegQuality, "capture cover");
+    if (shot) {
       try {
-        const embedded = await withTimeout(
-          img.type === "png" ? doc.embedPng(img.bytes) : doc.embedJpg(img.bytes),
-          IMAGE_EMBED_TIMEOUT_MS,
-          "cover embed",
-        );
-        const maxH = 280;
-        const maxW = CONTENT_W;
-        const ratio = embedded.width / embedded.height;
-        let w = maxW;
-        let h = w / ratio;
-        if (h > maxH) {
-          h = maxH;
-          w = h * ratio;
-        }
-        const x = MARGIN + (CONTENT_W - w) / 2;
-        page.drawImage(embedded, { x, y: y - h, width: w, height: h });
-        y -= h + 22;
+        await placeCapturedNode(doc, shot, [], []);
       } catch (e) {
         console.warn("[pdf-export] cover embed failed", e);
-        onWarning?.("image-skipped", e);
+        opts.onWarning?.("section-skipped", { section: "cover", error: e });
       }
+      shot.dataUrl = "";
+    } else {
+      opts.onWarning?.("section-skipped", { section: "cover" });
     }
+    await yieldToLoop();
   }
 
-  // Stats
-  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
-  const allItems = itinerary.flatMap((d) => (Array.isArray(d?.items) ? d.items : []));
-  const totalPerPerson = allItems.reduce((s, i) => s + perPerson(i), 0);
-  const totalRaw = allItems.reduce((s, i) => s + (i.price ?? 0), 0);
-  // maxPersons intentionally not shown on cover
-
-  const stats: Array<[string, string]> = [
-    ["總天數", `${days} 天`],
-    ["行程數", `${allItems.length} 項`],
-    ["總花費", `$${totalRaw.toLocaleString()}`],
-    ["單人總花費", `$${totalPerPerson.toLocaleString()}`],
-    ["匯出日期", fmtDateYMD(now)],
-  ];
-  const lineH = 20;
-  const boxH = stats.length * lineH + 18;
-  // Keep stats above bottom margin
-  if (y - boxH < MARGIN + 24) y = MARGIN + 24 + boxH;
-  page.drawRectangle({
-    x: MARGIN, y: y - boxH, width: CONTENT_W, height: boxH, color: PRIMARY_LIGHT,
-  });
-  let ty = y - 20;
-  for (const [k, v] of stats) {
-    safeDrawText(page, k, { x: MARGIN + 18, y: ty, size: 11.5, font, color: MUTED });
-    safeDrawText(page, v, { x: MARGIN + 130, y: ty, size: 12, font: fontBold, color: TEXT });
-    ty -= lineH;
+  // ---- 2. Overview ----
+  opts.onProgress?.({ stage: "overview" });
+  const overviewNode = root.querySelector<HTMLElement>("[data-pdf-overview]");
+  if (overviewNode) {
+    const cards = collectCardBounds(overviewNode);
+    const shot = await captureNode(html2canvas, overviewNode, profile.scale, profile.jpegQuality, "capture overview");
+    if (shot) {
+      try {
+        await placeCapturedNode(doc, shot, cards, []);
+      } catch (e) {
+        console.warn("[pdf-export] overview embed failed", e);
+        opts.onWarning?.("section-skipped", { section: "overview", error: e });
+      }
+      shot.dataUrl = "";
+    }
+    await yieldToLoop();
   }
 
-  safeDrawText(page, "由 PeiTravel 產生", {
-    x: MARGIN, y: 18, size: 9, font, color: MUTED,
-  });
-}
-
-// ---------- Day snapshot page ----------
-async function drawDaySnapshotPage(
-  doc: PDFDocument,
-  cap: CapturedDay,
-  font: PDFFont,
-  fontBold: PDFFont,
-  dayData: DayItinerary | undefined,
-  onWarning?: (warning: PdfExportWarning, detail?: unknown) => void,
-) {
-  // Parse data URL → bytes
-  const base64 = cap.dataUrl.split(",")[1] || "";
-  const bin = atob(base64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const isPng = cap.dataUrl.startsWith("data:image/png");
-
-  let img;
-  try {
-    img = await withTimeout(
-      isPng ? doc.embedPng(bytes) : doc.embedJpg(bytes),
-      IMAGE_EMBED_TIMEOUT_MS,
-      "day snapshot embed",
+  // ---- 3. Days (sequential) ----
+  const dayNodes = Array.from(root.querySelectorAll<HTMLElement>("[data-pdf-day]"));
+  for (let i = 0; i < dayNodes.length; i++) {
+    const node = dayNodes[i];
+    const dayNumber = Number(node.dataset.pdfDay);
+    opts.onProgress?.({ stage: "day", dayIndex: i + 1, totalDays });
+    const cards = collectCardBounds(node);
+    const shot = await captureNode(
+      html2canvas,
+      node,
+      profile.scale,
+      profile.jpegQuality,
+      `capture day${dayNumber}`,
     );
-  } catch (e) {
-    console.warn("[pdf-export] day snapshot embed failed", { day: cap.dayNumber, error: e });
-    onWarning?.("day-snapshot-skipped", e);
-    throw e;
-  }
-
-  // Fit into content area preserving aspect.
-  const imgRatio = img.width / img.height; // w/h
-  let drawW = CONTENT_W;
-  let drawH = drawW / imgRatio;
-  if (drawH <= CONTENT_H) {
-    // Fits on one page
-    const x = MARGIN + (CONTENT_W - drawW) / 2;
-    const yTop = PAGE_H - MARGIN;
-    const yBottom = yTop - drawH;
-    const page = doc.addPage([PAGE_W, PAGE_H]);
-    page.drawImage(img, { x, y: yBottom, width: drawW, height: drawH });
-  } else {
-    // Image is taller than one page — split into vertical slices, one page each.
-    // Prefer page breaks between itinerary cards when PdfCaptureRoot provides bounds.
-    const sliceBreaks: Array<{ start: number; end: number }> = [];
-    let start = 0;
-    const minUsefulSlice = CONTENT_H * 0.35;
-    const cardBounds = (cap.cardBounds ?? [])
-      .map((b) => ({ top: b.topPct * drawH, bottom: b.bottomPct * drawH }))
-      .filter((b) => Number.isFinite(b.top) && Number.isFinite(b.bottom) && b.bottom > b.top)
-      .sort((a, b) => a.top - b.top);
-
-    while (start < drawH - 1) {
-      let end = Math.min(start + CONTENT_H, drawH);
-      if (end < drawH) {
-        const crossing = cardBounds.find((b) => b.top < end && b.bottom > end);
-        if (crossing && crossing.top - start >= minUsefulSlice) {
-          end = crossing.top;
-        }
+    if (shot) {
+      try {
+        await placeCapturedNode(doc, shot, cards, []);
+      } catch (e) {
+        console.warn("[pdf-export] day embed failed", { day: dayNumber, error: e });
+        opts.onWarning?.("day-snapshot-skipped", { day: dayNumber, error: e });
+        await drawFallbackPage(doc, `Day ${dayNumber}`, "此天畫面匯出失敗，請回 App 查看完整內容。");
       }
-      if (end <= start + 8) end = Math.min(start + CONTENT_H, drawH);
-      sliceBreaks.push({ start, end });
-      start = end;
+      shot.dataUrl = "";
+    } else {
+      opts.onWarning?.("day-snapshot-skipped", { day: dayNumber });
+      await drawFallbackPage(doc, `Day ${dayNumber}`, "此天畫面匯出失敗，請回 App 查看完整內容。");
     }
-
-    for (let s = 0; s < sliceBreaks.length; s++) {
-      const slice = sliceBreaks[s];
-      const page = doc.addPage([PAGE_W, PAGE_H]);
-      const x = MARGIN + (CONTENT_W - drawW) / 2;
-      const visibleH = slice.end - slice.start;
-      const yTopOfSliceInImage = slice.start;
-      const imageBottomY = (PAGE_H - MARGIN) + yTopOfSliceInImage - drawH;
-      page.drawImage(img, { x, y: imageBottomY, width: drawW, height: drawH });
-      // Mask outside the intended content slice.
-      page.drawRectangle({ x: 0, y: PAGE_H - MARGIN, width: PAGE_W, height: MARGIN, color: rgb(1, 1, 1) });
-      page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H - MARGIN - visibleH, color: rgb(1, 1, 1) });
-      safeDrawText(page, `(${s + 1}/${sliceBreaks.length})`, {
-        x: PAGE_W - MARGIN - 30,
-        y: 14,
-        size: 8,
-        font,
-        color: MUTED,
-      });
-    }
+    await yieldToLoop();
   }
 
-  // Fixed map-links section (no DOM coordinate math, fully reliable)
-  const links = collectDayMapLinks(dayData);
-  if (links.length > 0) {
-    await drawMapLinksSection(doc, font, fontBold, cap.dayNumber, links);
+  // ---- 4. Map links (consolidated, with hyperlinks) ----
+  opts.onProgress?.({ stage: "maplinks" });
+  const linksNode = root.querySelector<HTMLElement>("[data-pdf-maplinks]");
+  if (linksNode) {
+    const cards = collectCardBounds(linksNode);
+    const links = collectLinkRects(linksNode);
+    const shot = await captureNode(html2canvas, linksNode, profile.scale, profile.jpegQuality, "capture maplinks");
+    if (shot) {
+      try {
+        await placeCapturedNode(doc, shot, cards, links);
+      } catch (e) {
+        console.warn("[pdf-export] maplinks embed failed", e);
+        opts.onWarning?.("section-skipped", { section: "maplinks", error: e });
+      }
+      shot.dataUrl = "";
+    }
+    await yieldToLoop();
   }
+
+  // ---- 5. End page ----
+  opts.onProgress?.({ stage: "end" });
+  const endNode = root.querySelector<HTMLElement>("[data-pdf-end]");
+  if (endNode) {
+    const shot = await captureNode(html2canvas, endNode, profile.scale, profile.jpegQuality, "capture end");
+    if (shot) {
+      try {
+        await placeCapturedNode(doc, shot, [], []);
+      } catch (e) {
+        console.warn("[pdf-export] end embed failed", e);
+        opts.onWarning?.("section-skipped", { section: "end", error: e });
+      }
+      shot.dataUrl = "";
+    }
+    await yieldToLoop();
+  }
+
+  console.info("[pdf-export] PDF save start", { pages: doc.getPageCount() });
+  const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
+  console.info("[pdf-export] PDF save done", { bytes: bytes.length, pages: doc.getPageCount() });
+  return bytes;
 }
 
+// ---------- Fallback (text-free) ----------
+// When a single Day capture fails we insert a minimal blank page so the rest
+// of the export still succeeds. No text drawing — only a coloured stripe so
+// users can see something happened and we never hit a CJK glyph issue.
+async function drawFallbackPage(doc: PDFDocument, _title: string, _msg: string): Promise<void> {
+  const page = doc.addPage([PAGE_W, PAGE_H]);
+  page.drawRectangle({ x: 0, y: PAGE_H - 6, width: PAGE_W, height: 6, color: rgb(0.008, 0.522, 0.78) });
+  // Subtle marker box so blank page is intentional, not a bug.
+  page.drawRectangle({
+    x: MARGIN,
+    y: PAGE_H / 2 - 20,
+    width: CONTENT_W,
+    height: 40,
+    color: rgb(0.95, 0.97, 1),
+    borderColor: rgb(0.84, 0.9, 0.97),
+    borderWidth: 0.8,
+  });
+}
 
 // ---------- Save / share ----------
 export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"shared" | "downloaded"> {
   const blob = new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
   const triggerDownload = () => {
-    console.info("download start", { filename, bytes: bytes.length });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1241,7 +494,6 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 4000);
-    console.info("download complete", { filename });
   };
 
   const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
@@ -1257,24 +509,18 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"
           share?: (data: { files?: File[]; title?: string }) => Promise<void>;
         };
         if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
-          console.info("share start", { mode: "web-share", filename, bytes: bytes.length });
           await withTimeout(nav.share({ files: [file], title: filename }), SHARE_TIMEOUT_MS, "navigator.share");
-          console.info("share success", { mode: "web-share" });
-          console.info("[pdf-export] share/download success", { mode: "web-share" });
           return "shared";
         }
       } catch (e) {
-        console.warn("share failed", e);
         console.warn("[pdf-export] web share fallback", e);
       }
     }
     triggerDownload();
-    console.info("[pdf-export] share/download success", { mode: "download" });
     return "downloaded";
   }
 
   try {
-    console.info("share start", { mode: "native", filename, bytes: bytes.length });
     const [{ Filesystem, Directory }, { Share }] = await Promise.all([
       import("@capacitor/filesystem"),
       import("@capacitor/share"),
@@ -1296,22 +542,14 @@ export async function deliverPdf(bytes: Uint8Array, filename: string): Promise<"
       "native PDF file write",
     );
     await withTimeout(
-      Share.share({
-        title: filename,
-        files: [writeResult.uri],
-        dialogTitle: filename,
-      }),
+      Share.share({ title: filename, files: [writeResult.uri], dialogTitle: filename }),
       SHARE_TIMEOUT_MS,
       "native share",
     );
-    console.info("share success", { mode: "native" });
-    console.info("[pdf-export] share/download success", { mode: "native-share" });
     return "shared";
   } catch (e) {
-    console.warn("share failed", e);
     console.warn("[pdf-export] share fallback", e);
   }
   triggerDownload();
-  console.info("[pdf-export] share/download success", { mode: "download(fallback)" });
   return "downloaded";
 }

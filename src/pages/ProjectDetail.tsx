@@ -108,8 +108,9 @@ function ProjectDetailInner() {
   const handleExportPdf = useCallback(async () => {
     if (exportingPdf || !project) return;
     setExportingPdf(true);
-    const loadingId = toast.loading(t("exportingPdf"));
-    let fontFallbackToastShown = false;
+    const baseMsg = t("exportingPdf");
+    const hint = "大型行程可能需要 1～3 分鐘，請保持 App 開啟並耐心等待";
+    const loadingId = toast.loading(`${baseMsg}\n${hint}`);
     let currentStep = "start";
     const logStep = (step: string, detail?: unknown) => {
       currentStep = step;
@@ -120,13 +121,14 @@ function ProjectDetailInner() {
       const captureTimeoutMs = Math.min(180000, 20000 + Math.max(1, project.itinerary?.length ?? 1) * 22000);
       let rootEl: HTMLElement | null = null;
       try {
-        rootEl = await withTimeout(captureRoot(), captureTimeoutMs, "Day capture");
+        rootEl = await withTimeout(captureRoot(), captureTimeoutMs, "Capture root");
         logStep("capture root ready");
       } catch (capErr) {
-        console.warn("[pdf-export] capture failed; will use lightweight text PDF", capErr);
-        logStep("capture failed (fallback to lightweight)", { error: String(capErr) });
+        console.error("[pdf-export] capture root failed", capErr);
+        logStep("capture root failed", { error: String(capErr) });
         captureResolverRef.current = null;
         setCapturingForPdf(false);
+        throw capErr;
       }
       logStep("pdf module import");
       const { exportProjectToPdf, deliverPdf, buildPdfFilename } = await withTimeout(
@@ -134,23 +136,25 @@ function ProjectDetailInner() {
         8000,
         "PDF module import",
       );
-      logStep("pdf create start", { mode: rootEl ? "snapshot" : "lightweight" });
+      logStep("pdf create start");
       const bytes = await withTimeout(
         exportProjectToPdf(project, {
           captureRoot: rootEl,
-          onWarning: (warning) => {
-            if (warning === "font-fallback" && !fontFallbackToastShown) {
-              fontFallbackToastShown = true;
-              toast.warning("字型載入較慢，已改用備援字型繼續產生 PDF");
-            }
+          onProgress: (p) => {
+            let msg = baseMsg;
+            if (p.stage === "cover") msg = "正在處理封面...";
+            else if (p.stage === "overview") msg = "正在處理行程總覽...";
+            else if (p.stage === "day" && p.dayIndex && p.totalDays) {
+              msg = `正在處理第 ${p.dayIndex} 天（共 ${p.totalDays} 天）`;
+            } else if (p.stage === "maplinks") msg = "正在處理導航連結...";
+            else if (p.stage === "end") msg = "正在收尾...";
+            toast.loading(`${msg}\n${hint}`, { id: loadingId });
           },
         }),
         200000,
         "PDF generation",
       );
       logStep("pdf create complete", { bytes: bytes.length });
-      // Filename date = trip's first day (NOT today). Use raw string when available
-      // to avoid timezone drift.
       const rawStart =
         (project as unknown as { start_date?: string }).start_date ??
         project.startDate;
@@ -168,15 +172,12 @@ function ProjectDetailInner() {
         stack: err.stack,
         error: e,
       });
-      console.error("[pdf-export] failed", e);
       toast.dismiss(loadingId);
       toast.error(t("exportPdfFailed"), {
-        description: `Step: ${currentStep}\nError Message: ${err.message}\nError Stack: ${err.stack ?? "N/A"}`,
+        description: `Step: ${currentStep}\nError: ${err.message}`,
         duration: 12000,
       });
     } finally {
-      console.info("[pdf-export] finally cleanup", { step: currentStep });
-      // Ensure capture root is unmounted even on failure
       if (captureResolverRef.current) {
         captureResolverRef.current = null;
       }
@@ -184,6 +185,7 @@ function ProjectDetailInner() {
       setExportingPdf(false);
     }
   }, [exportingPdf, project, t, captureRoot]);
+
 
 
 
@@ -809,9 +811,11 @@ function ProjectDetailInner() {
         <PdfCaptureRoot
           project={project}
           coverImageUrl={signedCoverImage}
+          endLogoUrl={`${import.meta.env.BASE_URL}pdf-app-logo.png`}
           onReady={(root, err) => captureResolverRef.current?.(root, err)}
         />
       )}
+
 
     </div>
   );

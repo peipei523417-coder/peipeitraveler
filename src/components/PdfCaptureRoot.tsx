@@ -1,30 +1,30 @@
 /**
  * Offscreen renderer used during PDF export.
  *
- * IMPORTANT: This component does NOT capture snapshots. It only mounts the
- * DOM (cover card + every Day) far off-screen, waits for fonts/images to
- * settle, then hands the root element back to the caller via onReady.
+ * Renders every PDF page as a DOM node so the exporter can html2canvas →
+ * JPEG → embed sequentially. NO text is drawn through pdf-lib — that means
+ * no font embedding, no CJK fallback, no encoding bugs.
  *
- * The PDF export module (`src/lib/pdf-export.ts`) walks the root and
- * captures one node at a time, embeds it into the PDF immediately, and
- * releases the canvas before moving on. This guarantees only ONE large
- * canvas/image exists in memory at a time — critical for mobile reliability.
+ * Page order (matches PDF):
+ *   1. cover               — [data-pdf-cover]
+ *   2. overview            — [data-pdf-overview]
+ *   3. day 1..N            — [data-pdf-day=N]
+ *   4. map links section   — [data-pdf-maplinks]   (cards: [data-pdf-link=URL])
+ *   5. end page            — [data-pdf-end]
  */
 import { useEffect, useRef } from "react";
-import { TravelProject } from "@/types/travel";
+import { TravelProject, ItineraryItem } from "@/types/travel";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
+import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 
 export interface CapturedCardBounds {
   topPct: number;
   bottomPct: number;
 }
 
-/** Returned by sequential capture in pdf-export. */
 export interface CapturedDay {
-  /** 0 = cover snapshot, 1..N = actual day */
   dayNumber: number;
   date: string;
-  /** image/jpeg data URL */
   dataUrl: string;
   widthPx: number;
   heightPx: number;
@@ -33,13 +33,14 @@ export interface CapturedDay {
 
 interface Props {
   project: TravelProject;
-  /** Pre-signed cover image URL (so html2canvas can fetch it). */
   coverImageUrl?: string;
-  /** Called once DOM is mounted and fonts/images have settled. */
+  endLogoUrl?: string;
   onReady: (root: HTMLElement | null, error?: unknown) => void;
 }
 
 export const PDF_CAPTURE_WIDTH = 760;
+
+const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function fmtDate(value: unknown): string {
   if (!value) return "";
@@ -51,7 +52,12 @@ function fmtDate(value: unknown): string {
   return `${y}/${m}/${day}`;
 }
 
-const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+function weekday(value: unknown): string {
+  if (!value) return "";
+  const d = value instanceof Date ? value : new Date(value as string);
+  if (Number.isNaN(d.getTime())) return "";
+  return WEEKDAY[d.getUTCDay()] ?? "";
+}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -63,13 +69,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
       timer = setTimeout(() => reject(new Error(`${label} timeout after ${timeoutMs}ms`)), timeoutMs);
     }),
   ]);
-}
-
-function weekday(value: unknown): string {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value as string);
-  if (Number.isNaN(d.getTime())) return "";
-  return WEEKDAY[d.getUTCDay()] ?? "";
 }
 
 async function waitImages(root: HTMLElement, overallTimeoutMs = 12000, expectedPhotoCount = 0): Promise<void> {
@@ -105,14 +104,53 @@ async function waitImages(root: HTMLElement, overallTimeoutMs = 12000, expectedP
     lastCount = count;
     await new Promise((r) => setTimeout(r, 250));
   }
-  console.warn("[pdf-capture] images settled by timeout; continuing", {
-    expectedPhotoCount,
-    actualPhotoCount: root.querySelectorAll("img[data-pdf-photo]").length,
-    totalImages: root.querySelectorAll("img").length,
-  });
+  console.warn("[pdf-capture] images settled by timeout");
 }
 
-export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
+interface MapLinkEntry {
+  dayNumber: number;
+  date: string;
+  title: string;
+  url: string;
+  provider: string;
+}
+
+function collectAllMapLinks(project: TravelProject): MapLinkEntry[] {
+  const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
+  const out: MapLinkEntry[] = [];
+  for (const day of itinerary) {
+    const items = Array.isArray(day.items) ? day.items : [];
+    for (const item of items) {
+      const source = item as ItineraryItem & {
+        title?: unknown;
+        name?: unknown;
+        map_url?: unknown;
+        location_url?: unknown;
+      };
+      const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
+      const url = sanitizeMapUrl(rawUrl);
+      if (!url) continue;
+      const rawTitle = String(source.title || source.name || item.description || "").replace(/\s+$/g, "");
+      out.push({
+        dayNumber: day.dayNumber,
+        date: fmtDate(day.date),
+        title: rawTitle || "景點連結",
+        url,
+        provider: getMapProviderLabel(url),
+      });
+    }
+  }
+  return out;
+}
+
+function getMapButtonText(provider: string): string {
+  if (provider === "高德地圖") return "開啟 高德地圖 ↗";
+  if (provider === "Naver Map") return "開啟 Naver Map ↗";
+  if (provider === "Google Maps") return "開啟 Google Maps ↗";
+  return "開啟地圖 ↗";
+}
+
+export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const runIdRef = useRef(0);
 
@@ -122,7 +160,6 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
 
     (async () => {
       const root = ref.current;
-      console.info("[pdf-capture] mount", { hasRoot: !!root, runId });
       if (!root) {
         onReady(null, new Error("PdfCaptureRoot mounted without root element"));
         return;
@@ -136,17 +173,15 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
         try {
           const fonts = (document as unknown as { fonts?: { ready?: Promise<unknown> } }).fonts;
           if (fonts?.ready) await withTimeout(fonts.ready, 5000, "document.fonts.ready");
-          console.info("[pdf-capture] fonts ready");
         } catch (e) {
-          console.warn("[pdf-capture] fonts ready timeout/fail; continuing", e);
+          console.warn("[pdf-capture] fonts ready timeout; continuing", e);
         }
         const expectedPhotoCount =
           (Array.isArray(project.itinerary) ? project.itinerary : []).reduce(
             (sum, day) => sum + (Array.isArray(day.items) ? day.items.filter((item) => !!item.imageUrl).length : 0),
             0,
-          ) + (coverImageUrl ? 1 : 0);
+          ) + (coverImageUrl ? 1 : 0) + (endLogoUrl ? 1 : 0);
         await waitImages(root, 9000, expectedPhotoCount);
-        console.info("[pdf-capture] images settled");
         await new Promise((r) => setTimeout(r, 150));
         if (cancelled || runId !== runIdRef.current) return;
         onReady(root);
@@ -177,6 +212,18 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
   })();
   const totalItems = allItems.length;
 
+  const fontStack =
+    '"Noto Sans TC", "PingFang TC", "Hiragino Sans", "Microsoft JhengHei", system-ui, sans-serif';
+
+  const mapLinks = collectAllMapLinks(project);
+  const linksByDay = new Map<number, MapLinkEntry[]>();
+  for (const ml of mapLinks) {
+    const arr = linksByDay.get(ml.dayNumber) ?? [];
+    arr.push(ml);
+    linksByDay.set(ml.dayNumber, arr);
+  }
+  const sortedDayNumbersWithLinks = Array.from(linksByDay.keys()).sort((a, b) => a - b);
+
   return (
     <div
       aria-hidden
@@ -192,7 +239,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
       }}
     >
       <div ref={ref} style={{ width: PDF_CAPTURE_WIDTH, background: "#ffffff" }}>
-        {/* ====== COVER (card-style, matches lobby project card) ====== */}
+        {/* ====== 1. COVER ====== */}
         <div
           data-pdf-cover
           style={{
@@ -200,8 +247,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
             padding: "40px 36px 44px",
             boxSizing: "border-box",
             background: "linear-gradient(180deg, #f8fbff 0%, #ffffff 70%)",
-            fontFamily:
-              '"Noto Sans TC", "PingFang TC", "Hiragino Sans", "Microsoft JhengHei", system-ui, sans-serif',
+            fontFamily: fontStack,
             color: "#0f172a",
           }}
         >
@@ -217,19 +263,10 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
               marginBottom: 18,
             }}
           >
-            <span
-              style={{
-                display: "inline-block",
-                width: 6,
-                height: 6,
-                borderRadius: 999,
-                background: "#0285c7",
-              }}
-            />
+            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "#0285c7" }} />
             PeiTravel
           </div>
 
-          {/* Card */}
           <div
             style={{
               borderRadius: 24,
@@ -254,8 +291,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
                 style={{
                   width: "100%",
                   height: 200,
-                  background:
-                    "linear-gradient(135deg, #cfe7f8 0%, #dbeafe 50%, #ede9fe 100%)",
+                  background: "linear-gradient(135deg, #cfe7f8 0%, #dbeafe 50%, #ede9fe 100%)",
                 }}
               />
             )}
@@ -275,42 +311,18 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
                 {fmtDate(project.startDate)} － {fmtDate(project.endDate)}
               </div>
 
-              {/* Stats grid — no 人數 on cover */}
-              <div
-                style={{
-                  marginTop: 22,
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 10,
-                }}
-              >
+              <div style={{ marginTop: 22, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 {[
                   { k: "總天數", v: `${totalDays} 天` },
                   { k: "行程數", v: `${totalItems} 項` },
                 ].map((s) => (
-                  <div
-                    key={s.k}
-                    style={{
-                      background: "#f1f7fd",
-                      borderRadius: 14,
-                      padding: "12px 14px",
-                    }}
-                  >
+                  <div key={s.k} style={{ background: "#f1f7fd", borderRadius: 14, padding: "12px 14px" }}>
                     <div style={{ fontSize: 11, color: "#64748b" }}>{s.k}</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>
-                      {s.v}
-                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>{s.v}</div>
                   </div>
                 ))}
               </div>
-              <div
-                style={{
-                  marginTop: 10,
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 10,
-                }}
-              >
+              <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div style={{ background: "#f1f7fd", borderRadius: 14, padding: "12px 14px" }}>
                   <div style={{ fontSize: 11, color: "#64748b" }}>總花費</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>
@@ -327,19 +339,79 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
             </div>
           </div>
 
-          <div
-            style={{
-              marginTop: 22,
-              fontSize: 11,
-              color: "#94a3b8",
-              textAlign: "right",
-            }}
-          >
+          <div style={{ marginTop: 22, fontSize: 11, color: "#94a3b8", textAlign: "right" }}>
             由 PeiTravel App 匯出
           </div>
         </div>
 
-        {/* ====== DAYS ====== */}
+        {/* ====== 2. OVERVIEW (📍 行程總覽) ====== */}
+        <div
+          data-pdf-overview
+          style={{
+            width: PDF_CAPTURE_WIDTH,
+            padding: "36px 36px 40px",
+            boxSizing: "border-box",
+            background: "#ffffff",
+            fontFamily: fontStack,
+            color: "#0f172a",
+          }}
+        >
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#0285c7", marginBottom: 6 }}>📍 行程總覽</div>
+          <div style={{ fontSize: 14, color: "#475569", marginBottom: 18 }}>
+            {project.name || "未命名行程"} ｜ {fmtDate(project.startDate)} － {fmtDate(project.endDate)}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+            <div style={{ background: "#f1f7fd", borderRadius: 12, padding: "10px 14px" }}>
+              <div style={{ fontSize: 11, color: "#64748b" }}>總天數</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>{totalDays} 天</div>
+            </div>
+            <div style={{ background: "#f1f7fd", borderRadius: 12, padding: "10px 14px" }}>
+              <div style={{ fontSize: 11, color: "#64748b" }}>行程數</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>{totalItems} 項</div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #e6eef7", paddingTop: 14 }}>
+            {itinerary.map((day) => {
+              const items = Array.isArray(day.items) ? day.items : [];
+              const dayTotal = items.reduce((s, i) => s + (i.price ?? 0), 0);
+              return (
+                <div
+                  key={day.dayNumber}
+                  data-pdf-card
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "12px 14px",
+                    background: "#f8fbff",
+                    borderRadius: 10,
+                    marginBottom: 8,
+                    border: "1px solid #e6eef7",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0285c7" }}>
+                      Day {day.dayNumber}｜{fmtDate(day.date)}
+                      <span style={{ color: "#94a3b8", fontWeight: 500, marginLeft: 6 }}>
+                        ({weekday(day.date)})
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{items.length} 項行程</div>
+                  </div>
+                  {dayTotal > 0 && (
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+                      ${dayTotal.toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ====== 3. DAYS ====== */}
         {itinerary.map((day) => (
           <div
             key={day.dayNumber}
@@ -350,19 +422,11 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
               padding: "28px 24px 32px",
               background: "#ffffff",
               boxSizing: "border-box",
-              fontFamily:
-                '"Noto Sans TC", "PingFang TC", "Hiragino Sans", "Microsoft JhengHei", system-ui, sans-serif',
+              fontFamily: fontStack,
             }}
           >
             <div style={{ marginBottom: 18 }}>
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: 800,
-                  color: "#0285c7",
-                  lineHeight: 1.2,
-                }}
-              >
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#0285c7", lineHeight: 1.2 }}>
                 Day {day.dayNumber}｜{fmtDate(day.date)}
                 <span style={{ color: "#94a3b8", fontWeight: 500, marginLeft: 8 }}>
                   ({weekday(day.date)})
@@ -379,10 +443,123 @@ export function PdfCaptureRoot({ project, coverImageUrl, onReady }: Props) {
             />
           </div>
         ))}
+
+        {/* ====== 4. MAP LINKS (consolidated) ====== */}
+        {mapLinks.length > 0 && (
+          <div
+            data-pdf-maplinks
+            style={{
+              width: PDF_CAPTURE_WIDTH,
+              padding: "36px 32px 40px",
+              background: "#ffffff",
+              boxSizing: "border-box",
+              fontFamily: fontStack,
+              color: "#0f172a",
+            }}
+          >
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#0285c7", marginBottom: 4 }}>
+              {project.name || "行程"} 導航連結
+            </div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 22 }}>
+              點擊卡片即可開啟導航
+            </div>
+
+            {sortedDayNumbersWithLinks.map((dayNum) => {
+              const links = linksByDay.get(dayNum) ?? [];
+              const dayDateStr = (() => {
+                const d = itinerary.find((x) => x.dayNumber === dayNum)?.date;
+                return d ? fmtDate(d) : "";
+              })();
+              return (
+                <div key={dayNum} style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0285c7", margin: "8px 0 10px" }}>
+                    Day {dayNum}
+                    {dayDateStr && (
+                      <span style={{ color: "#94a3b8", fontWeight: 500, marginLeft: 8 }}>｜{dayDateStr}</span>
+                    )}
+                  </div>
+                  {links.map((link, idx) => (
+                    <div
+                      key={`${dayNum}-${idx}`}
+                      data-pdf-card
+                      data-pdf-link={link.url}
+                      style={{
+                        background: "#f8fbff",
+                        border: "1px solid #d6e6f5",
+                        borderRadius: 14,
+                        padding: "14px 16px",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: "#0f172a",
+                          whiteSpace: "pre-line",
+                          marginBottom: 10,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        📍 {link.title}
+                      </div>
+                      <div
+                        style={{
+                          display: "inline-block",
+                          background: "#0285c7",
+                          color: "#ffffff",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          padding: "9px 18px",
+                          borderRadius: 999,
+                        }}
+                      >
+                        {getMapButtonText(link.provider)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ====== 5. END PAGE ====== */}
+        <div
+          data-pdf-end
+          style={{
+            width: PDF_CAPTURE_WIDTH,
+            height: 1040,
+            background: "#ffffff",
+            boxSizing: "border-box",
+            fontFamily: fontStack,
+            color: "#0f172a",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "60px 36px",
+          }}
+        >
+          <div style={{ fontSize: 56, lineHeight: 1, marginBottom: 18, marginLeft: -12 }}>🎉</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#334155", marginBottom: 14 }}>旅途順利</div>
+          <div style={{ fontSize: 14, color: "#64748b", marginBottom: 64 }}>
+            此行程由 PeiTravel App 匯出完成
+          </div>
+          {endLogoUrl && (
+            <img
+              src={endLogoUrl}
+              data-pdf-photo
+              crossOrigin="anonymous"
+              alt=""
+              style={{ width: 64, height: 64, marginBottom: 14, display: "block", objectFit: "contain" }}
+            />
+          )}
+          <div style={{ fontSize: 28, fontWeight: 900, color: "#000000", letterSpacing: 0.5 }}>PeiTravel</div>
+        </div>
       </div>
     </div>
   );
 }
 
-// re-export so external callers can still use it
 export { calculateDayTotal };
