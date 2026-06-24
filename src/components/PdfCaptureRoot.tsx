@@ -548,9 +548,22 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
             padding: "60px 36px",
           }}
         >
-          <div style={{ fontSize: 56, lineHeight: 1, marginBottom: 18, marginLeft: -12 }}>🎉</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#334155", marginBottom: 14 }}>旅途順利</div>
-          <div style={{ fontSize: 14, color: "#64748b", marginBottom: 64 }}>
+          <div
+            style={{
+              fontSize: 36,
+              fontWeight: 800,
+              color: "#1f2937",
+              marginBottom: 22,
+              letterSpacing: 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <span style={{ marginLeft: -8 }}>🎉</span>
+            <span>旅途順利</span>
+          </div>
+          <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 56 }}>
             此行程由 PeiTravel App 匯出完成
           </div>
           {endLogoUrl && (
@@ -559,10 +572,20 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
               data-pdf-photo
               crossOrigin="anonymous"
               alt=""
-              style={{ width: 64, height: 64, marginBottom: 14, display: "block", objectFit: "contain" }}
+              style={{ width: 56, height: 56, marginBottom: 18, display: "block", objectFit: "contain", borderRadius: 12 }}
             />
           )}
-          <div style={{ fontSize: 28, fontWeight: 900, color: "#000000", letterSpacing: 0.5 }}>PeiTravel</div>
+          <div
+            style={{
+              fontSize: 40,
+              fontWeight: 900,
+              color: "#000000",
+              letterSpacing: 1,
+              fontFamily: '"Inter", "SF Pro Display", system-ui, sans-serif',
+            }}
+          >
+            PeiTravel
+          </div>
         </div>
       </div>
     </div>
