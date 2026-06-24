@@ -457,6 +457,7 @@ export async function exportProjectToPdf(
     await yieldToLoop();
   }
 
+  opts.onProgress?.({ stage: "finalize" });
   console.info("[pdf-export] PDF save start", { pages: doc.getPageCount() });
   const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
   console.info("[pdf-export] PDF save done", { bytes: bytes.length, pages: doc.getPageCount() });
