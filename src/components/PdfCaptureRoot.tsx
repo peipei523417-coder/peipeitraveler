@@ -572,12 +572,12 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
               data-pdf-photo
               crossOrigin="anonymous"
               alt=""
-              style={{ width: 56, height: 56, marginBottom: 18, display: "block", objectFit: "contain", borderRadius: 12 }}
+              style={{ width: 64, height: 64, marginBottom: 18, display: "block", objectFit: "contain", borderRadius: 14 }}
             />
           )}
           <div
             style={{
-              fontSize: 40,
+              fontSize: 34,
               fontWeight: 900,
               color: "#000000",
               letterSpacing: 1,
