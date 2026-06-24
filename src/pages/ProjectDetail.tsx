@@ -148,6 +148,7 @@ function ProjectDetailInner() {
               msg = `正在處理第 ${p.dayIndex} 天（共 ${p.totalDays} 天）`;
             } else if (p.stage === "maplinks") msg = "正在處理導航連結...";
             else if (p.stage === "end") msg = "正在收尾...";
+            else if (p.stage === "finalize") msg = "正在產生 PDF 檔案...";
             toast.loading(`${msg}\n${hint}`, { id: loadingId });
           },
         }),
@@ -159,10 +160,14 @@ function ProjectDetailInner() {
         (project as unknown as { start_date?: string }).start_date ??
         project.startDate;
       const filename = buildPdfFilename(project.name, rawStart);
-      logStep("share/download start", { filename, bytes: bytes.length });
-      await withTimeout(deliverPdf(bytes, filename), 15000, "PDF share/download");
-      logStep("share/download complete", { filename });
+      // PDF is fully generated. Dismiss the loading toast BEFORE triggering
+      // share/download so the user never sees "收尾中" while the share sheet
+      // is already opening, and the share sheet only appears after the file
+      // is truly ready.
       toast.dismiss(loadingId);
+      logStep("share/download start", { filename, bytes: bytes.length });
+      const result = await withTimeout(deliverPdf(bytes, filename), 15000, "PDF share/download");
+      logStep("share/download complete", { filename, result });
       toast.success(t("exportPdfSuccess"));
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
