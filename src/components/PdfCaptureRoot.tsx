@@ -344,7 +344,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
           </div>
         </div>
 
-        {/* ====== 2. OVERVIEW (📍 行程總覽) ====== */}
+        {/* ====== 2. OVERVIEW (📍 行程總覽) — compact itinerary outline ====== */}
         <div
           data-pdf-overview
           style={{
@@ -357,58 +357,65 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
           }}
         >
           <div style={{ fontSize: 26, fontWeight: 800, color: "#0285c7", marginBottom: 6 }}>📍 行程總覽</div>
-          <div style={{ fontSize: 14, color: "#475569", marginBottom: 18 }}>
-            {project.name || "未命名行程"} ｜ {fmtDate(project.startDate)} － {fmtDate(project.endDate)}
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>
+            {project.name || "未命名行程"}
+          </div>
+          <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>
+            {fmtDate(project.startDate)} － {fmtDate(project.endDate)}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
-            <div style={{ background: "#f1f7fd", borderRadius: 12, padding: "10px 14px" }}>
-              <div style={{ fontSize: 11, color: "#64748b" }}>總天數</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>{totalDays} 天</div>
-            </div>
-            <div style={{ background: "#f1f7fd", borderRadius: 12, padding: "10px 14px" }}>
-              <div style={{ fontSize: 11, color: "#64748b" }}>行程數</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>{totalItems} 項</div>
-            </div>
-          </div>
-
-          <div style={{ borderTop: "1px solid #e6eef7", paddingTop: 14 }}>
-            {itinerary.map((day) => {
-              const items = Array.isArray(day.items) ? day.items : [];
-              const dayTotal = items.reduce((s, i) => s + (i.price ?? 0), 0);
-              return (
-                <div
-                  key={day.dayNumber}
-                  data-pdf-card
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "12px 14px",
-                    background: "#f8fbff",
-                    borderRadius: 10,
-                    marginBottom: 8,
-                    border: "1px solid #e6eef7",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0285c7" }}>
-                      Day {day.dayNumber}｜{fmtDate(day.date)}
-                      <span style={{ color: "#94a3b8", fontWeight: 500, marginLeft: 6 }}>
-                        ({weekday(day.date)})
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{items.length} 項行程</div>
-                  </div>
-                  {dayTotal > 0 && (
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                      ${dayTotal.toLocaleString()}
-                    </div>
-                  )}
+          {itinerary.map((day) => {
+            const items = Array.isArray(day.items) ? day.items : [];
+            const cleaned = items
+              .map((i) => {
+                const raw = String((i as unknown as { title?: string }).title || i.description || "")
+                  .replace(/\s+/g, " ")
+                  .trim();
+                return { time: i.startTime || "", title: raw };
+              })
+              .filter((row) => {
+                if (!row.title) return false;
+                // Skip purely numeric / symbol-only / test placeholder rows
+                if (/^[\d\s\p{P}\p{S}]+$/u.test(row.title)) return false;
+                if (/^(test|測試)/i.test(row.title)) return false;
+                return true;
+              })
+              .map((row) => ({
+                time: row.time,
+                title: row.title.length > 20 ? row.title.slice(0, 20) + "…" : row.title,
+              }));
+            if (cleaned.length === 0) return null;
+            return (
+              <div key={day.dayNumber} data-pdf-card style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#0285c7", marginBottom: 6 }}>
+                  Day {day.dayNumber}
+                  <span style={{ color: "#94a3b8", fontWeight: 500, marginLeft: 8, fontSize: 12 }}>
+                    {fmtDate(day.date)}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+                {cleaned.map((row, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      fontSize: 13,
+                      color: "#0f172a",
+                      lineHeight: 1.6,
+                      paddingLeft: 4,
+                      display: "flex",
+                      gap: 10,
+                    }}
+                  >
+                    {row.time && (
+                      <span style={{ color: "#64748b", minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
+                        {row.time}
+                      </span>
+                    )}
+                    <span style={{ flex: 1, wordBreak: "break-word" }}>{row.title}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
 
         {/* ====== 3. DAYS ====== */}
@@ -541,9 +548,22 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
             padding: "60px 36px",
           }}
         >
-          <div style={{ fontSize: 56, lineHeight: 1, marginBottom: 18, marginLeft: -12 }}>🎉</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#334155", marginBottom: 14 }}>旅途順利</div>
-          <div style={{ fontSize: 14, color: "#64748b", marginBottom: 64 }}>
+          <div
+            style={{
+              fontSize: 36,
+              fontWeight: 800,
+              color: "#1f2937",
+              marginBottom: 22,
+              letterSpacing: 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <span style={{ marginLeft: -8 }}>🎉</span>
+            <span>旅途順利</span>
+          </div>
+          <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 56 }}>
             此行程由 PeiTravel App 匯出完成
           </div>
           {endLogoUrl && (
@@ -552,10 +572,20 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
               data-pdf-photo
               crossOrigin="anonymous"
               alt=""
-              style={{ width: 64, height: 64, marginBottom: 14, display: "block", objectFit: "contain" }}
+              style={{ width: 56, height: 56, marginBottom: 18, display: "block", objectFit: "contain", borderRadius: 12 }}
             />
           )}
-          <div style={{ fontSize: 28, fontWeight: 900, color: "#000000", letterSpacing: 0.5 }}>PeiTravel</div>
+          <div
+            style={{
+              fontSize: 40,
+              fontWeight: 900,
+              color: "#000000",
+              letterSpacing: 1,
+              fontFamily: '"Inter", "SF Pro Display", system-ui, sans-serif',
+            }}
+          >
+            PeiTravel
+          </div>
         </div>
       </div>
     </div>
