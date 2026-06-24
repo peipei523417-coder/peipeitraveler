@@ -37,7 +37,7 @@ const CONTENT_W = PAGE_W - MARGIN * 2;
 const CONTENT_H = PAGE_H - MARGIN * 2;
 
 export type PdfExportWarning = "image-skipped" | "day-snapshot-skipped" | "section-skipped";
-export type PdfExportStage = "cover" | "overview" | "day" | "maplinks" | "end";
+export type PdfExportStage = "cover" | "overview" | "day" | "maplinks" | "end" | "finalize";
 
 export interface PdfProgress {
   stage: PdfExportStage;
@@ -457,6 +457,7 @@ export async function exportProjectToPdf(
     await yieldToLoop();
   }
 
+  opts.onProgress?.({ stage: "finalize" });
   console.info("[pdf-export] PDF save start", { pages: doc.getPageCount() });
   const bytes = await withTimeout(doc.save(), PDF_SAVE_TIMEOUT_MS, "PDF save");
   console.info("[pdf-export] PDF save done", { bytes: bytes.length, pages: doc.getPageCount() });
