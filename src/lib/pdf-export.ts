@@ -111,7 +111,7 @@ async function loadHtml2Canvas(): Promise<Html2Canvas> {
 function captureProfile(): { scale: number; jpegQuality: number; isMobile: boolean } {
   const isMobile =
     typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  return { isMobile, scale: isMobile ? 0.6 : 2, jpegQuality: isMobile ? 0.55 : 0.85 };
+  return { isMobile, scale: isMobile ? 0.8 : 2, jpegQuality: isMobile ? 0.7 : 0.85 };
 }
 
 interface CaptureResult {

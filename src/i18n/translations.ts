@@ -52,7 +52,7 @@ export const translations = {
       highlightColor: "標記顏色",
       noItems: "這天還沒有行程",
       tripOverview: "📍 總覽",
-      overviewExpiryNotice: "已結束的行程將於七天後自動清除，如需保留資料請提前備份",
+      overviewExpiryNotice: "已結束的行程將於七天後自動清除，如需保留資料，可先匯出 PDF 備份",
       lastDayBackupHint: "🎉 恭喜完成這趟旅程！\n這份行程將於旅程結束後 7 天自動清除，\n如需保留，可使用 PDF 匯出或行程總覽截圖備份喔",
       exportPdf: "📄 匯出旅程 PDF",
       exportingPdf: "正在產生 PDF...",
