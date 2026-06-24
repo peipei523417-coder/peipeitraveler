@@ -13,7 +13,7 @@ import {
 } from "@/lib/supabase-storage";
 import { useProjectCache } from "@/contexts/ProjectCacheContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, MapPin, BookOpen } from "lucide-react";
+import { ArrowLeft, Check, MapPin } from "lucide-react";
 import { formatShortDate } from "@/i18n/date-utils";
 import { DayTabs } from "@/components/DayTabs";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
@@ -734,7 +734,6 @@ function ProjectDetailInner() {
                 onClick={() => setOverviewOpen(prev => !prev)}
                 className="rounded-xl gap-1.5 text-xs flex-shrink-0"
               >
-                <BookOpen className="w-3.5 h-3.5" />
                 {t("tripOverview")}
               </Button>
             </div>
