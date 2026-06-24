@@ -238,7 +238,25 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
         pointerEvents: "none",
       }}
     >
-      <div ref={ref} style={{ width: PDF_CAPTURE_WIDTH, background: "#ffffff" }}>
+      <style>{`
+        [data-pdf-capture-scope] *,
+        [data-pdf-capture-scope] *::before,
+        [data-pdf-capture-scope] *::after {
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          filter: none !important;
+          mix-blend-mode: normal !important;
+          transform: none !important;
+          transition: none !important;
+          animation: none !important;
+        }
+        [data-pdf-capture-scope] .samoyed-card {
+          box-shadow: 0 1px 2px rgba(15,23,42,0.06) !important;
+          border-color: #e2e8f0 !important;
+          background: #ffffff !important;
+        }
+      `}</style>
+      <div ref={ref} data-pdf-capture-scope style={{ width: PDF_CAPTURE_WIDTH, background: "#ffffff" }}>
         {/* ====== 1. COVER ====== */}
         <div
           data-pdf-cover
