@@ -37,7 +37,7 @@ const CONTENT_W = PAGE_W - MARGIN * 2;
 const CONTENT_H = PAGE_H - MARGIN * 2;
 
 export type PdfExportWarning = "image-skipped" | "day-snapshot-skipped" | "section-skipped";
-export type PdfExportStage = "cover" | "overview" | "day" | "maplinks" | "end";
+export type PdfExportStage = "cover" | "overview" | "day" | "maplinks" | "end" | "finalize";
 
 export interface PdfProgress {
   stage: PdfExportStage;
