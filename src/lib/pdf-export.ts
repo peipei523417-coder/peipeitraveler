@@ -463,6 +463,35 @@ export async function exportProjectToPdf(
   opts.onProgress?.({ stage: "end" });
   const endNode = root.querySelector<HTMLElement>("[data-pdf-end]");
   if (endNode) {
+    // Ensure brand image(s) are fully loaded + decoded before capture.
+    // Mobile (iOS/Android WebView) sometimes triggers html2canvas before the
+    // CDN-hosted brand asset is ready, producing a blank last page.
+    try {
+      const imgs = Array.from(endNode.querySelectorAll("img"));
+      await Promise.all(
+        imgs.map(async (img) => {
+          try {
+            if (!(img.complete && img.naturalWidth > 0)) {
+              await new Promise<void>((resolve) => {
+                const done = () => resolve();
+                img.addEventListener("load", done, { once: true });
+                img.addEventListener("error", done, { once: true });
+                setTimeout(done, 6000);
+              });
+            }
+            if (typeof img.decode === "function") {
+              await img.decode().catch(() => undefined);
+            }
+          } catch {
+            /* ignore */
+          }
+        }),
+      );
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
+    } catch (e) {
+      console.warn("[pdf-export] end brand image wait failed", e);
+    }
+
     const shot = await captureNode(html2canvas, endNode, profile.scale, profile.jpegQuality, "capture end");
     if (shot) {
       try {
