@@ -252,8 +252,6 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
         }
         [data-pdf-capture-scope] .samoyed-card {
           box-shadow: 0 1px 2px rgba(15,23,42,0.06) !important;
-          border-color: #e2e8f0 !important;
-          background: #ffffff !important;
         }
       `}</style>
       <div ref={ref} data-pdf-capture-scope style={{ width: PDF_CAPTURE_WIDTH, background: "#ffffff" }}>
@@ -397,12 +395,9 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                 if (/^[\d\s\p{P}\p{S}]+$/u.test(row.title)) return false;
                 if (/^(test|測試)/i.test(row.title)) return false;
                 return true;
-              })
-              .map((row) => ({
-                time: row.time,
-                title: row.title.length > 20 ? row.title.slice(0, 20) + "…" : row.title,
-              }));
-            if (cleaned.length === 0) return null;
+              });
+            // Always render every Day header (even if empty) so Day numbering
+            // is continuous (Day 1 → Day 2 → Day 3...) and never skipped.
             return (
               <div key={day.dayNumber} data-pdf-card style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#0285c7", marginBottom: 6 }}>
@@ -411,26 +406,34 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                     {fmtDate(day.date)}
                   </span>
                 </div>
-                {cleaned.map((row, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      fontSize: 13,
-                      color: "#0f172a",
-                      lineHeight: 1.6,
-                      paddingLeft: 4,
-                      display: "flex",
-                      gap: 10,
-                    }}
-                  >
-                    {row.time && (
-                      <span style={{ color: "#64748b", minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
-                        {row.time}
-                      </span>
-                    )}
-                    <span style={{ flex: 1, wordBreak: "break-word" }}>{row.title}</span>
+                {cleaned.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "#94a3b8", paddingLeft: 4, lineHeight: 1.6 }}>
+                    （尚無行程）
                   </div>
-                ))}
+                ) : (
+                  cleaned.map((row, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        fontSize: 13,
+                        color: "#0f172a",
+                        lineHeight: 1.6,
+                        paddingLeft: 4,
+                        display: "flex",
+                        gap: 10,
+                      }}
+                    >
+                      {row.time && (
+                        <span style={{ color: "#64748b", minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
+                          {row.time}
+                        </span>
+                      )}
+                      <span style={{ flex: 1, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
+                        {row.title}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             );
           })}
@@ -581,7 +584,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
             <span style={{ marginLeft: -8 }}>🎉</span>
             <span>旅途順利</span>
           </div>
-          <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 56 }}>
+          <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 48 }}>
             此行程由 PeiTravel App 匯出完成
           </div>
           {endLogoUrl && (
@@ -590,7 +593,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
               data-pdf-photo
               crossOrigin="anonymous"
               alt=""
-              style={{ width: 64, height: 64, marginBottom: 18, display: "block", objectFit: "contain", borderRadius: 14 }}
+              style={{ width: 96, height: 96, marginBottom: 14, display: "block", objectFit: "contain", borderRadius: 20 }}
             />
           )}
           <div
