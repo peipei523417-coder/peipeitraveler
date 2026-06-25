@@ -355,7 +355,23 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
             </div>
           </div>
 
-          <div style={{ marginTop: 22, fontSize: 11, color: "#94a3b8", textAlign: "right" }}>
+          <div
+            style={{
+              marginTop: 22,
+              padding: "12px 16px",
+              background: "#f1f7fd",
+              border: "1px solid #d6e6f5",
+              borderRadius: 12,
+              fontSize: 12,
+              color: "#0285c7",
+              fontWeight: 600,
+              lineHeight: 1.55,
+            }}
+          >
+            📍 所有導航連結已整理於 PDF 結尾，可直接點擊開啟。
+          </div>
+
+          <div style={{ marginTop: 14, fontSize: 11, color: "#94a3b8", textAlign: "right" }}>
             由 PeiTravel App 匯出
           </div>
         </div>
