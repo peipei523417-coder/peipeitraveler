@@ -135,29 +135,48 @@ async function captureNode(
   const cssW = Math.ceil(node.scrollWidth || rect.width || PDF_CAPTURE_WIDTH);
   const cssH = Math.ceil(node.scrollHeight || rect.height || 1);
   let canvas: HTMLCanvasElement | null = null;
+  const baseOpts = {
+    backgroundColor: "#ffffff",
+    scale,
+    useCORS: true,
+    allowTaint: false,
+    logging: false,
+    imageTimeout: 6000,
+    windowWidth: PDF_CAPTURE_WIDTH,
+    width: cssW,
+    height: cssH,
+    scrollX: 0,
+    scrollY: 0,
+  } as const;
   try {
-    canvas = await withTimeout(
-      html2canvas(node, {
-        backgroundColor: "#ffffff",
-        scale,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        imageTimeout: 6000,
-        windowWidth: PDF_CAPTURE_WIDTH,
-        width: cssW,
-        height: cssH,
-        scrollX: 0,
-        scrollY: 0,
-      }),
-      HTML2CANVAS_TIMEOUT_MS,
-      label,
-    );
+    canvas = await withTimeout(html2canvas(node, baseOpts), HTML2CANVAS_TIMEOUT_MS, label);
     const dataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
     return { dataUrl, widthPx: canvas.width, heightPx: canvas.height, nodeCssWidth: cssW, nodeCssHeight: cssH };
   } catch (e) {
-    console.warn("[pdf-export] capture failed", label, e);
-    return null;
+    console.warn("[pdf-export] capture failed, retrying without images", label, e);
+    if (canvas) {
+      try { canvas.width = 0; canvas.height = 0; } catch { /* ignore */ }
+      canvas = null;
+    }
+    // Fallback (e.g. Lovable Preview iframe where image CORS can taint the
+    // canvas and toDataURL throws SecurityError): retry skipping <img> tags
+    // so the rest of the page still exports. Mobile/native runs hit the
+    // primary path and keep their images.
+    try {
+      canvas = await withTimeout(
+        html2canvas(node, {
+          ...baseOpts,
+          ignoreElements: (el: Element) => el.tagName === "IMG",
+        }),
+        HTML2CANVAS_TIMEOUT_MS,
+        `${label} (no-img retry)`,
+      );
+      const dataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
+      return { dataUrl, widthPx: canvas.width, heightPx: canvas.height, nodeCssWidth: cssW, nodeCssHeight: cssH };
+    } catch (e2) {
+      console.warn("[pdf-export] capture retry also failed", label, e2);
+      return null;
+    }
   } finally {
     if (canvas) {
       try {
