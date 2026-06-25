@@ -382,22 +382,14 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
 
           {itinerary.map((day) => {
             const items = Array.isArray(day.items) ? day.items : [];
-            const cleaned = items
-              .map((i) => {
-                const raw = String((i as unknown as { title?: string }).title || i.description || "")
-                  .replace(/\s+/g, " ")
-                  .trim();
-                return { time: i.startTime || "", title: raw };
-              })
-              .filter((row) => {
-                if (!row.title) return false;
-                // Skip purely numeric / symbol-only / test placeholder rows
-                if (/^[\d\s\p{P}\p{S}]+$/u.test(row.title)) return false;
-                if (/^(test|測試)/i.test(row.title)) return false;
-                return true;
-              });
-            // Always render every Day header (even if empty) so Day numbering
-            // is continuous (Day 1 → Day 2 → Day 3...) and never skipped.
+            // Mirror App overview: render EVERY itinerary item, preserve user
+            // line breaks via whitespace: pre-wrap, let long titles wrap
+            // naturally. No filtering / no truncation — overview is the trip
+            // index and must match what users see in-App.
+            const rows = items.map((i) => ({
+              time: i.startTime || "",
+              title: String(i.description || "").replace(/\s+$/g, ""),
+            }));
             return (
               <div key={day.dayNumber} data-pdf-card style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#0285c7", marginBottom: 6 }}>
@@ -406,30 +398,45 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                     {fmtDate(day.date)}
                   </span>
                 </div>
-                {cleaned.length === 0 ? (
+                {rows.length === 0 ? (
                   <div style={{ fontSize: 12, color: "#94a3b8", paddingLeft: 4, lineHeight: 1.6 }}>
                     （尚無行程）
                   </div>
                 ) : (
-                  cleaned.map((row, idx) => (
+                  rows.map((row, idx) => (
                     <div
                       key={idx}
                       style={{
                         fontSize: 13,
                         color: "#0f172a",
-                        lineHeight: 1.6,
+                        lineHeight: 1.65,
                         paddingLeft: 4,
+                        paddingBottom: 4,
                         display: "flex",
                         gap: 10,
+                        alignItems: "flex-start",
                       }}
                     >
                       {row.time && (
-                        <span style={{ color: "#64748b", minWidth: 42, fontVariantNumeric: "tabular-nums" }}>
+                        <span
+                          style={{
+                            color: "#64748b",
+                            minWidth: 44,
+                            fontVariantNumeric: "tabular-nums",
+                            flexShrink: 0,
+                          }}
+                        >
                           {row.time}
                         </span>
                       )}
-                      <span style={{ flex: 1, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
-                        {row.title}
+                      <span
+                        style={{
+                          flex: 1,
+                          wordBreak: "break-word",
+                          whiteSpace: "pre-wrap",
+                        }}
+                      >
+                        {row.title || "（未填寫內容）"}
                       </span>
                     </div>
                   ))
