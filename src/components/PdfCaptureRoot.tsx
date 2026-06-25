@@ -16,6 +16,8 @@ import { useEffect, useRef } from "react";
 import { TravelProject, ItineraryItem } from "@/types/travel";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
+import pdfEndBrand from "@/assets/pdf-end-brand.png.asset.json";
+
 
 export interface CapturedCardBounds {
   topPct: number;
