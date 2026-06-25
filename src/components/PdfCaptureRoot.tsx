@@ -594,44 +594,20 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
             padding: "60px 36px",
           }}
         >
-          <div
+          <img
+            src={pdfEndBrand.url}
+            data-pdf-photo
+            crossOrigin="anonymous"
+            alt=""
             style={{
-              fontSize: 36,
-              fontWeight: 800,
-              color: "#1f2937",
-              marginBottom: 22,
-              letterSpacing: 1,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
+              width: 460,
+              height: "auto",
+              maxWidth: "85%",
+              display: "block",
+              objectFit: "contain",
             }}
-          >
-            <span style={{ marginLeft: -8 }}>🎉</span>
-            <span>旅途順利</span>
-          </div>
-          <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 48 }}>
-            此行程由 PeiTravel App 匯出完成
-          </div>
-          {endLogoUrl && (
-            <img
-              src={endLogoUrl}
-              data-pdf-photo
-              crossOrigin="anonymous"
-              alt=""
-              style={{ width: 96, height: 96, marginBottom: 14, display: "block", objectFit: "contain", borderRadius: 20 }}
-            />
-          )}
-          <div
-            style={{
-              fontSize: 34,
-              fontWeight: 900,
-              color: "#000000",
-              letterSpacing: 1,
-              fontFamily: '"Inter", "SF Pro Display", system-ui, sans-serif',
-            }}
-          >
-            PeiTravel
-          </div>
+          />
+
         </div>
       </div>
     </div>
