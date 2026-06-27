@@ -23,6 +23,10 @@
 import { PDFDocument, PDFPage, rgb, PDFName, PDFString, PDFArray } from "pdf-lib";
 import type { TravelProject } from "@/types/travel";
 import { PDF_CAPTURE_WIDTH } from "@/components/PdfCaptureRoot";
+// Bundled (build-time) end-page brand image. Lives inside the JS bundle so it
+// works identically on Web, iOS Capacitor, and Android Capacitor — no CDN
+// fetch, no DOM dependency, no html2canvas required.
+import pdfEndingImage from "@/assets/pdf-ending.png";
 
 const HTML2CANVAS_TIMEOUT_MS = 18000;
 const IMAGE_EMBED_TIMEOUT_MS = 8000;
@@ -459,51 +463,47 @@ export async function exportProjectToPdf(
     await yieldToLoop();
   }
 
-  // ---- 5. End page ----
+  // ---- 5. End page (bundled brand image, NOT a DOM snapshot) ----
+  // Cross-platform stable: import a build-time bundled PNG, fetch the bundle
+  // URL (works on Web, iOS WKWebView via capacitor://, Android WebView via
+  // https://localhost), convert to bytes, and embed directly with pdf-lib.
+  // No html2canvas, no <img>, no CDN.
   opts.onProgress?.({ stage: "end" });
-  const endNode = root.querySelector<HTMLElement>("[data-pdf-end]");
-  if (endNode) {
-    // Ensure brand image(s) are fully loaded + decoded before capture.
-    // Mobile (iOS/Android WebView) sometimes triggers html2canvas before the
-    // CDN-hosted brand asset is ready, producing a blank last page.
-    try {
-      const imgs = Array.from(endNode.querySelectorAll("img"));
-      await Promise.all(
-        imgs.map(async (img) => {
-          try {
-            if (!(img.complete && img.naturalWidth > 0)) {
-              await new Promise<void>((resolve) => {
-                const done = () => resolve();
-                img.addEventListener("load", done, { once: true });
-                img.addEventListener("error", done, { once: true });
-                setTimeout(done, 6000);
-              });
-            }
-            if (typeof img.decode === "function") {
-              await img.decode().catch(() => undefined);
-            }
-          } catch {
-            /* ignore */
-          }
-        }),
-      );
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
-    } catch (e) {
-      console.warn("[pdf-export] end brand image wait failed", e);
+  try {
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "unknown";
+    console.info("[pdf-export] end page: bundled brand embed start", {
+      ua,
+      importValue: pdfEndingImage,
+    });
+    const res = await withTimeout(fetch(pdfEndingImage), 8000, "fetch bundled end image");
+    console.info("[pdf-export] end page: fetch ok", { ok: res.ok, status: res.status });
+    const blob = await res.blob();
+    console.info("[pdf-export] end page: blob", { size: blob.size, type: blob.type });
+    const arrayBuf = await blob.arrayBuffer();
+    const pngBytes = new Uint8Array(arrayBuf);
+    const img = await withTimeout(doc.embedPng(pngBytes), IMAGE_EMBED_TIMEOUT_MS, "end brand embedPng");
+    const page = doc.addPage([PAGE_W, PAGE_H]);
+    // Fit image centered, max 70% of content width, preserve aspect ratio.
+    const maxW = CONTENT_W * 0.78;
+    const maxH = CONTENT_H * 0.6;
+    const ratio = img.width / img.height;
+    let drawW = maxW;
+    let drawH = drawW / ratio;
+    if (drawH > maxH) {
+      drawH = maxH;
+      drawW = drawH * ratio;
     }
-
-    const shot = await captureNode(html2canvas, endNode, profile.scale, profile.jpegQuality, "capture end");
-    if (shot) {
-      try {
-        await placeCapturedNode(doc, shot, [], []);
-      } catch (e) {
-        console.warn("[pdf-export] end embed failed", e);
-        opts.onWarning?.("section-skipped", { section: "end", error: e });
-      }
-      shot.dataUrl = "";
-    }
-    await yieldToLoop();
+    const x = (PAGE_W - drawW) / 2;
+    const y = (PAGE_H - drawH) / 2;
+    page.drawImage(img, { x, y, width: drawW, height: drawH });
+    console.info("[pdf-export] end page: addImage ok", { x, y, w: drawW, h: drawH });
+  } catch (e) {
+    console.warn("[pdf-export] end page bundled embed failed", e);
+    opts.onWarning?.("section-skipped", { section: "end", error: e });
+    // Still add a blank page so PDF doesn't end abruptly.
+    doc.addPage([PAGE_W, PAGE_H]);
   }
+  await yieldToLoop();
 
   opts.onProgress?.({ stage: "finalize" });
   console.info("[pdf-export] PDF save start", { pages: doc.getPageCount() });
