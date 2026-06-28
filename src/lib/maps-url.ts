@@ -251,17 +251,12 @@ export function buildPdfMapAnnotation(
       rejected: false,
     };
   }
-  const name = (opts?.placeName || "").trim();
-  if (name && name.length >= 2) {
-    return {
-      url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`,
-      querySource: "title",
-      provider,
-      rejected: false,
-    };
-  }
-
-  // No reliable query available — keep original short URL (already https).
+  // NOTE: We intentionally do NOT rewrite Google short URLs to a search URL
+  // using just the place name/title — that produced "no results" in Google
+  // Maps for same-named or differently-localized places. Only latlng or a
+  // full address are considered reliable enough to rewrite. Otherwise we
+  // keep the original https short URL and let Google's own redirector
+  // resolve it.
   return { url: parsed.toString(), querySource: "original-short", provider, rejected: false };
 }
 
