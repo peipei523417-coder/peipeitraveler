@@ -16,7 +16,7 @@ import { useEffect, useRef } from "react";
 import { TravelProject, ItineraryItem } from "@/types/travel";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
-import { toPdfMapUrl } from "@/lib/maps-url";
+import { buildPdfMapAnnotation } from "@/lib/maps-url";
 import pdfEndBrand from "@/assets/pdf-end-brand.png.asset.json";
 
 
