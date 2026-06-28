@@ -16,6 +16,7 @@ import { useEffect, useRef } from "react";
 import { TravelProject, ItineraryItem } from "@/types/travel";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
+import { toPdfMapUrl } from "@/lib/maps-url";
 import pdfEndBrand from "@/assets/pdf-end-brand.png.asset.json";
 
 
@@ -133,11 +134,23 @@ function collectAllMapLinks(project: TravelProject): MapLinkEntry[] {
       const url = sanitizeMapUrl(rawUrl);
       if (!url) continue;
       const rawTitle = String(source.title || source.name || item.description || "").replace(/\s+$/g, "");
+      // Same URL the App opens, but rewritten to a PDF-safe form (cleans
+      // whitespace/control chars, rewrites Google short links to a stable
+      // browser search URL so the PDF annotation never deep-links into a
+      // broken "unsupported link" state in the Google Maps app).
+      const pdfUrl = toPdfMapUrl(url, rawTitle) ?? url;
+      console.info("[pdf-map-link]", {
+        rawUrl,
+        sanitized: url,
+        pdfAnnotationUrl: pdfUrl,
+        provider: getMapProviderLabel(url),
+        title: rawTitle,
+      });
       out.push({
         dayNumber: day.dayNumber,
         date: fmtDate(day.date),
         title: rawTitle || "景點連結",
-        url,
+        url: pdfUrl,
         provider: getMapProviderLabel(url),
       });
     }
