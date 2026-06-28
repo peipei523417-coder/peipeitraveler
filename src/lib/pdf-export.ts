@@ -234,6 +234,24 @@ function collectCardBounds(node: HTMLElement): CardBound[] {
 }
 
 // ---------- Link annotation ----------
+/**
+ * Final safety net for PDF /URI strings. Re-trims, strips CR/LF/control
+ * chars / %0A / %0D, and rejects non-https URLs (so we never embed
+ * intent://, geo:, comgooglemaps://, javascript:, etc. — even if some
+ * upstream caller forgot).
+ */
+function cleanPdfUri(url: string): string | null {
+  if (!url) return null;
+  const cleaned = String(url)
+    .replace(/%0A/gi, "")
+    .replace(/%0D/gi, "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028\u2029]/g, "")
+    .trim();
+  if (!/^https:\/\//i.test(cleaned)) return null;
+  return cleaned;
+}
+
 function addLinkAnnotation(
   page: PDFPage,
   url: string,
@@ -242,13 +260,19 @@ function addLinkAnnotation(
   width: number,
   height: number,
 ) {
+  const safe = cleanPdfUri(url);
+  if (!safe) {
+    console.warn("[pdf-export] skip annotation: unsafe URL", { url });
+    return;
+  }
+  console.info("[pdf-annotation-write]", { url: safe });
   const doc = page.doc;
   const linkDict = doc.context.obj({
     Type: "Annot",
     Subtype: "Link",
     Rect: [x, y, x + width, y + height],
     Border: [0, 0, 0],
-    A: { Type: "Action", S: "URI", URI: PDFString.of(url) },
+    A: { Type: "Action", S: "URI", URI: PDFString.of(safe) },
   });
   const linkRef = doc.context.register(linkDict);
   const existing = page.node.lookup(PDFName.of("Annots"), PDFArray);
