@@ -123,55 +123,154 @@ export function normalizeMapUrl(raw: string | undefined | null): string | null {
  * Never apply encodeURIComponent to the whole URL — it would mangle
  * &, ?, =. We only encode the place-name query parameter value.
  */
-export function toPdfMapUrl(
+export type PdfMapQuerySource =
+  | "original-long"
+  | "original-short"
+  | "latlng"
+  | "address"
+  | "title"
+  | "none";
+
+export interface PdfMapAnnotation {
+  /** Final URL safe for PDF /URI annotation (always https://), or null when rejected. */
+  url: string | null;
+  /** Which strategy produced the URL. */
+  querySource: PdfMapQuerySource;
+  /** Provider detected from the original URL. */
+  provider: MapProvider;
+  rejected: boolean;
+  rejectReason?: string;
+}
+
+/** Extract `lat,lng` from common Google Maps URL patterns. Returns null if none. */
+function extractLatLngFromGoogleUrl(parsed: URL): string | null {
+  const latLngRe = /(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/;
+  // @lat,lng,zoom in pathname.
+  const atMatch = parsed.pathname.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);
+  if (atMatch) return `${atMatch[1]},${atMatch[2]}`;
+  // !3dLAT!4dLNG
+  const bangMatch = parsed.pathname.match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/);
+  if (bangMatch) return `${bangMatch[1]},${bangMatch[2]}`;
+  for (const key of ["query", "q", "ll", "destination", "center"]) {
+    const v = parsed.searchParams.get(key);
+    if (v) {
+      const m = v.match(latLngRe);
+      if (m) return `${m[1]},${m[2]}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Build a PDF-safe annotation URL for a map link.
+ *
+ * Rules:
+ *   - Always clean control chars / CR / LF / zero-width before anything else.
+ *   - Only `https://` is allowed in PDF annotations. `intent://`, `geo:`,
+ *     `comgooglemaps://`, etc. are rejected outright.
+ *   - Google long URLs: keep the original cleaned https URL (don't downgrade
+ *     to a search URL — the original carries place id / coords).
+ *   - Google short URLs (maps.app.goo.gl, goo.gl/maps): keep original by
+ *     default. ONLY rewrite to the stable search format when we have
+ *     reliable query data (lat,lng > address > title). Search URLs from a
+ *     bare title risk routing to a same-named place elsewhere, so they are
+ *     a last resort and we still prefer the original short link when no
+ *     reliable query is available.
+ *   - Naver / Amap: pass through unchanged. NEVER inject title/description
+ *     into Naver/Amap URLs (prior 高德 regression).
+ */
+export function buildPdfMapAnnotation(
   rawUrl: string | null | undefined,
-  placeName?: string | null,
-): string | null {
-  if (!rawUrl) return null;
-  // 1. strip whitespace / control / CR / LF (visible + %0A / %0D variants).
-  let cleaned = String(rawUrl)
+  opts?: { placeName?: string | null; address?: string | null; latlng?: string | null },
+): PdfMapAnnotation {
+  if (!rawUrl) {
+    return { url: null, querySource: "none", provider: null, rejected: true, rejectReason: "empty" };
+  }
+  const cleaned = String(rawUrl)
     .replace(/%0A/gi, "")
     .replace(/%0D/gi, "")
+    .replace(/&amp;/gi, "&")
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028\u2029]/g, "")
     .trim();
-  if (!cleaned) return null;
+  if (!cleaned) {
+    return { url: null, querySource: "none", provider: null, rejected: true, rejectReason: "blank-after-clean" };
+  }
 
-  // 2. enforce supported https URL.
   const normalized = normalizeMapUrl(cleaned);
-  if (!normalized) return null;
+  if (!normalized) {
+    return { url: null, querySource: "none", provider: null, rejected: true, rejectReason: "not-supported-provider-or-not-https" };
+  }
 
   let parsed: URL;
   try {
     parsed = new URL(normalized);
   } catch {
-    return null;
+    return { url: null, querySource: "none", provider: null, rejected: true, rejectReason: "url-parse-failed" };
+  }
+  if (parsed.protocol !== "https:") {
+    return { url: null, querySource: "none", provider: null, rejected: true, rejectReason: `non-https:${parsed.protocol}` };
   }
 
   const host = parsed.host.toLowerCase();
   const provider = detectProvider(host, parsed.pathname);
 
-  // 3. Google short links → rewrite to stable browser search URL when we have
-  //    a place name. The Google Maps app's universal-link handler chokes on
-  //    short links clicked from inside another app's PDF viewer; the search
-  //    URL always works because the PDF viewer hands a plain https://
-  //    google.com URL to the system browser.
-  const isGoogleShort =
-    provider === "google" &&
-    (host === "maps.app.goo.gl" ||
-      host === "goo.gl" ||
-      host.endsWith(".app.goo.gl"));
-
-  if (isGoogleShort) {
-    const name = (placeName || "").trim();
-    if (name) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
-    }
-    // No name available — keep the original short URL (already https).
-    return parsed.toString();
+  // Naver / Amap → pass through, NEVER inject text.
+  if (provider === "naver" || provider === "amap") {
+    return { url: parsed.toString(), querySource: "original-long", provider, rejected: false };
   }
 
-  return parsed.toString();
+  if (provider !== "google") {
+    return { url: null, querySource: "none", provider, rejected: true, rejectReason: "unknown-provider" };
+  }
+
+  const isGoogleShort =
+    host === "maps.app.goo.gl" || host === "goo.gl" || host.endsWith(".app.goo.gl");
+
+  // Long URL → keep as-is.
+  if (!isGoogleShort) {
+    return { url: parsed.toString(), querySource: "original-long", provider, rejected: false };
+  }
+
+  // Short URL → prefer reliable query (latlng > address > title) when present.
+  const ll = (opts?.latlng || "").trim() || extractLatLngFromGoogleUrl(parsed);
+  if (ll && /^-?\d{1,3}\.\d+,-?\d{1,3}\.\d+$/.test(ll)) {
+    return {
+      url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ll)}`,
+      querySource: "latlng",
+      provider,
+      rejected: false,
+    };
+  }
+  const addr = (opts?.address || "").trim();
+  if (addr && addr.length >= 6) {
+    return {
+      url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`,
+      querySource: "address",
+      provider,
+      rejected: false,
+    };
+  }
+  const name = (opts?.placeName || "").trim();
+  if (name && name.length >= 2) {
+    return {
+      url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`,
+      querySource: "title",
+      provider,
+      rejected: false,
+    };
+  }
+
+  // No reliable query available — keep original short URL (already https).
+  return { url: parsed.toString(), querySource: "original-short", provider, rejected: false };
+}
+
+/** Back-compat thin wrapper. */
+export function toPdfMapUrl(
+  rawUrl: string | null | undefined,
+  placeName?: string | null,
+): string | null {
+  return buildPdfMapAnnotation(rawUrl, { placeName }).url;
 }
 
 /** Back-compat: only returns a URL when it is specifically a Google Maps URL. */
