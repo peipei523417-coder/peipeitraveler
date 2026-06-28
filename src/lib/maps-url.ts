@@ -96,6 +96,84 @@ export function normalizeMapUrl(raw: string | undefined | null): string | null {
   return parsed.toString();
 }
 
+/**
+ * Produce a PDF-annotation-safe https URL for a map link.
+ *
+ * Why this exists:
+ *   - PDF /URI annotations must be plain ASCII https URLs. Stray whitespace,
+ *     newlines (%0A/%0D), or invisible chars cause iOS Files / Adobe Reader
+ *     to refuse the link or pass garbage to the OS handler.
+ *   - Google Maps short links (maps.app.goo.gl, goo.gl/maps) clicked from a
+ *     PDF often deep-link into the Google Maps app, which then shows
+ *     "unsupported link" because the app's deep-link handler resolves the
+ *     short URL differently than the in-app browser path used inside the app.
+ *
+ * Strategy:
+ *   1. trim + strip control chars / CR / LF.
+ *   2. Re-run sanitizeMapUrl-equivalent (normalizeMapUrl) to enforce https
+ *      and a supported provider.
+ *   3. For Google Maps short URLs, rewrite to the stable browser format
+ *      `https://www.google.com/maps/search/?api=1&query=<placeName>` when
+ *      we have a usable place name, so PDF readers always open the link in
+ *      a browser → Google search → Maps (which works reliably). If no place
+ *      name is available, keep the original long https URL.
+ *   4. Naver / Amap are returned as-is (already https; their PDF behaviour
+ *      is stable because they open in the in-app browser, not a native app).
+ *
+ * Never apply encodeURIComponent to the whole URL — it would mangle
+ * &, ?, =. We only encode the place-name query parameter value.
+ */
+export function toPdfMapUrl(
+  rawUrl: string | null | undefined,
+  placeName?: string | null,
+): string | null {
+  if (!rawUrl) return null;
+  // 1. strip whitespace / control / CR / LF (visible + %0A / %0D variants).
+  let cleaned = String(rawUrl)
+    .replace(/%0A/gi, "")
+    .replace(/%0D/gi, "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028\u2029]/g, "")
+    .trim();
+  if (!cleaned) return null;
+
+  // 2. enforce supported https URL.
+  const normalized = normalizeMapUrl(cleaned);
+  if (!normalized) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return null;
+  }
+
+  const host = parsed.host.toLowerCase();
+  const provider = detectProvider(host, parsed.pathname);
+
+  // 3. Google short links → rewrite to stable browser search URL when we have
+  //    a place name. The Google Maps app's universal-link handler chokes on
+  //    short links clicked from inside another app's PDF viewer; the search
+  //    URL always works because the PDF viewer hands a plain https://
+  //    google.com URL to the system browser.
+  const isGoogleShort =
+    provider === "google" &&
+    (host === "maps.app.goo.gl" ||
+      host === "goo.gl" ||
+      host.endsWith(".app.goo.gl"));
+
+  if (isGoogleShort) {
+    const name = (placeName || "").trim();
+    if (name) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
+    }
+    // No name available — keep the original short URL (already https).
+    return parsed.toString();
+  }
+
+  return parsed.toString();
+}
+
 /** Back-compat: only returns a URL when it is specifically a Google Maps URL. */
 export function normalizeGoogleMapsUrl(raw: string | undefined | null): string | null {
   const normalized = normalizeMapUrl(raw);
