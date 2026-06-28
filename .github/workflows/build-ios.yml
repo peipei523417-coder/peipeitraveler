@@ -6,7 +6,7 @@ on:
       version_name:
         description: 'Version name (e.g. 1.0.50)'
         required: true
-        default: '6.1.61'
+        default: '6.1.62'
 
 jobs:
   build:
