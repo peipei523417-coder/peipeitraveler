@@ -132,26 +132,31 @@ function collectAllMapLinks(project: TravelProject): MapLinkEntry[] {
       };
       const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
       const url = sanitizeMapUrl(rawUrl);
-      if (!url) continue;
       const rawTitle = String(source.title || source.name || item.description || "").replace(/\s+$/g, "");
-      // Same URL the App opens, but rewritten to a PDF-safe form (cleans
-      // whitespace/control chars, rewrites Google short links to a stable
-      // browser search URL so the PDF annotation never deep-links into a
-      // broken "unsupported link" state in the Google Maps app).
-      const pdfUrl = toPdfMapUrl(url, rawTitle) ?? url;
+      const provider = url ? getMapProviderLabel(url) : "未知";
+      // Same URL the App opens, but rewritten to a PDF-safe form. Pure
+      // sanitization for long Google URLs / Naver / Amap; only Google short
+      // URLs may be rewritten to a stable search URL when we have a reliable
+      // query (latlng > address > title). NEVER inject text into Naver/Amap.
+      const ann = buildPdfMapAnnotation(rawUrl, { placeName: rawTitle });
       console.info("[pdf-map-link]", {
         rawUrl,
-        sanitized: url,
-        pdfAnnotationUrl: pdfUrl,
-        provider: getMapProviderLabel(url),
+        provider,
+        sanitizedUrl: url,
+        appOpenUrl: url, // App uses sanitizeMapUrl result via openMapUrl
+        pdfAnnotationUrl: ann.url,
+        querySource: ann.querySource,
+        rejected: ann.rejected,
+        rejectReason: ann.rejectReason,
         title: rawTitle,
       });
+      if (!url || !ann.url || ann.rejected) continue;
       out.push({
         dayNumber: day.dayNumber,
         date: fmtDate(day.date),
         title: rawTitle || "景點連結",
-        url: pdfUrl,
-        provider: getMapProviderLabel(url),
+        url: ann.url,
+        provider,
       });
     }
   }
