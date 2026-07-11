@@ -416,7 +416,14 @@ export function ProjectDialog({
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent
+                  className="w-auto p-0"
+                  align="start"
+                  side="bottom"
+                  sideOffset={4}
+                  avoidCollisions={false}
+                  collisionPadding={0}
+                >
                   <Calendar
                     initialFocus
                     mode="range"
