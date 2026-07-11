@@ -423,7 +423,7 @@ export function ProjectDialog({
                     defaultMonth={dateRange?.from}
                     selected={dateRange}
                     onSelect={setDateRange}
-                    numberOfMonths={2}
+                    numberOfMonths={1}
                     locale={zhTW}
                     className="pointer-events-auto"
                   />
