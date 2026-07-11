@@ -111,7 +111,7 @@ export async function getJoinedProjects() {
   // Fetch those projects (RLS policy allows collaborator access)
   const { data: projects, error: projError } = await supabase
     .from("travel_projects")
-    .select("*")
+    .select("id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public")
     .in("id", projectIds);
 
   if (projError || !projects) return [];
