@@ -2,6 +2,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { TravelProject, DayItinerary, ItineraryItem } from "@/types/travel";
 import { differenceInDays, addDays } from "date-fns";
 
+// Explicit column list — excludes `edit_password_hash` which is revoked from
+// anon/authenticated for security. Using SELECT * would fail with permission
+// denied. Only server-side edge functions (service_role) can read the hash.
+const PROJECT_COLUMNS =
+  "id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public";
+
 // Convert database row to TravelProject
 function dbRowToProject(row: any, items: any[] = []): TravelProject {
   const startDate = new Date(row.start_date);
@@ -72,7 +78,7 @@ export async function getProjects(): Promise<TravelProject[]> {
   
   let query = supabase
     .from("travel_projects")
-    .select("*")
+    .select(PROJECT_COLUMNS)
     .eq("user_id", session.user.id)
     .order("start_date", { ascending: true });
   
@@ -109,7 +115,7 @@ export async function getProjects(): Promise<TravelProject[]> {
 export async function getProject(id: string): Promise<TravelProject | undefined> {
   const { data: project, error } = await supabase
     .from("travel_projects")
-    .select("*")
+    .select(PROJECT_COLUMNS)
     .eq("id", id)
     .single();
   
@@ -178,7 +184,7 @@ export async function createProject(
   const { data, error } = await supabase
     .from("travel_projects")
     .insert(insertData)
-    .select()
+    .select(PROJECT_COLUMNS)
     .single();
   
   if (error) {
