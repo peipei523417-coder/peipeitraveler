@@ -115,7 +115,7 @@ export async function getProjects(): Promise<TravelProject[]> {
 export async function getProject(id: string): Promise<TravelProject | undefined> {
   const { data: project, error } = await supabase
     .from("travel_projects")
-    .select("*")
+    .select(PROJECT_COLUMNS)
     .eq("id", id)
     .single();
   
