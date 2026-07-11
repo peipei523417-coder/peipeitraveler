@@ -107,14 +107,14 @@ workflows:
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
                 config.build_settings['MARKETING_VERSION'] = '6.1.63'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '101'  # ⭐ must be > 100 (previously uploaded build)
+                config.build_settings['CURRENT_PROJECT_VERSION'] = '102'  # ⭐ must be > 101 (previously uploaded build)
               end
             end
           end
 
           project.save
           puts "MARKETING_VERSION: 6.1.63"
-          puts "CURRENT_PROJECT_VERSION: 101"
+          puts "CURRENT_PROJECT_VERSION: 102"
 
           RUBY
 
