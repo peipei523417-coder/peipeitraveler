@@ -184,7 +184,7 @@ export async function createProject(
   const { data, error } = await supabase
     .from("travel_projects")
     .insert(insertData)
-    .select()
+    .select(PROJECT_COLUMNS)
     .single();
   
   if (error) {
