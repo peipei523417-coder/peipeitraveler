@@ -78,7 +78,7 @@ export async function getProjects(): Promise<TravelProject[]> {
   
   let query = supabase
     .from("travel_projects")
-    .select("*")
+    .select(PROJECT_COLUMNS)
     .eq("user_id", session.user.id)
     .order("start_date", { ascending: true });
   
