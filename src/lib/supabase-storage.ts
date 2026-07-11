@@ -2,6 +2,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { TravelProject, DayItinerary, ItineraryItem } from "@/types/travel";
 import { differenceInDays, addDays } from "date-fns";
 
+// Explicit column list — excludes `edit_password_hash` which is revoked from
+// anon/authenticated for security. Using SELECT * would fail with permission
+// denied. Only server-side edge functions (service_role) can read the hash.
+const PROJECT_COLUMNS =
+  "id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public";
+
 // Convert database row to TravelProject
 function dbRowToProject(row: any, items: any[] = []): TravelProject {
   const startDate = new Date(row.start_date);
