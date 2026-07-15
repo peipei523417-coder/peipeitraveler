@@ -18,7 +18,6 @@ import SharePage from "./pages/SharePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 import Download from "./pages/Download";
-import OAuthConsent from "./pages/OAuthConsent";
 import { BillingDebugOverlay } from "@/components/BillingDebugOverlay";
 import { ForceUpdateGate } from "@/components/ForceUpdateGate";
 import "@fontsource/nunito/400.css";
@@ -278,7 +277,6 @@ function AppContent() {
         <Route path="/share/:shareCode" element={<SharePage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/download" element={<Download />} />
-        <Route path="/oauth-consent" element={<OAuthConsent />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
