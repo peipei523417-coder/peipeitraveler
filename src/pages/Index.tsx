@@ -77,6 +77,9 @@ export default function Index() {
   const longPressTriggeredRef = useRef(false);
   // Guard against rapid double-tap navigating twice
   const navigatingRef = useRef(false);
+  // Guard against concurrent duplicate taps (per-source-project + global)
+  const duplicatingRef = useRef<Set<string>>(new Set());
+  const [duplicatingAny, setDuplicatingAny] = useState(false);
 
   // Whenever Index mounts (e.g. after returning from detail), allow navigation again.
   useEffect(() => {
@@ -336,24 +339,36 @@ export default function Index() {
   };
 
   const handleDuplicateProject = async (project: TravelProject) => {
-    // Duplicates count toward the same free-tier limit (4 owned projects)
+    // Per-project + global re-entrancy guard: rapid taps on the same card, or
+    // taps on any card while another duplicate is in flight, are ignored.
+    if (duplicatingRef.current.has(project.id) || duplicatingAny) {
+      return;
+    }
+    // Duplicates count toward the same free-tier limit (4 owned projects).
+    // Front-line UI check — DB trigger enforces the hard cap under concurrency.
     const limit = isPro ? PRO_PROJECT_LIMIT : FREE_PROJECT_LIMIT;
     if (totalProjectCount >= limit) {
       toast.error(PROJECT_LIMIT_MESSAGE, { duration: 5000 });
       return;
     }
 
+    duplicatingRef.current.add(project.id);
+    setDuplicatingAny(true);
+    const toastId = toast.loading(t("duplicateProject") + "…");
     try {
       const newProject = await duplicateProject(project.id);
       if (newProject) {
-        toast.success(t("projectDuplicated"));
-        refreshProjects();
+        toast.success(t("projectDuplicated"), { id: toastId });
+        await refreshProjects();
       } else {
-        toast.error(t("saveFailed"));
+        toast.error(PROJECT_LIMIT_MESSAGE, { id: toastId, duration: 5000 });
       }
     } catch (error) {
       console.error("Error duplicating project:", error);
-      toast.error(t("saveFailed"));
+      toast.error(t("saveFailed"), { id: toastId });
+    } finally {
+      duplicatingRef.current.delete(project.id);
+      setDuplicatingAny(false);
     }
   };
 
