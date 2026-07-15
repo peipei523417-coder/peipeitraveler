@@ -68,14 +68,7 @@
         }
       })();
 
-      // Redirect Supabase OAuth consent URL into the HashRouter route.
-      (function() {
-        var p = window.location.pathname;
-        if (p === '/.lovable/oauth/consent' || p === '/.lovable/oauth/consent/') {
-          var qs = window.location.search || '';
-          window.location.replace(window.location.origin + '/#/oauth-consent' + qs);
-        }
-      })();
+
 
 
       // Redirect clean /share/XXX paths — on mobile, try native app first
