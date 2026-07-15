@@ -363,9 +363,15 @@ export default function Index() {
       } else {
         toast.error(PROJECT_LIMIT_MESSAGE, { id: toastId, duration: 5000 });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error duplicating project:", error);
-      toast.error(t("saveFailed"), { id: toastId });
+      if (error?.code === "DUPLICATE_CLEANUP_FAILED") {
+        // Orphan shell may remain — refresh so it's visible to the user.
+        await refreshProjects();
+        toast.error(t("saveFailed"), { id: toastId, duration: 6000 });
+      } else {
+        toast.error(t("saveFailed"), { id: toastId });
+      }
     } finally {
       duplicatingRef.current.delete(project.id);
       setDuplicatingAny(false);
