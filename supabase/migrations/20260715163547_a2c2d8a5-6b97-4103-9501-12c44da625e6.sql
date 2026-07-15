@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trg_travel_projects_free_tier_limits ON public.travel_projects;
