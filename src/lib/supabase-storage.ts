@@ -474,8 +474,9 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
   if (!newProject) return undefined;
 
   // Bulk-copy all items in a single insert, preserving day_number and
-  // sort_order. If this fails, roll back the empty shell so we never leave a
-  // misleading partially-duplicated project behind.
+  // sort_order. If this fails, roll back the empty shell — scoped STRICTLY
+  // to the newly created duplicate's id — so we never touch the source
+  // project or any other row.
   if (sourceItems && sourceItems.length > 0) {
     const payload = sourceItems.map((it) => ({
       project_id: newProject.id,
@@ -494,7 +495,38 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
     const { error: insErr } = await supabase.from("itinerary_items").insert(payload);
     if (insErr) {
       console.error("[duplicate] items bulk insert failed, rolling back", insErr);
-      await supabase.from("travel_projects").delete().eq("id", newProject.id);
+
+      // SAFETY: cleanup target MUST be the new duplicate's id, never the source id.
+      const cleanupTargetId = newProject.id;
+      if (!cleanupTargetId || cleanupTargetId === id) {
+        console.error("[duplicate][CRITICAL] refusing cleanup — target id invalid or equals source id", {
+          cleanupTargetId,
+          sourceId: id,
+        });
+        return undefined;
+      }
+
+      const { error: cleanupErr } = await supabase
+        .from("travel_projects")
+        .delete()
+        .eq("id", cleanupTargetId);
+
+      if (cleanupErr) {
+        console.error("[duplicate][CRITICAL] cleanup delete failed — orphan project shell may remain", {
+          orphanProjectId: cleanupTargetId,
+          insertError: insErr,
+          cleanupError: cleanupErr,
+        });
+        // Distinguishable cleanup failure — thrown so callers can refresh
+        // the list (orphan shell will appear) and surface a clear message.
+        const err: any = new Error("DUPLICATE_CLEANUP_FAILED");
+        err.code = "DUPLICATE_CLEANUP_FAILED";
+        err.orphanProjectId = cleanupTargetId;
+        err.insertError = insErr;
+        err.cleanupError = cleanupErr;
+        throw err;
+      }
+
       return undefined;
     }
   }
