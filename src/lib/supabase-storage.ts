@@ -438,35 +438,70 @@ export async function deleteProject(id: string): Promise<boolean> {
 }
 
 export async function duplicateProject(id: string): Promise<TravelProject | undefined> {
-  const original = await getProject(id);
-  if (!original) return undefined;
-  
-  // Create new project with "(副本)" suffix
+  // Read the FULL source project (all items with every column) directly from
+  // the DB so we don't silently drop fields like icon_type / price / persons /
+  // sort_order that the old per-item copy loop was skipping.
+  const { data: original, error: origErr } = await supabase
+    .from("travel_projects")
+    .select(PROJECT_COLUMNS)
+    .eq("id", id)
+    .single();
+  if (origErr || !original) {
+    console.error("[duplicate] failed to load source project", origErr);
+    return undefined;
+  }
+
+  const { data: sourceItems, error: itemsErr } = await supabase
+    .from("itinerary_items")
+    .select("day_number, start_time, end_time, description, google_maps_url, image_url, highlight_color, price, persons, icon_type, sort_order")
+    .eq("project_id", id)
+    .order("day_number", { ascending: true })
+    .order("sort_order", { ascending: true });
+  if (itemsErr) {
+    console.error("[duplicate] failed to load source items", itemsErr);
+    return undefined;
+  }
+
+  // Create the new project shell. The BEFORE INSERT trigger on
+  // travel_projects enforces the per-user project cap atomically (advisory
+  // lock), so rapid concurrent duplicate taps cannot bypass the limit.
   const newProject = await createProject(
     `${original.name} (副本)`,
-    original.startDate,
-    original.endDate,
-    original.coverImageUrl
+    new Date(original.start_date),
+    new Date(original.end_date),
+    original.cover_image_url || undefined,
   );
-  
   if (!newProject) return undefined;
-  
-  // Copy all itinerary items
-  for (const day of original.itinerary) {
-    for (const item of day.items) {
-      await addItineraryItem(newProject.id, day.dayNumber, {
-        startTime: item.startTime,
-        endTime: item.endTime,
-        description: item.description,
-        googleMapsUrl: item.googleMapsUrl,
-        imageUrl: item.imageUrl,
-        highlightColor: item.highlightColor,
-      });
+
+  // Bulk-copy all items in a single insert, preserving day_number and
+  // sort_order. If this fails, roll back the empty shell so we never leave a
+  // misleading partially-duplicated project behind.
+  if (sourceItems && sourceItems.length > 0) {
+    const payload = sourceItems.map((it) => ({
+      project_id: newProject.id,
+      day_number: it.day_number,
+      start_time: it.start_time,
+      end_time: it.end_time,
+      description: it.description,
+      google_maps_url: it.google_maps_url,
+      image_url: it.image_url,
+      highlight_color: it.highlight_color,
+      price: it.price,
+      persons: it.persons,
+      icon_type: it.icon_type,
+      sort_order: it.sort_order,
+    }));
+    const { error: insErr } = await supabase.from("itinerary_items").insert(payload);
+    if (insErr) {
+      console.error("[duplicate] items bulk insert failed, rolling back", insErr);
+      await supabase.from("travel_projects").delete().eq("id", newProject.id);
+      return undefined;
     }
   }
-  
+
   return getProject(newProject.id);
 }
+
 
 export async function addItineraryItem(
   projectId: string,
