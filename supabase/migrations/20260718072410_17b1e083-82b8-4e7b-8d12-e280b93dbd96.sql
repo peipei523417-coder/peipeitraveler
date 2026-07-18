@@ -1,0 +1,1 @@
+ALTER TABLE public.itinerary_items ADD COLUMN IF NOT EXISTS related_link text;
