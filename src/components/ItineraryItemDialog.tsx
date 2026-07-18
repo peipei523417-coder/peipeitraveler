@@ -101,7 +101,9 @@ export function ItineraryItemDialog({
       setDescription("");
       setGoogleMapsUrl("");
       setRelatedLink("");
+      setRelatedLinkExpanded(false);
       setImageUrl("");
+
       setHighlightColor("none");
       setPrice("");
       setPersons("1");
