@@ -259,7 +259,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
   const fontStack =
     '"Noto Sans TC", "PingFang TC", "Hiragino Sans", "Microsoft JhengHei", system-ui, sans-serif';
 
-  const mapLinks = collectAllMapLinks(project);
+  const mapLinks = collectAllLinks(project);
   const linksByDay = new Map<number, MapLinkEntry[]>();
   for (const ml of mapLinks) {
     const arr = linksByDay.get(ml.dayNumber) ?? [];
