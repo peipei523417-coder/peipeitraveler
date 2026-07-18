@@ -26,6 +26,7 @@ export interface ItineraryItem {
   endTime: string; // HH:mm format (24-hour)
   description: string;
   googleMapsUrl?: string;
+  relatedLink?: string; // Optional external reference URL (booking page, article, etc.)
   imageUrl?: string;
   highlightColor?: HighlightColor;
   price?: number; // Budget price in local currency
