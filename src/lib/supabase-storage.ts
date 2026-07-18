@@ -27,6 +27,7 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
       endTime: item.end_time || "",
       description: item.description,
       googleMapsUrl: item.google_maps_url || undefined,
+      relatedLink: item.related_link || undefined,
       imageUrl: item.image_url || undefined,
       highlightColor: item.highlight_color || undefined,
       price: item.price || undefined,
@@ -453,7 +454,7 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
 
   const { data: sourceItems, error: itemsErr } = await supabase
     .from("itinerary_items")
-    .select("day_number, start_time, end_time, description, google_maps_url, image_url, highlight_color, price, persons, icon_type, sort_order")
+    .select("day_number, start_time, end_time, description, google_maps_url, related_link, image_url, highlight_color, price, persons, icon_type, sort_order")
     .eq("project_id", id)
     .order("day_number", { ascending: true })
     .order("sort_order", { ascending: true });
@@ -485,6 +486,7 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
       end_time: it.end_time,
       description: it.description,
       google_maps_url: it.google_maps_url,
+      related_link: (it as any).related_link ?? null,
       image_url: it.image_url,
       highlight_color: it.highlight_color,
       price: it.price,
@@ -564,6 +566,7 @@ export async function insertItineraryItem(
     end_time: item.endTime || null,
     description: item.description,
     google_maps_url: item.googleMapsUrl || null,
+    related_link: item.relatedLink || null,
     image_url: item.imageUrl || null,
     highlight_color: item.highlightColor || null,
     price: item.price || null,
@@ -606,6 +609,7 @@ export async function patchItineraryItem(
   if (updates.endTime !== undefined) updateData.end_time = updates.endTime || null;
   if (updates.description !== undefined) updateData.description = updates.description;
   if (updates.googleMapsUrl !== undefined) updateData.google_maps_url = updates.googleMapsUrl || null;
+  if (updates.relatedLink !== undefined) updateData.related_link = updates.relatedLink || null;
   if (updates.imageUrl !== undefined) updateData.image_url = updates.imageUrl || null;
   if (updates.highlightColor !== undefined) updateData.highlight_color = updates.highlightColor || null;
   if (updates.price !== undefined) updateData.price = updates.price || null;

@@ -103,6 +103,7 @@ export type Database = {
           persons: number | null
           price: number | null
           project_id: string
+          related_link: string | null
           sort_order: number
           start_time: string | null
           updated_at: string
@@ -121,6 +122,7 @@ export type Database = {
           persons?: number | null
           price?: number | null
           project_id: string
+          related_link?: string | null
           sort_order?: number
           start_time?: string | null
           updated_at?: string
@@ -139,6 +141,7 @@ export type Database = {
           persons?: number | null
           price?: number | null
           project_id?: string
+          related_link?: string | null
           sort_order?: number
           start_time?: string | null
           updated_at?: string

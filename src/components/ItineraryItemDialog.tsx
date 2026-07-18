@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, Image as ImageIcon, Palette, AlertCircle, MapPin, DollarSign, Users, Camera as CameraIcon, FileImage } from "lucide-react";
+import { Clock, Image as ImageIcon, Palette, AlertCircle, MapPin, DollarSign, Users, Camera as CameraIcon, FileImage, Link as LinkIcon } from "lucide-react";
 import { GoogleMapsInput } from "@/components/GoogleMapsInput";
 import { SimpleTimePicker, getNextAvailableTime, isTimeBefore } from "@/components/SimpleTimePicker";
 import { HighlightColorPicker } from "@/components/HighlightColorPicker";
@@ -61,6 +61,7 @@ export function ItineraryItemDialog({
   const [endTime, setEndTime] = useState(initialData?.endTime || "10:00");
   const [description, setDescription] = useState(initialData?.description || "");
   const [googleMapsUrl, setGoogleMapsUrl] = useState(initialData?.googleMapsUrl || "");
+  const [relatedLink, setRelatedLink] = useState(initialData?.relatedLink || "");
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || "");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [highlightColor, setHighlightColor] = useState<HighlightColor>(
@@ -80,6 +81,7 @@ export function ItineraryItemDialog({
       setEndTime(initialData.endTime || "10:00");
       setDescription(initialData.description);
       setGoogleMapsUrl(initialData.googleMapsUrl || "");
+      setRelatedLink(initialData.relatedLink || "");
       setImageUrl(initialData.imageUrl || "");
       setHighlightColor(initialData.highlightColor || "none");
       setPrice(initialData.price?.toString() || "");
@@ -92,6 +94,7 @@ export function ItineraryItemDialog({
       setEndTime(getNextAvailableTime(defaultStart));
       setDescription("");
       setGoogleMapsUrl("");
+      setRelatedLink("");
       setImageUrl("");
       setHighlightColor("none");
       setPrice("");
@@ -167,11 +170,15 @@ export function ItineraryItemDialog({
       itemImageUrl = null;
     }
     
+    // Normalize related link — accept empty or a URL-like string; store trimmed.
+    const trimmedRelated = relatedLink.trim();
+
     onSubmit({
       startTime: useTime ? startTime : "",
       endTime: useTime ? endTime : "",
       description: description.trim(),
       googleMapsUrl: cleanMapUrl || undefined,
+      relatedLink: trimmedRelated || undefined,
       imageUrl: itemImageUrl as string | undefined,
       highlightColor: highlightColor,
       price: !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
@@ -184,6 +191,7 @@ export function ItineraryItemDialog({
     setEndTime("10:00");
     setDescription("");
     setGoogleMapsUrl("");
+    setRelatedLink("");
     setImageUrl("");
     setImageFile(null);
     setHighlightColor("none");
@@ -280,8 +288,8 @@ export function ItineraryItemDialog({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-3 sm:py-4">
-            <div className="space-y-3 sm:space-y-5">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-2 sm:py-3">
+            <div className="space-y-2 sm:space-y-3">
             {/* Time Toggle and Range - First priority */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -386,6 +394,24 @@ export function ItineraryItemDialog({
                 onInvalidChange={setMapUrlInvalid}
               />
             </div>
+
+            {/* Related Link (optional external URL like booking pages, articles) */}
+            <div className="space-y-2">
+              <Label htmlFor="related-link" className="text-sm font-bold flex items-center gap-2">
+                <LinkIcon className="w-4 h-4" />
+                相關連結（選填）
+              </Label>
+              <Input
+                id="related-link"
+                type="url"
+                inputMode="url"
+                placeholder="https://..."
+                value={relatedLink}
+                onChange={(e) => setRelatedLink(e.target.value)}
+                className="rounded-xl text-base"
+              />
+            </div>
+            
             
             {/* Image Upload */}
             <div className="space-y-2">
@@ -439,18 +465,18 @@ export function ItineraryItemDialog({
           </div>
           
 
-          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-3 sm:py-4 border-t border-border bg-background">
+          <DialogFooter className="shrink-0 flex-row justify-end gap-2 px-6 py-3 border-t border-border bg-background">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="rounded-xl min-h-[44px] min-w-[80px] touch-manipulation"
+              className="rounded-xl min-h-[44px] flex-1 sm:flex-none sm:min-w-[80px] touch-manipulation"
             >
               {t("cancel")}
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={!description.trim() || (useTime && !!timeError) || mapUrlInvalid}
-              className="samoyed-button rounded-xl min-h-[44px] min-w-[80px] touch-manipulation"
+              className="samoyed-button rounded-xl min-h-[44px] flex-1 sm:flex-none sm:min-w-[80px] touch-manipulation"
             >
               {mode === "create" ? t("add") : t("save")}
             </Button>

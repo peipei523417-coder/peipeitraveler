@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { DayItinerary, ItineraryItem, HIGHLIGHT_COLORS, TimelineIconType } from "@/types/travel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Clock, MapPin, Pencil, Trash2, ExternalLink, DollarSign } from "lucide-react";
+import { Plus, Clock, MapPin, Pencil, Trash2, ExternalLink, DollarSign, Link as LinkIcon } from "lucide-react";
 import dogEmptyNew from "@/assets/dog-empty-new.png";
 import { cn } from "@/lib/utils";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
@@ -12,6 +12,16 @@ import { TimelineIcon, TimelineIconPicker } from "@/components/TimelineIconPicke
 import { normalizeMapUrl, openMapUrl } from "@/lib/maps-url";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 import {
@@ -196,6 +206,21 @@ function ItemRow({
                   </button>
                 )}
 
+                {item.relatedLink && /^https?:\/\//i.test(item.relatedLink) && (
+                  <a
+                    href={item.relatedLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
+                  >
+                    <LinkIcon className="w-3.5 h-3.5" />
+                    相關連結
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+
                 {signedImageUrl && (
                   <button
                     type="button"
@@ -289,7 +314,17 @@ export function ItineraryList({
   const { t } = useTranslation();
   const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const openPickerCountRef = useRef(0);
+
+  // Wraps the raw delete handler with a confirmation step so users can't
+  // accidentally lose an itinerary item with a single tap.
+  const requestDeleteItem = (itemId: string) => setPendingDeleteId(itemId);
+  const confirmDeleteItem = () => {
+    if (pendingDeleteId) onDeleteItem(pendingDeleteId);
+    setPendingDeleteId(null);
+  };
+  const pendingDeleteItem = day.items.find(i => i.id === pendingDeleteId) || null;
 
   // Split with-time vs without-time. With-time auto-sort by time;
   // without-time keep their manual sortOrder (set via drag).
@@ -421,7 +456,7 @@ export function ItineraryList({
       hasTime={true}
       readOnly={readOnly}
       onEditItem={onEditItem}
-      onDeleteItem={onDeleteItem}
+      onDeleteItem={requestDeleteItem}
       onUpdateItemIcon={onUpdateItemIcon}
       onIconPickerOpenChange={handleIconPickerOpenChange}
       onPreviewImage={() => setPreviewImageIndex(indexInAll)}
@@ -464,7 +499,7 @@ export function ItineraryList({
                       hasTime={false}
                       readOnly={readOnly}
                       onEditItem={onEditItem}
-                      onDeleteItem={onDeleteItem}
+                      onDeleteItem={requestDeleteItem}
                       onUpdateItemIcon={onUpdateItemIcon}
                       onIconPickerOpenChange={handleIconPickerOpenChange}
                       onPreviewImage={() => setPreviewImageIndex(indexInAll)}
@@ -524,6 +559,30 @@ export function ItineraryList({
         onOpenChange={(open) => !open && setPreviewImageIndex(null)}
         imageUrl={previewImageIndex !== null ? (signedImageUrls[previewImageIndex] || "") : ""}
       />
+
+      <AlertDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteConfirmDescription")}
+              {pendingDeleteItem?.description ? ` — "${pendingDeleteItem.description}"` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel className="rounded-xl">{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmDeleteItem(); }}
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
