@@ -86,7 +86,9 @@ export function ItineraryItemDialog({
       setDescription(initialData.description);
       setGoogleMapsUrl(initialData.googleMapsUrl || "");
       setRelatedLink(initialData.relatedLink || "");
+      setRelatedLinkExpanded(!!initialData.relatedLink);
       setImageUrl(initialData.imageUrl || "");
+
       setHighlightColor(initialData.highlightColor || "none");
       setPrice(initialData.price?.toString() || "");
       setPersons(initialData.persons?.toString() || "1");
