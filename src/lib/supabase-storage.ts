@@ -454,7 +454,7 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
 
   const { data: sourceItems, error: itemsErr } = await supabase
     .from("itinerary_items")
-    .select("day_number, start_time, end_time, description, google_maps_url, image_url, highlight_color, price, persons, icon_type, sort_order")
+    .select("day_number, start_time, end_time, description, google_maps_url, related_link, image_url, highlight_color, price, persons, icon_type, sort_order")
     .eq("project_id", id)
     .order("day_number", { ascending: true })
     .order("sort_order", { ascending: true });
@@ -486,6 +486,7 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
       end_time: it.end_time,
       description: it.description,
       google_maps_url: it.google_maps_url,
+      related_link: (it as any).related_link ?? null,
       image_url: it.image_url,
       highlight_color: it.highlight_color,
       price: it.price,
