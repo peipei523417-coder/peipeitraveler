@@ -170,11 +170,15 @@ export function ItineraryItemDialog({
       itemImageUrl = null;
     }
     
+    // Normalize related link — accept empty or a URL-like string; store trimmed.
+    const trimmedRelated = relatedLink.trim();
+
     onSubmit({
       startTime: useTime ? startTime : "",
       endTime: useTime ? endTime : "",
       description: description.trim(),
       googleMapsUrl: cleanMapUrl || undefined,
+      relatedLink: trimmedRelated || undefined,
       imageUrl: itemImageUrl as string | undefined,
       highlightColor: highlightColor,
       price: !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
@@ -187,6 +191,7 @@ export function ItineraryItemDialog({
     setEndTime("10:00");
     setDescription("");
     setGoogleMapsUrl("");
+    setRelatedLink("");
     setImageUrl("");
     setImageFile(null);
     setHighlightColor("none");
