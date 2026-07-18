@@ -566,6 +566,7 @@ export async function insertItineraryItem(
     end_time: item.endTime || null,
     description: item.description,
     google_maps_url: item.googleMapsUrl || null,
+    related_link: item.relatedLink || null,
     image_url: item.imageUrl || null,
     highlight_color: item.highlightColor || null,
     price: item.price || null,
