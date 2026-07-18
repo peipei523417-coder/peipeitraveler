@@ -26,7 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, Image as ImageIcon, Palette, AlertCircle, MapPin, DollarSign, Users, Camera as CameraIcon, FileImage, Link as LinkIcon } from "lucide-react";
+import { Clock, Image as ImageIcon, Palette, AlertCircle, MapPin, DollarSign, Users, Camera as CameraIcon, FileImage, Link as LinkIcon, Plus, Minus } from "lucide-react";
+
 import { GoogleMapsInput } from "@/components/GoogleMapsInput";
 import { SimpleTimePicker, getNextAvailableTime, isTimeBefore } from "@/components/SimpleTimePicker";
 import { HighlightColorPicker } from "@/components/HighlightColorPicker";
@@ -62,6 +63,7 @@ export function ItineraryItemDialog({
   const [description, setDescription] = useState(initialData?.description || "");
   const [googleMapsUrl, setGoogleMapsUrl] = useState(initialData?.googleMapsUrl || "");
   const [relatedLink, setRelatedLink] = useState(initialData?.relatedLink || "");
+  const [relatedLinkExpanded, setRelatedLinkExpanded] = useState(!!initialData?.relatedLink);
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || "");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [highlightColor, setHighlightColor] = useState<HighlightColor>(
@@ -73,6 +75,8 @@ export function ItineraryItemDialog({
   const [mapUrlInvalid, setMapUrlInvalid] = useState(false);
   const [overlapWarningOpen, setOverlapWarningOpen] = useState(false);
   const [overlappingItemDesc, setOverlappingItemDesc] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+
 
   useEffect(() => {
     if (initialData) {
@@ -82,7 +86,9 @@ export function ItineraryItemDialog({
       setDescription(initialData.description);
       setGoogleMapsUrl(initialData.googleMapsUrl || "");
       setRelatedLink(initialData.relatedLink || "");
+      setRelatedLinkExpanded(!!initialData.relatedLink);
       setImageUrl(initialData.imageUrl || "");
+
       setHighlightColor(initialData.highlightColor || "none");
       setPrice(initialData.price?.toString() || "");
       setPersons(initialData.persons?.toString() || "1");
@@ -95,7 +101,9 @@ export function ItineraryItemDialog({
       setDescription("");
       setGoogleMapsUrl("");
       setRelatedLink("");
+      setRelatedLinkExpanded(false);
       setImageUrl("");
+
       setHighlightColor("none");
       setPrice("");
       setPersons("1");
@@ -395,54 +403,79 @@ export function ItineraryItemDialog({
               />
             </div>
 
-            {/* Related Link (optional external URL like booking pages, articles) */}
+            {/* Related Link (optional external URL like booking pages, articles) — collapsed by default */}
             <div className="space-y-2">
-              <Label htmlFor="related-link" className="text-sm font-bold flex items-center gap-2">
-                <LinkIcon className="w-4 h-4" />
-                相關連結（選填）
-              </Label>
-              <Input
-                id="related-link"
-                type="url"
-                inputMode="url"
-                placeholder="https://..."
-                value={relatedLink}
-                onChange={(e) => setRelatedLink(e.target.value)}
-                className="rounded-xl text-base"
-              />
-            </div>
-            
-            
-            {/* Image Upload */}
-            <div className="space-y-2">
-              <Label className="text-sm font-bold flex items-center gap-2">
-                <ImageIcon className="w-4 h-4" />
-                圖片 (選填)
-              </Label>
-              <div className="flex items-center gap-3">
-                <button
+              <div className="flex items-center justify-between min-h-[40px]">
+                <Label htmlFor="related-link" className="text-sm font-bold flex items-center gap-2">
+                  <LinkIcon className="w-4 h-4" />
+                  相關連結（選填）
+                </Label>
+                <Button
                   type="button"
-                  onClick={() => setImageSheetOpen(true)}
-                  className="cursor-pointer touch-manipulation inline-flex items-center justify-center min-w-[120px] min-h-[44px] px-4 py-2 bg-white border border-gray-300 rounded-xl text-sm font-bold text-black hover:bg-gray-100 active:bg-gray-200 transition-colors shadow-sm"
+                  size="icon"
+                  variant="ghost"
+                  aria-expanded={relatedLinkExpanded}
+                  aria-controls="related-link"
+                  onClick={() => {
+                    setRelatedLinkExpanded((prev) => {
+                      const next = !prev;
+                      if (!next) setRelatedLink("");
+                      return next;
+                    });
+                  }}
+                  className="h-10 w-10 rounded-full touch-manipulation"
                 >
-                  {t("chooseFile")}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
+                  {relatedLinkExpanded ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                </Button>
               </div>
+              {relatedLinkExpanded && (
+                <Input
+                  id="related-link"
+                  type="url"
+                  inputMode="url"
+                  placeholder="例如：KKday、Klook、官方網站"
+                  value={relatedLink}
+                  onChange={(e) => setRelatedLink(e.target.value)}
+                  className="rounded-xl text-base"
+                />
+              )}
+            </div>
+
+            {/* Image Upload — collapsed by default; tapping + opens the picker directly */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between min-h-[40px]">
+                <Label className="text-sm font-bold flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  圖片（選填）
+                </Label>
+                {!imageUrl && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setImageSheetOpen(true)}
+                    className="h-10 w-10 rounded-full touch-manipulation"
+                    aria-label={t("chooseFile")}
+                  >
+                    <Plus className="w-5 h-5" />
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
               {imageUrl && (
                 <div className="relative">
                   <img
@@ -463,24 +496,28 @@ export function ItineraryItemDialog({
             </div>
             </div>
           </div>
-          
 
-          <DialogFooter className="shrink-0 flex-row justify-end gap-2 px-6 py-3 border-t border-border bg-background">
+          <DialogFooter
+            className="shrink-0 flex-row w-full gap-3 px-6 py-3 border-t border-border bg-background"
+            style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+          >
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="rounded-xl min-h-[44px] flex-1 sm:flex-none sm:min-w-[80px] touch-manipulation"
+              disabled={submitting}
+              className="rounded-xl min-h-[48px] flex-1 basis-0 touch-manipulation"
             >
               {t("cancel")}
             </Button>
             <Button
-              onClick={handleSubmit}
-              disabled={!description.trim() || (useTime && !!timeError) || mapUrlInvalid}
-              className="samoyed-button rounded-xl min-h-[44px] flex-1 sm:flex-none sm:min-w-[80px] touch-manipulation"
+              onClick={() => { if (submitting) return; setSubmitting(true); try { handleSubmit(); } finally { setTimeout(() => setSubmitting(false), 400); } }}
+              disabled={submitting || !description.trim() || (useTime && !!timeError) || mapUrlInvalid}
+              className="samoyed-button rounded-xl min-h-[48px] flex-1 basis-0 touch-manipulation"
             >
               {mode === "create" ? t("add") : t("save")}
             </Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
 
