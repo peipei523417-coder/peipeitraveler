@@ -314,7 +314,17 @@ export function ItineraryList({
   const { t } = useTranslation();
   const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const openPickerCountRef = useRef(0);
+
+  // Wraps the raw delete handler with a confirmation step so users can't
+  // accidentally lose an itinerary item with a single tap.
+  const requestDeleteItem = (itemId: string) => setPendingDeleteId(itemId);
+  const confirmDeleteItem = () => {
+    if (pendingDeleteId) onDeleteItem(pendingDeleteId);
+    setPendingDeleteId(null);
+  };
+  const pendingDeleteItem = day.items.find(i => i.id === pendingDeleteId) || null;
 
   // Split with-time vs without-time. With-time auto-sort by time;
   // without-time keep their manual sortOrder (set via drag).
