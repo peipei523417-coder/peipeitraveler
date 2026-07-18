@@ -456,7 +456,7 @@ export function ItineraryList({
       hasTime={true}
       readOnly={readOnly}
       onEditItem={onEditItem}
-      onDeleteItem={onDeleteItem}
+      onDeleteItem={requestDeleteItem}
       onUpdateItemIcon={onUpdateItemIcon}
       onIconPickerOpenChange={handleIconPickerOpenChange}
       onPreviewImage={() => setPreviewImageIndex(indexInAll)}
