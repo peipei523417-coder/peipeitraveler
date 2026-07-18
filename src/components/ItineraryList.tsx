@@ -196,6 +196,21 @@ function ItemRow({
                   </button>
                 )}
 
+                {item.relatedLink && /^https?:\/\//i.test(item.relatedLink) && (
+                  <a
+                    href={item.relatedLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
+                  >
+                    <LinkIcon className="w-3.5 h-3.5" />
+                    相關連結
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+
                 {signedImageUrl && (
                   <button
                     type="button"
