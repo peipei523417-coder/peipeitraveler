@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MapPin, ExternalLink, Check, Link2 } from "lucide-react";
@@ -30,6 +31,7 @@ function extractGooglePlaceName(url: string): string | undefined {
 }
 
 export function GoogleMapsInput({ value, onChange, onPlaceNameChange, onInvalidChange }: GoogleMapsInputProps) {
+  const { t } = useTranslation();
   // We keep two states: the raw text the user sees (may include pasted
   // address/newlines), and the sanitized URL that gets stored upstream.
   const [inputValue, setInputValue] = useState(value);
@@ -95,7 +97,7 @@ export function GoogleMapsInput({ value, onChange, onPlaceNameChange, onInvalidC
         <Input
           value={inputValue}
           onChange={handleInputChange}
-          placeholder="支援 Google Maps、Naver Map、高德地圖"
+          placeholder={t("mapLinkPlaceholder")}
           className="pl-10 pr-10 rounded-xl h-11 placeholder:text-xs"
         />
         {sanitized && (
@@ -108,7 +110,7 @@ export function GoogleMapsInput({ value, onChange, onPlaceNameChange, onInvalidC
           {sanitized && providerLabel ? (
             <>
               <Check className="w-4 h-4 text-green-500" />
-              <span className="text-green-600">{providerLabel}連結有效</span>
+              <span className="text-green-600">{providerLabel} · {t("mapLinkValid")}</span>
               <Button
                 type="button"
                 variant="ghost"
@@ -117,13 +119,13 @@ export function GoogleMapsInput({ value, onChange, onPlaceNameChange, onInvalidC
                 className="ml-auto gap-1 h-7 text-xs"
               >
                 <ExternalLink className="w-3 h-3" />
-                開啟地圖
+                {t("openMapButton")}
               </Button>
             </>
           ) : (
             <>
               <MapPin className="w-4 h-4 text-amber-500" />
-              <span className="text-amber-600">請輸入 Google Maps、Naver Map 或高德地圖連結</span>
+              <span className="text-amber-600">{t("mapLinkInvalidHint")}</span>
             </>
           )}
         </div>

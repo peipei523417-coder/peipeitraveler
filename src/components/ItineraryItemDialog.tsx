@@ -290,13 +290,13 @@ export function ItineraryItemDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md rounded-2xl max-h-[92dvh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 touch-manipulation">
-          <DialogHeader className="shrink-0 px-6 pt-4 pb-2 sm:pt-6 sm:pb-3 border-b border-border bg-background">
-            <DialogTitle className="text-xl">
+          <DialogHeader className="shrink-0 px-5 pt-3 pb-2 sm:px-6 sm:pt-6 sm:pb-3 border-b border-border bg-background">
+            <DialogTitle className="text-lg sm:text-xl">
               {mode === "create" ? t("addItem") : t("editItem")}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-2 sm:py-3">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-2 sm:px-6 sm:py-3">
             <div className="space-y-2 sm:space-y-3">
             {/* Time Toggle and Range - First priority */}
             <div className="space-y-2">
@@ -338,10 +338,10 @@ export function ItineraryItemDialog({
               </Label>
               <Textarea
                 id="description"
-                placeholder="例如：一蘭拉麵本店"
+                placeholder={t("descriptionPlaceholder")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="rounded-xl min-h-[80px] resize-none text-base"
+                className="rounded-xl min-h-[64px] sm:min-h-[80px] resize-none text-base"
               />
             </div>
             
@@ -369,7 +369,7 @@ export function ItineraryItemDialog({
                   className="rounded-xl w-16 text-base"
                   min="1"
                 />
-                <span className="text-sm text-muted-foreground">人</span>
+                <span className="text-sm text-muted-foreground">{t("personsUnit")}</span>
                 {perPersonCost !== null && (
                   <span className="text-sm text-muted-foreground">
                     = <span className="font-bold text-primary">${perPersonCost}</span> {t("perPerson")}
@@ -394,7 +394,7 @@ export function ItineraryItemDialog({
             <div className="space-y-2">
               <Label className="text-sm font-bold flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                地點連結（選填）
+                {t("locationLinkOptional")}
               </Label>
               <GoogleMapsInput
                 value={googleMapsUrl}
@@ -408,7 +408,7 @@ export function ItineraryItemDialog({
               <div className="flex items-center gap-2 min-h-[40px]">
                 <Label htmlFor="related-link" className="text-sm font-bold flex items-center gap-2">
                   <LinkIcon className="w-4 h-4" />
-                  相關連結（選填）
+                  {t("relatedLinkOptional")}
                 </Label>
                 <Button
                   type="button"
@@ -433,7 +433,7 @@ export function ItineraryItemDialog({
                   id="related-link"
                   type="url"
                   inputMode="url"
-                  placeholder="例如：KKday、Klook、官方網站"
+                  placeholder={t("relatedLinkPlaceholder")}
                   value={relatedLink}
                   onChange={(e) => setRelatedLink(e.target.value)}
                   className="rounded-xl text-base"
@@ -446,7 +446,7 @@ export function ItineraryItemDialog({
               <div className="flex items-center gap-2 min-h-[40px]">
                 <Label className="text-sm font-bold flex items-center gap-2">
                   <ImageIcon className="w-4 h-4" />
-                  圖片（選填）
+                  {t("imageOptional")}
                 </Label>
                 {!imageUrl && (
                   <Button
@@ -481,7 +481,7 @@ export function ItineraryItemDialog({
                   <img
                     src={imageUrl}
                     alt="Preview"
-                    className="w-full h-32 object-cover rounded-xl border border-border"
+                    className="w-full h-24 sm:h-32 object-cover rounded-xl border border-border"
                   />
                   <Button
                     size="sm"
@@ -527,10 +527,10 @@ export function ItineraryItemDialog({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <AlertCircle className="w-5 h-5" />
-              時間衝突
+              {t("timeConflictTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-foreground">
-              時間重複了，請重新檢查。
+              {t("timeConflictDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
