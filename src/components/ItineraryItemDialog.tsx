@@ -26,7 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Clock, Image as ImageIcon, Palette, AlertCircle, MapPin, DollarSign, Users, Camera as CameraIcon, FileImage, Link as LinkIcon } from "lucide-react";
+import { Clock, Image as ImageIcon, Palette, AlertCircle, MapPin, DollarSign, Users, Camera as CameraIcon, FileImage, Link as LinkIcon, Plus, Minus } from "lucide-react";
+
 import { GoogleMapsInput } from "@/components/GoogleMapsInput";
 import { SimpleTimePicker, getNextAvailableTime, isTimeBefore } from "@/components/SimpleTimePicker";
 import { HighlightColorPicker } from "@/components/HighlightColorPicker";
