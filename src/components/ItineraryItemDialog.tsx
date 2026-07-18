@@ -63,6 +63,7 @@ export function ItineraryItemDialog({
   const [description, setDescription] = useState(initialData?.description || "");
   const [googleMapsUrl, setGoogleMapsUrl] = useState(initialData?.googleMapsUrl || "");
   const [relatedLink, setRelatedLink] = useState(initialData?.relatedLink || "");
+  const [relatedLinkExpanded, setRelatedLinkExpanded] = useState(!!initialData?.relatedLink);
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || "");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [highlightColor, setHighlightColor] = useState<HighlightColor>(
@@ -74,6 +75,8 @@ export function ItineraryItemDialog({
   const [mapUrlInvalid, setMapUrlInvalid] = useState(false);
   const [overlapWarningOpen, setOverlapWarningOpen] = useState(false);
   const [overlappingItemDesc, setOverlappingItemDesc] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+
 
   useEffect(() => {
     if (initialData) {
