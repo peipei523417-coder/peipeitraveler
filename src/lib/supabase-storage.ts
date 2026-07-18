@@ -27,6 +27,7 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
       endTime: item.end_time || "",
       description: item.description,
       googleMapsUrl: item.google_maps_url || undefined,
+      relatedLink: item.related_link || undefined,
       imageUrl: item.image_url || undefined,
       highlightColor: item.highlight_color || undefined,
       price: item.price || undefined,
