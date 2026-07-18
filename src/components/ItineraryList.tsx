@@ -10,6 +10,7 @@ import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import { useSignedImageUrls } from "@/hooks/useSignedImageUrl";
 import { TimelineIcon, TimelineIconPicker } from "@/components/TimelineIconPicker";
 import { normalizeMapUrl, openMapUrl } from "@/lib/maps-url";
+import { openExternalLink, isSafeExternalUrl } from "@/lib/external-link";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { toast } from "@/hooks/use-toast";
 import {
