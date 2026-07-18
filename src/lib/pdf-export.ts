@@ -248,7 +248,7 @@ function cleanPdfUri(url: string): string | null {
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028\u2029]/g, "")
     .trim();
-  if (!/^https:\/\//i.test(cleaned)) return null;
+  if (!/^https?:\/\//i.test(cleaned)) return null;
   return cleaned;
 }
 
