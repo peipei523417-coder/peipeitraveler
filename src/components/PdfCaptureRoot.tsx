@@ -577,7 +577,6 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                     <div
                       key={`${dayNum}-${idx}`}
                       data-pdf-card
-                      data-pdf-link={link.url}
                       style={{
                         background: "#f8fbff",
                         border: "1px solid #d6e6f5",
@@ -598,18 +597,40 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                       >
                         📍 {link.title}
                       </div>
-                      <div
-                        style={{
-                          display: "inline-block",
-                          background: "#0285c7",
-                          color: "#ffffff",
-                          fontSize: 13,
-                          fontWeight: 700,
-                          padding: "9px 18px",
-                          borderRadius: 999,
-                        }}
-                      >
-                        {getMapButtonText(link.provider)}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {link.mapUrl && (
+                          <div
+                            data-pdf-link={link.mapUrl}
+                            style={{
+                              display: "inline-block",
+                              background: "#0285c7",
+                              color: "#ffffff",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              padding: "9px 18px",
+                              borderRadius: 999,
+                            }}
+                          >
+                            {getMapButtonText(link.mapProvider)}
+                          </div>
+                        )}
+                        {link.relatedUrl && (
+                          <div
+                            data-pdf-link={link.relatedUrl}
+                            style={{
+                              display: "inline-block",
+                              background: "#ffffff",
+                              color: "#0285c7",
+                              border: "1px solid #0285c7",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              padding: "9px 18px",
+                              borderRadius: 999,
+                            }}
+                          >
+                            🔗 開啟相關連結 ↗
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
