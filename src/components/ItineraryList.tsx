@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { DayItinerary, ItineraryItem, HIGHLIGHT_COLORS, TimelineIconType } from "@/types/travel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Clock, MapPin, Pencil, Trash2, ExternalLink, DollarSign } from "lucide-react";
+import { Plus, Clock, MapPin, Pencil, Trash2, ExternalLink, DollarSign, Link as LinkIcon } from "lucide-react";
 import dogEmptyNew from "@/assets/dog-empty-new.png";
 import { cn } from "@/lib/utils";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
