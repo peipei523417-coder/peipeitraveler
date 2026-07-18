@@ -10,6 +10,7 @@ import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import { useSignedImageUrls } from "@/hooks/useSignedImageUrl";
 import { TimelineIcon, TimelineIconPicker } from "@/components/TimelineIconPicker";
 import { normalizeMapUrl, openMapUrl } from "@/lib/maps-url";
+import { openExternalLink, isSafeExternalUrl } from "@/lib/external-link";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -206,19 +207,24 @@ function ItemRow({
                   </button>
                 )}
 
-                {item.relatedLink && /^https?:\/\//i.test(item.relatedLink) && (
-                  <a
-                    href={item.relatedLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {item.relatedLink && isSafeExternalUrl(item.relatedLink) && (
+                  <button
+                    type="button"
                     onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      const ok = await openExternalLink(item.relatedLink!);
+                      if (!ok) {
+                        toast({ title: "無法開啟連結，請稍後再試。" });
+                      }
+                    }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/80 rounded-lg text-xs font-bold text-foreground hover:text-primary hover:bg-white transition-colors shadow-sm cursor-pointer"
                   >
                     <LinkIcon className="w-3.5 h-3.5" />
                     相關連結
                     <ExternalLink className="w-3 h-3" />
-                  </a>
+                  </button>
                 )}
 
                 {signedImageUrl && (

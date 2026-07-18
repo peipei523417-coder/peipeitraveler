@@ -114,11 +114,35 @@ interface MapLinkEntry {
   dayNumber: number;
   date: string;
   title: string;
-  url: string;
-  provider: string;
+  /** Sanitized map URL (Google/Naver/Amap) — always https or empty. */
+  mapUrl: string;
+  mapProvider: string;
+  /** Optional external related link (http/https). Empty when none/invalid. */
+  relatedUrl: string;
 }
 
-function collectAllMapLinks(project: TravelProject): MapLinkEntry[] {
+/** PDF-safe cleaner for related_link. Accepts http OR https, strips
+ *  control chars and trailing whitespace. Does NOT apply any Google /
+ *  Naver / Amap rewrite. Returns "" for anything unsafe or empty. */
+function cleanRelatedLinkForPdf(raw: unknown): string {
+  if (!raw) return "";
+  const cleaned = String(raw)
+    .replace(/%0A/gi, "")
+    .replace(/%0D/gi, "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028\u2029]/g, "")
+    .trim();
+  if (!/^https?:\/\//i.test(cleaned)) return "";
+  try {
+    const u = new URL(cleaned);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    return cleaned;
+  } catch {
+    return "";
+  }
+}
+
+function collectAllLinks(project: TravelProject): MapLinkEntry[] {
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   const out: MapLinkEntry[] = [];
   for (const day of itinerary) {
@@ -133,30 +157,30 @@ function collectAllMapLinks(project: TravelProject): MapLinkEntry[] {
       const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
       const url = sanitizeMapUrl(rawUrl);
       const rawTitle = String(source.title || source.name || item.description || "").replace(/\s+$/g, "");
-      const provider = url ? getMapProviderLabel(url) : "未知";
-      // Same URL the App opens, but rewritten to a PDF-safe form. Pure
-      // sanitization for long Google URLs / Naver / Amap; only Google short
-      // URLs may be rewritten to a stable search URL when we have a reliable
-      // query (latlng > address > title). NEVER inject text into Naver/Amap.
+      const provider = url ? getMapProviderLabel(url) : "";
       const ann = buildPdfMapAnnotation(rawUrl, { placeName: rawTitle });
+      const relatedUrl = cleanRelatedLinkForPdf(item.relatedLink);
+      const mapUrl = url && ann.url && !ann.rejected ? ann.url : "";
       console.info("[pdf-map-link]", {
         rawUrl,
         provider,
         sanitizedUrl: url,
-        appOpenUrl: url, // App uses sanitizeMapUrl result via openMapUrl
         pdfAnnotationUrl: ann.url,
         querySource: ann.querySource,
         rejected: ann.rejected,
         rejectReason: ann.rejectReason,
+        relatedRaw: item.relatedLink,
+        relatedForPdf: relatedUrl,
         title: rawTitle,
       });
-      if (!url || !ann.url || ann.rejected) continue;
+      if (!mapUrl && !relatedUrl) continue;
       out.push({
         dayNumber: day.dayNumber,
         date: fmtDate(day.date),
         title: rawTitle || "景點連結",
-        url: ann.url,
-        provider,
+        mapUrl,
+        mapProvider: provider,
+        relatedUrl,
       });
     }
   }
@@ -235,7 +259,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
   const fontStack =
     '"Noto Sans TC", "PingFang TC", "Hiragino Sans", "Microsoft JhengHei", system-ui, sans-serif';
 
-  const mapLinks = collectAllMapLinks(project);
+  const mapLinks = collectAllLinks(project);
   const linksByDay = new Map<number, MapLinkEntry[]>();
   for (const ml of mapLinks) {
     const arr = linksByDay.get(ml.dayNumber) ?? [];
@@ -553,7 +577,6 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                     <div
                       key={`${dayNum}-${idx}`}
                       data-pdf-card
-                      data-pdf-link={link.url}
                       style={{
                         background: "#f8fbff",
                         border: "1px solid #d6e6f5",
@@ -574,18 +597,40 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                       >
                         📍 {link.title}
                       </div>
-                      <div
-                        style={{
-                          display: "inline-block",
-                          background: "#0285c7",
-                          color: "#ffffff",
-                          fontSize: 13,
-                          fontWeight: 700,
-                          padding: "9px 18px",
-                          borderRadius: 999,
-                        }}
-                      >
-                        {getMapButtonText(link.provider)}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {link.mapUrl && (
+                          <div
+                            data-pdf-link={link.mapUrl}
+                            style={{
+                              display: "inline-block",
+                              background: "#0285c7",
+                              color: "#ffffff",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              padding: "9px 18px",
+                              borderRadius: 999,
+                            }}
+                          >
+                            {getMapButtonText(link.mapProvider)}
+                          </div>
+                        )}
+                        {link.relatedUrl && (
+                          <div
+                            data-pdf-link={link.relatedUrl}
+                            style={{
+                              display: "inline-block",
+                              background: "#ffffff",
+                              color: "#0285c7",
+                              border: "1px solid #0285c7",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              padding: "9px 18px",
+                              borderRadius: 999,
+                            }}
+                          >
+                            🔗 開啟相關連結 ↗
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
