@@ -394,6 +394,24 @@ export function ItineraryItemDialog({
                 onInvalidChange={setMapUrlInvalid}
               />
             </div>
+
+            {/* Related Link (optional external URL like booking pages, articles) */}
+            <div className="space-y-2">
+              <Label htmlFor="related-link" className="text-sm font-bold flex items-center gap-2">
+                <LinkIcon className="w-4 h-4" />
+                相關連結（選填）
+              </Label>
+              <Input
+                id="related-link"
+                type="url"
+                inputMode="url"
+                placeholder="https://..."
+                value={relatedLink}
+                onChange={(e) => setRelatedLink(e.target.value)}
+                className="rounded-xl text-base"
+              />
+            </div>
+            
             
             {/* Image Upload */}
             <div className="space-y-2">
