@@ -288,8 +288,8 @@ export function ItineraryItemDialog({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-3 sm:py-4">
-            <div className="space-y-3 sm:space-y-5">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-2 sm:py-3">
+            <div className="space-y-2 sm:space-y-3">
             {/* Time Toggle and Range - First priority */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
