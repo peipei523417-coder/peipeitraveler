@@ -81,6 +81,7 @@ export function ItineraryItemDialog({
       setEndTime(initialData.endTime || "10:00");
       setDescription(initialData.description);
       setGoogleMapsUrl(initialData.googleMapsUrl || "");
+      setRelatedLink(initialData.relatedLink || "");
       setImageUrl(initialData.imageUrl || "");
       setHighlightColor(initialData.highlightColor || "none");
       setPrice(initialData.price?.toString() || "");
