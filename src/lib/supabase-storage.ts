@@ -609,6 +609,7 @@ export async function patchItineraryItem(
   if (updates.endTime !== undefined) updateData.end_time = updates.endTime || null;
   if (updates.description !== undefined) updateData.description = updates.description;
   if (updates.googleMapsUrl !== undefined) updateData.google_maps_url = updates.googleMapsUrl || null;
+  if (updates.relatedLink !== undefined) updateData.related_link = updates.relatedLink || null;
   if (updates.imageUrl !== undefined) updateData.image_url = updates.imageUrl || null;
   if (updates.highlightColor !== undefined) updateData.highlight_color = updates.highlightColor || null;
   if (updates.price !== undefined) updateData.price = updates.price || null;
