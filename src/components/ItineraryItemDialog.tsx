@@ -94,6 +94,7 @@ export function ItineraryItemDialog({
       setEndTime(getNextAvailableTime(defaultStart));
       setDescription("");
       setGoogleMapsUrl("");
+      setRelatedLink("");
       setImageUrl("");
       setHighlightColor("none");
       setPrice("");
