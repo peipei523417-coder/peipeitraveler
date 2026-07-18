@@ -405,7 +405,7 @@ export function ItineraryItemDialog({
 
             {/* Related Link (optional external URL like booking pages, articles) — collapsed by default */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between min-h-[40px]">
+              <div className="flex items-center gap-2 min-h-[40px]">
                 <Label htmlFor="related-link" className="text-sm font-bold flex items-center gap-2">
                   <LinkIcon className="w-4 h-4" />
                   相關連結（選填）
@@ -423,7 +423,7 @@ export function ItineraryItemDialog({
                       return next;
                     });
                   }}
-                  className="h-10 w-10 rounded-full touch-manipulation"
+                  className="h-10 w-10 rounded-full touch-manipulation -my-1"
                 >
                   {relatedLinkExpanded ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                 </Button>
@@ -443,7 +443,7 @@ export function ItineraryItemDialog({
 
             {/* Image Upload — collapsed by default; tapping + opens the picker directly */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between min-h-[40px]">
+              <div className="flex items-center gap-2 min-h-[40px]">
                 <Label className="text-sm font-bold flex items-center gap-2">
                   <ImageIcon className="w-4 h-4" />
                   圖片（選填）
@@ -454,7 +454,7 @@ export function ItineraryItemDialog({
                     size="icon"
                     variant="ghost"
                     onClick={() => setImageSheetOpen(true)}
-                    className="h-10 w-10 rounded-full touch-manipulation"
+                    className="h-10 w-10 rounded-full touch-manipulation -my-1"
                     aria-label={t("chooseFile")}
                   >
                     <Plus className="w-5 h-5" />
