@@ -465,18 +465,18 @@ export function ItineraryItemDialog({
           </div>
           
 
-          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-3 sm:py-4 border-t border-border bg-background">
+          <DialogFooter className="shrink-0 flex-row justify-end gap-2 px-6 py-3 border-t border-border bg-background">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="rounded-xl min-h-[44px] min-w-[80px] touch-manipulation"
+              className="rounded-xl min-h-[44px] flex-1 sm:flex-none sm:min-w-[80px] touch-manipulation"
             >
               {t("cancel")}
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={!description.trim() || (useTime && !!timeError) || mapUrlInvalid}
-              className="samoyed-button rounded-xl min-h-[44px] min-w-[80px] touch-manipulation"
+              className="samoyed-button rounded-xl min-h-[44px] flex-1 sm:flex-none sm:min-w-[80px] touch-manipulation"
             >
               {mode === "create" ? t("add") : t("save")}
             </Button>
