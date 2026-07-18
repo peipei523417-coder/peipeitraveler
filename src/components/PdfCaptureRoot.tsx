@@ -114,11 +114,35 @@ interface MapLinkEntry {
   dayNumber: number;
   date: string;
   title: string;
-  url: string;
-  provider: string;
+  /** Sanitized map URL (Google/Naver/Amap) — always https or empty. */
+  mapUrl: string;
+  mapProvider: string;
+  /** Optional external related link (http/https). Empty when none/invalid. */
+  relatedUrl: string;
 }
 
-function collectAllMapLinks(project: TravelProject): MapLinkEntry[] {
+/** PDF-safe cleaner for related_link. Accepts http OR https, strips
+ *  control chars and trailing whitespace. Does NOT apply any Google /
+ *  Naver / Amap rewrite. Returns "" for anything unsafe or empty. */
+function cleanRelatedLinkForPdf(raw: unknown): string {
+  if (!raw) return "";
+  const cleaned = String(raw)
+    .replace(/%0A/gi, "")
+    .replace(/%0D/gi, "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028\u2029]/g, "")
+    .trim();
+  if (!/^https?:\/\//i.test(cleaned)) return "";
+  try {
+    const u = new URL(cleaned);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    return cleaned;
+  } catch {
+    return "";
+  }
+}
+
+function collectAllLinks(project: TravelProject): MapLinkEntry[] {
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   const out: MapLinkEntry[] = [];
   for (const day of itinerary) {
@@ -133,30 +157,30 @@ function collectAllMapLinks(project: TravelProject): MapLinkEntry[] {
       const rawUrl = item.googleMapsUrl || String(source.map_url || source.location_url || "");
       const url = sanitizeMapUrl(rawUrl);
       const rawTitle = String(source.title || source.name || item.description || "").replace(/\s+$/g, "");
-      const provider = url ? getMapProviderLabel(url) : "未知";
-      // Same URL the App opens, but rewritten to a PDF-safe form. Pure
-      // sanitization for long Google URLs / Naver / Amap; only Google short
-      // URLs may be rewritten to a stable search URL when we have a reliable
-      // query (latlng > address > title). NEVER inject text into Naver/Amap.
+      const provider = url ? getMapProviderLabel(url) : "";
       const ann = buildPdfMapAnnotation(rawUrl, { placeName: rawTitle });
+      const relatedUrl = cleanRelatedLinkForPdf(item.relatedLink);
+      const mapUrl = url && ann.url && !ann.rejected ? ann.url : "";
       console.info("[pdf-map-link]", {
         rawUrl,
         provider,
         sanitizedUrl: url,
-        appOpenUrl: url, // App uses sanitizeMapUrl result via openMapUrl
         pdfAnnotationUrl: ann.url,
         querySource: ann.querySource,
         rejected: ann.rejected,
         rejectReason: ann.rejectReason,
+        relatedRaw: item.relatedLink,
+        relatedForPdf: relatedUrl,
         title: rawTitle,
       });
-      if (!url || !ann.url || ann.rejected) continue;
+      if (!mapUrl && !relatedUrl) continue;
       out.push({
         dayNumber: day.dayNumber,
         date: fmtDate(day.date),
         title: rawTitle || "景點連結",
-        url: ann.url,
-        provider,
+        mapUrl,
+        mapProvider: provider,
+        relatedUrl,
       });
     }
   }
