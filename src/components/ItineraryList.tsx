@@ -12,6 +12,16 @@ import { TimelineIcon, TimelineIconPicker } from "@/components/TimelineIconPicke
 import { normalizeMapUrl, openMapUrl } from "@/lib/maps-url";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 import {
