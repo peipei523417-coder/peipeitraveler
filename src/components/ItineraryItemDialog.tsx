@@ -348,10 +348,22 @@ export function ItineraryItemDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md rounded-2xl max-h-[92dvh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 touch-manipulation">
           <DialogHeader className="shrink-0 px-5 pt-3 pb-2 sm:px-6 sm:pt-6 sm:pb-3 border-b border-border bg-background">
-            <DialogTitle className="text-lg sm:text-xl">
-              {mode === "create" ? t("addItem") : t("editItem")}
-            </DialogTitle>
+            <div className="flex items-center gap-3 pr-8">
+              <DialogTitle className="text-lg sm:text-xl">
+                {mode === "create" ? t("addItem") : t("editItem")}
+              </DialogTitle>
+              {canMoveDate && (
+                <button
+                  type="button"
+                  onClick={() => setMoveSheetOpen(true)}
+                  className="text-sm font-normal text-muted-foreground hover:text-foreground py-2 px-1 -my-2 touch-manipulation"
+                >
+                  {t("moveDate")} ›
+                </button>
+              )}
+            </div>
           </DialogHeader>
+
 
           <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-2 sm:px-6 sm:py-3">
             <div className="space-y-2 sm:space-y-3">
