@@ -631,6 +631,34 @@ export async function patchItineraryItem(
 }
 
 /**
+ * Move an existing itinerary item to another day. Targeted single-row UPDATE:
+ * touches only day_number (and sort_order when supplied for no-time items).
+ * Never deletes/recreates the row, so all other fields are preserved.
+ */
+export async function moveItineraryItemToDay(
+  itemId: string,
+  dayNumber: number,
+  sortOrder?: number
+): Promise<boolean> {
+  const updateData: { day_number: number; sort_order?: number } = { day_number: dayNumber };
+  if (typeof sortOrder === "number") updateData.sort_order = sortOrder;
+
+  const { error } = await supabase
+    .from("itinerary_items")
+    .update(updateData)
+    .eq("id", itemId);
+
+  if (error) {
+    console.error("[itinerary] move-day error", { itemId, dayNumber, error });
+    return false;
+  }
+  console.log("[itinerary] move-day success", { itemId, dayNumber });
+  return true;
+}
+
+
+
+/**
  * Bulk-update sort_order for a list of itinerary items (used after drag-to-reorder
  * of no-time items within a single day). Issues parallel per-row updates so RLS
  * stays simple; small list (typically <20) so this is fine.

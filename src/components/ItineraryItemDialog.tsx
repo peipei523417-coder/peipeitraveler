@@ -37,6 +37,12 @@ import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/switch";
 
 
+export interface MoveDayOption {
+  dayNumber: number;
+  label: string;
+  items: ItineraryItem[];
+}
+
 interface ItineraryItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -45,7 +51,13 @@ interface ItineraryItemDialogProps {
   mode: "create" | "edit";
   suggestedStartTime?: string;
   existingItems?: ItineraryItem[]; // For overlap checking
+  /** Edit mode only: days of the current project, used by "Move date". */
+  moveDayOptions?: MoveDayOption[];
+  currentDayNumber?: number;
+  /** Edit mode only: moves the existing row to another day (day_number only). */
+  onMoveToDay?: (targetDayNumber: number) => void | Promise<void>;
 }
+
 
 export function ItineraryItemDialog({
   open,
@@ -55,6 +67,10 @@ export function ItineraryItemDialog({
   mode,
   suggestedStartTime,
   existingItems = [],
+  moveDayOptions = [],
+  currentDayNumber,
+  onMoveToDay,
+
 }: ItineraryItemDialogProps) {
   const { t } = useTranslation();
   const [useTime, setUseTime] = useState(!!initialData?.startTime);
@@ -78,7 +94,48 @@ export function ItineraryItemDialog({
   const [submitting, setSubmitting] = useState(false);
 
 
+  const [moveSheetOpen, setMoveSheetOpen] = useState(false);
+  const [moving, setMoving] = useState(false);
+
+  const canMoveDate =
+    mode === "edit" && !!onMoveToDay && !!initialData && moveDayOptions.length > 1;
+  const currentDayLabel =
+    moveDayOptions.find((d) => d.dayNumber === currentDayNumber)?.label ?? "";
+
   useEffect(() => {
+    if (!open) setMoveSheetOpen(false);
+  }, [open]);
+
+  const handleMoveToDay = async (target: MoveDayOption) => {
+    if (!initialData || !onMoveToDay || moving) return;
+    const savedStart = initialData.startTime;
+    const savedEnd = initialData.endTime;
+    // Timed items must not collide on the target day — reuse existing rules/UI.
+    if (savedStart && savedEnd) {
+      const overlapping = findOverlappingItem(target.items, savedStart, savedEnd, initialData.id);
+      if (overlapping || hasTimeConflict(target.items, savedStart, savedEnd, initialData.id)) {
+        if (overlapping) {
+          setOverlappingItemDesc(
+            `${overlapping.startTime} - ${overlapping.endTime}: ${overlapping.description}`
+          );
+        }
+        setMoveSheetOpen(false);
+        setOverlapWarningOpen(true);
+        return;
+      }
+    }
+    setMoving(true);
+    try {
+      await onMoveToDay(target.dayNumber);
+      setMoveSheetOpen(false);
+      onOpenChange(false);
+    } finally {
+      setMoving(false);
+    }
+  };
+
+  useEffect(() => {
+
     if (initialData) {
       setUseTime(!!initialData.startTime);
       setStartTime(initialData.startTime || "09:00");
@@ -291,10 +348,22 @@ export function ItineraryItemDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md rounded-2xl max-h-[92dvh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 touch-manipulation">
           <DialogHeader className="shrink-0 px-5 pt-3 pb-2 sm:px-6 sm:pt-6 sm:pb-3 border-b border-border bg-background">
-            <DialogTitle className="text-lg sm:text-xl">
-              {mode === "create" ? t("addItem") : t("editItem")}
-            </DialogTitle>
+            <div className="flex items-center gap-3 pr-8">
+              <DialogTitle className="text-lg sm:text-xl">
+                {mode === "create" ? t("addItem") : t("editItem")}
+              </DialogTitle>
+              {canMoveDate && (
+                <button
+                  type="button"
+                  onClick={() => setMoveSheetOpen(true)}
+                  className="text-sm font-normal text-foreground/70 hover:text-foreground py-2 px-1 -my-2 touch-manipulation"
+                >
+                  {t("moveDate")} ›
+                </button>
+              )}
+            </div>
           </DialogHeader>
+
 
           <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-2 sm:px-6 sm:py-3">
             <div className="space-y-2 sm:space-y-3">
@@ -561,6 +630,38 @@ export function ItineraryItemDialog({
               <FileImage className="w-5 h-5" />{t("chooseFile")}
             </Button>
             <Button variant="ghost" className="w-full justify-center h-12 rounded-xl mt-1" onClick={() => setImageSheetOpen(false)}>
+              {t("cancel")}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Move date sheet — edit mode only */}
+      <Sheet open={moveSheetOpen} onOpenChange={setMoveSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[70dvh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-center">{t("moveDate")}</SheetTitle>
+          </SheetHeader>
+          <p className="text-sm text-muted-foreground text-center pt-1">
+            {t("currentDate")}: {currentDayLabel}
+          </p>
+          <div className="flex flex-col gap-2 py-4">
+            <p className="text-sm font-bold">{t("moveTo")}</p>
+            {moveDayOptions
+              .filter((d) => d.dayNumber !== currentDayNumber)
+              .map((d) => (
+                <Button
+                  key={d.dayNumber}
+                  variant="outline"
+                  disabled={moving}
+                  className="w-full justify-start h-12 rounded-xl"
+                  onClick={() => void handleMoveToDay(d)}
+                >
+                  {d.label}
+                </Button>
+              ))}
+            <Button variant="ghost" className="w-full justify-center h-12 rounded-xl mt-1"
+              onClick={() => setMoveSheetOpen(false)} disabled={moving}>
               {t("cancel")}
             </Button>
           </div>

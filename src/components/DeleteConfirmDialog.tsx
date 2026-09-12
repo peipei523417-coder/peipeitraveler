@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { TravelProject } from "@/types/travel";
 import {
@@ -10,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Trash2, LogOut } from "lucide-react";
+import { Loader2, Trash2, LogOut, AlertTriangle } from "lucide-react";
 
 interface DeleteConfirmDialogProps {
   open: boolean;
@@ -31,11 +32,30 @@ export function DeleteConfirmDialog({
   loading = false,
 }: DeleteConfirmDialogProps) {
   const { t } = useTranslation();
+  // Permanent project deletion requires two confirmations. Leaving a shared
+  // project is not destructive, so it keeps a single confirmation.
+  const [finalStep, setFinalStep] = useState(false);
 
-  const Icon = leaveMode ? LogOut : Trash2;
-  const title = leaveMode ? t("leaveSharedTitle") : t("deleteConfirmTitle");
-  const description = leaveMode ? t("leaveSharedDescription") : t("deleteConfirmDescription");
-  const actionLabel = leaveMode ? t("leaveShared") : t("delete");
+  useEffect(() => {
+    if (!open) setFinalStep(false);
+  }, [open]);
+
+  const Icon = leaveMode ? LogOut : finalStep ? AlertTriangle : Trash2;
+  const title = leaveMode
+    ? t("leaveSharedTitle")
+    : finalStep
+      ? t("finalConfirmTitle")
+      : t("deleteConfirmTitle");
+  const description = leaveMode
+    ? t("leaveSharedDescription")
+    : finalStep
+      ? t("finalConfirmDescription")
+      : t("deleteConfirmDescription");
+  const actionLabel = leaveMode
+    ? t("leaveShared")
+    : finalStep
+      ? t("permanentDelete")
+      : t("continueDelete");
 
   return (
     <AlertDialog open={open} onOpenChange={loading ? () => {} : onOpenChange}>
@@ -54,7 +74,13 @@ export function DeleteConfirmDialog({
           <AlertDialogAction
             onClick={(event) => {
               event.preventDefault();
-              if (!loading) void onConfirm();
+              if (loading) return;
+              // Step 1 for a real project delete only advances the dialog.
+              if (!leaveMode && !finalStep) {
+                setFinalStep(true);
+                return;
+              }
+              void onConfirm();
             }}
             disabled={loading}
             className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -67,3 +93,4 @@ export function DeleteConfirmDialog({
     </AlertDialog>
   );
 }
+
