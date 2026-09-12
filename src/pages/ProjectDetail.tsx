@@ -9,7 +9,9 @@ import {
   removeItineraryItem,
   updateItineraryItemIcon,
   uploadProjectImage,
-  reorderItineraryItems
+  reorderItineraryItems,
+  moveItineraryItemToDay
+
 } from "@/lib/supabase-storage";
 import { useProjectCache } from "@/contexts/ProjectCacheContext";
 import { Button } from "@/components/ui/button";
@@ -632,7 +634,69 @@ function ProjectDetailInner() {
     setTimeout(() => { isLocalUpdateRef.current = false; }, 1000);
   };
 
+  /**
+   * Move an existing itinerary item to another day. Single-row UPDATE of
+   * day_number (+ sort_order for no-time items). Never delete/recreate.
+   */
+  const handleMoveItemToDay = async (item: ItineraryItem, targetDay: number) => {
+    if (!project || item.id.startsWith("temp-")) return;
+    const base = Array.isArray(project.itinerary) ? project.itinerary : [];
+    const sourceDay = base.find(d => (d?.items || []).some(i => i.id === item.id))?.dayNumber;
+    if (!sourceDay || sourceDay === targetDay) return;
+
+    isLocalUpdateRef.current = true;
+    const previous = project;
+
+    // No-time items go to the end of the target day's no-time section.
+    let newSortOrder: number | undefined;
+    if (!item.startTime) {
+      const targetItems = (base.find(d => d?.dayNumber === targetDay)?.items || []).filter(i => !i.startTime);
+      newSortOrder = targetItems.reduce((max, i) => Math.max(max, i.sortOrder ?? 0), 0) + 1;
+    }
+
+    const movedItem: ItineraryItem = {
+      ...item,
+      ...(typeof newSortOrder === "number" ? { sortOrder: newSortOrder } : {}),
+    };
+
+    setProject(prev => {
+      if (!prev) return prev;
+      const days = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+      return {
+        ...prev,
+        itinerary: days.map(day => {
+          const items = Array.isArray(day?.items) ? day.items : [];
+          if (day?.dayNumber === sourceDay) {
+            return { ...day, items: items.filter(i => i.id !== item.id) };
+          }
+          if (day?.dayNumber === targetDay) {
+            return { ...day, items: [...items, movedItem] };
+          }
+          return day;
+        }),
+      };
+    });
+    setEditingItem(null);
+    showSaveIndicator();
+
+    const ok = await moveItineraryItemToDay(item.id, targetDay, newSortOrder);
+    if (!ok) {
+      // Restore the exact previous state — item stays on its original day.
+      setProject(previous);
+      toast.error(t("saveFailed"));
+    } else {
+      setActiveDay(targetDay);
+      setProject(prev => {
+        if (prev) updateProjectInCache(prev);
+        return prev;
+      });
+    }
+
+    setTimeout(() => { isLocalUpdateRef.current = false; }, 1000);
+  };
+
   const showSaveIndicator = () => {
+
     setSaved(true);
     toast.success(t("save"), {
       duration: 2000,
