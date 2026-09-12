@@ -67,6 +67,10 @@ export function ItineraryItemDialog({
   mode,
   suggestedStartTime,
   existingItems = [],
+  moveDayOptions = [],
+  currentDayNumber,
+  onMoveToDay,
+
 }: ItineraryItemDialogProps) {
   const { t } = useTranslation();
   const [useTime, setUseTime] = useState(!!initialData?.startTime);
@@ -90,7 +94,48 @@ export function ItineraryItemDialog({
   const [submitting, setSubmitting] = useState(false);
 
 
+  const [moveSheetOpen, setMoveSheetOpen] = useState(false);
+  const [moving, setMoving] = useState(false);
+
+  const canMoveDate =
+    mode === "edit" && !!onMoveToDay && !!initialData && moveDayOptions.length > 1;
+  const currentDayLabel =
+    moveDayOptions.find((d) => d.dayNumber === currentDayNumber)?.label ?? "";
+
   useEffect(() => {
+    if (!open) setMoveSheetOpen(false);
+  }, [open]);
+
+  const handleMoveToDay = async (target: MoveDayOption) => {
+    if (!initialData || !onMoveToDay || moving) return;
+    const savedStart = initialData.startTime;
+    const savedEnd = initialData.endTime;
+    // Timed items must not collide on the target day — reuse existing rules/UI.
+    if (savedStart && savedEnd) {
+      const overlapping = findOverlappingItem(target.items, savedStart, savedEnd, initialData.id);
+      if (overlapping || hasTimeConflict(target.items, savedStart, savedEnd, initialData.id)) {
+        if (overlapping) {
+          setOverlappingItemDesc(
+            `${overlapping.startTime} - ${overlapping.endTime}: ${overlapping.description}`
+          );
+        }
+        setMoveSheetOpen(false);
+        setOverlapWarningOpen(true);
+        return;
+      }
+    }
+    setMoving(true);
+    try {
+      await onMoveToDay(target.dayNumber);
+      setMoveSheetOpen(false);
+      onOpenChange(false);
+    } finally {
+      setMoving(false);
+    }
+  };
+
+  useEffect(() => {
+
     if (initialData) {
       setUseTime(!!initialData.startTime);
       setStartTime(initialData.startTime || "09:00");
