@@ -356,7 +356,7 @@ export function ItineraryItemDialog({
                 <button
                   type="button"
                   onClick={() => setMoveSheetOpen(true)}
-                  className="text-sm font-normal text-muted-foreground hover:text-foreground py-2 px-1 -my-2 touch-manipulation"
+                  className="text-sm font-normal text-foreground/70 hover:text-foreground py-2 px-1 -my-2 touch-manipulation"
                 >
                   {t("moveDate")} ›
                 </button>
@@ -630,6 +630,38 @@ export function ItineraryItemDialog({
               <FileImage className="w-5 h-5" />{t("chooseFile")}
             </Button>
             <Button variant="ghost" className="w-full justify-center h-12 rounded-xl mt-1" onClick={() => setImageSheetOpen(false)}>
+              {t("cancel")}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Move date sheet — edit mode only */}
+      <Sheet open={moveSheetOpen} onOpenChange={setMoveSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[70dvh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="text-center">{t("moveDate")}</SheetTitle>
+          </SheetHeader>
+          <p className="text-sm text-muted-foreground text-center pt-1">
+            {t("currentDate")}: {currentDayLabel}
+          </p>
+          <div className="flex flex-col gap-2 py-4">
+            <p className="text-sm font-bold">{t("moveTo")}</p>
+            {moveDayOptions
+              .filter((d) => d.dayNumber !== currentDayNumber)
+              .map((d) => (
+                <Button
+                  key={d.dayNumber}
+                  variant="outline"
+                  disabled={moving}
+                  className="w-full justify-start h-12 rounded-xl"
+                  onClick={() => void handleMoveToDay(d)}
+                >
+                  {d.label}
+                </Button>
+              ))}
+            <Button variant="ghost" className="w-full justify-center h-12 rounded-xl mt-1"
+              onClick={() => setMoveSheetOpen(false)} disabled={moving}>
               {t("cancel")}
             </Button>
           </div>
