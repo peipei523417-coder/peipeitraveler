@@ -856,6 +856,18 @@ function ProjectDetailInner() {
         mode={editingItem ? "edit" : "create"}
         suggestedStartTime={getNextSuggestedTime()}
         existingItems={currentDay?.items || []}
+        moveDayOptions={itinerary.map((d) => ({
+          dayNumber: d.dayNumber,
+          label: `${t("day")} ${d.dayNumber} · ${formatShortDate(d.date, i18n.language)}`,
+          items: Array.isArray(d?.items) ? d.items : [],
+        }))}
+        currentDayNumber={activeDay}
+        onMoveToDay={
+          isViewer || !editingItem
+            ? undefined
+            : (targetDay) => handleMoveItemToDay(editingItem, targetDay)
+        }
+
       />
 
       {/* Expiry Warning */}
