@@ -37,6 +37,12 @@ import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/switch";
 
 
+export interface MoveDayOption {
+  dayNumber: number;
+  label: string;
+  items: ItineraryItem[];
+}
+
 interface ItineraryItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -45,7 +51,13 @@ interface ItineraryItemDialogProps {
   mode: "create" | "edit";
   suggestedStartTime?: string;
   existingItems?: ItineraryItem[]; // For overlap checking
+  /** Edit mode only: days of the current project, used by "Move date". */
+  moveDayOptions?: MoveDayOption[];
+  currentDayNumber?: number;
+  /** Edit mode only: moves the existing row to another day (day_number only). */
+  onMoveToDay?: (targetDayNumber: number) => void | Promise<void>;
 }
+
 
 export function ItineraryItemDialog({
   open,
