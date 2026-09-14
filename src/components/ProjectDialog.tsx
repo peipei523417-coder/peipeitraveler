@@ -622,7 +622,7 @@ export function ProjectDialog({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!name.trim() || !dateRange?.from || !dateRange?.to}
+              disabled={!name.trim() || !dateRange?.from || !dateRange?.to || (!!currencyCode && !currencyReady)}
               className="samoyed-button rounded-xl min-h-[44px]"
             >
               {mode === "create" ? t("createProjectBtn") : t("saveChanges")}
