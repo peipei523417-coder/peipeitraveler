@@ -76,7 +76,7 @@ export function ItineraryItemDialog({
   moveDayOptions = [],
   currentDayNumber,
   onMoveToDay,
-
+  currency,
 }: ItineraryItemDialogProps) {
   const { t } = useTranslation();
   const [useTime, setUseTime] = useState(!!initialData?.startTime);
@@ -155,6 +155,12 @@ export function ItineraryItemDialog({
       setHighlightColor(initialData.highlightColor || "none");
       setPrice(initialData.price?.toString() || "");
       setPersons(initialData.persons?.toString() || "1");
+      // Local amount is always DERIVED from the canonical TWD price.
+      setLocalPrice(
+        currency && initialData.price && initialData.price > 0
+          ? String(twdToLocal(initialData.price, currency.rate))
+          : ""
+      );
     } else {
       // Use suggested start time if available
       const defaultStart = suggestedStartTime || "09:00";
@@ -170,6 +176,7 @@ export function ItineraryItemDialog({
       setHighlightColor("none");
       setPrice("");
       setPersons("1");
+      setLocalPrice("");
     }
     setTimeError(null);
     setMapUrlInvalid(false);
