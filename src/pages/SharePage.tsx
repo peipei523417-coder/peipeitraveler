@@ -285,7 +285,9 @@ export default function SharePage() {
       if (!projectId && looksLikeUuid) {
         const { data: publicData, error: viewErr } = await supabase
           .from("public_travel_projects")
-          .select("id, name, start_date, end_date, cover_image_url, is_public, has_edit_password")
+          .select(
+            "id, name, start_date, end_date, cover_image_url, is_public, has_edit_password, local_currency_code, local_currency_name, local_currency_symbol, exchange_rate, is_custom_currency"
+          )
           .eq("id", cleanCode)
           .maybeSingle();
         if (viewErr) console.warn("[SharePage] public view error:", viewErr.message);
@@ -297,6 +299,13 @@ export default function SharePage() {
           endDate = publicData.end_date;
           coverImageUrl = publicData.cover_image_url;
           requiresPassword = publicData.has_edit_password || false;
+          currencyRow = {
+            local_currency_code: (publicData as any).local_currency_code ?? null,
+            local_currency_name: (publicData as any).local_currency_name ?? null,
+            local_currency_symbol: (publicData as any).local_currency_symbol ?? null,
+            exchange_rate: (publicData as any).exchange_rate ?? null,
+            is_custom_currency: (publicData as any).is_custom_currency ?? null,
+          };
         }
       }
 
