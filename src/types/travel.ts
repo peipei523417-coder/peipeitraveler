@@ -12,6 +12,17 @@ export interface TravelProject {
   isJoined?: boolean;
   /** Role of the current user on a joined project. Owner projects leave this undefined. */
   joinedRole?: 'editor' | 'viewer';
+  // ---- Optional project-level dual-currency settings (all nullable) ----
+  /** ISO-ish currency code, e.g. "JPY". Undefined => TWD-only project. */
+  localCurrencyCode?: string;
+  /** Display name of the local currency (mainly for custom currencies). */
+  localCurrencyName?: string;
+  /** Symbol used for display, e.g. "¥". */
+  localCurrencySymbol?: string;
+  /** 1 TWD = exchangeRate × local currency. Undefined/<=0 => TWD-only. */
+  exchangeRate?: number;
+  /** True when the user entered a custom (non-listed) currency. */
+  isCustomCurrency?: boolean;
 }
 
 export interface DayItinerary {
