@@ -672,6 +672,11 @@ export default function Index() {
           endDate: editingProject.endDate,
           coverImageUrl: editingProject.coverImageUrl,
           isPublic: editingProject.isPublic,
+          localCurrencyCode: editingProject.localCurrencyCode,
+          localCurrencyName: editingProject.localCurrencyName,
+          localCurrencySymbol: editingProject.localCurrencySymbol,
+          exchangeRate: editingProject.exchangeRate,
+          isCustomCurrency: editingProject.isCustomCurrency,
         } : undefined}
         mode="edit"
         projectId={editingProject?.id}
