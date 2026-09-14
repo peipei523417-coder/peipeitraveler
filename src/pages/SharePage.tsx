@@ -263,6 +263,8 @@ export default function SharePage() {
       let endDate: string | null = null;
       let coverImageUrl: string | null = null;
       let requiresPassword = false;
+      // Optional dual-currency settings; stays null => shared page is TWD-only.
+      let currencyRow: Record<string, unknown> | null = null;
 
       // Strategy 1: treat as share_code via RPC (works for share_links rows)
       const { data: sharedData, error: rpcErr } = await supabase
