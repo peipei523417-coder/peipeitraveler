@@ -386,19 +386,21 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
               </div>
               <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div style={{ background: "#f1f7fd", borderRadius: 14, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>總花費</div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                    {pdfCurrency ? "設定匯率" : "幣別"}
+                  </div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>
                     {pdfCurrency
-                      ? `NT$${totalRaw.toLocaleString()} ≈ ${pdfCurrency.symbol}${twdToLocal(totalRaw, pdfCurrency.rate).toLocaleString()}`
-                      : `$${totalRaw.toLocaleString()}`}
+                      ? `1 TWD = ${pdfCurrency.rate.toLocaleString()} ${pdfCurrency.code}`
+                      : "僅使用 TWD"}
                   </div>
                 </div>
                 <div style={{ background: "#f1f7fd", borderRadius: 14, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>單人總花費</div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>單人總額</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: "#0285c7", marginTop: 4 }}>
                     {pdfCurrency
                       ? `NT$${totalPerPerson.toLocaleString()} ≈ ${pdfCurrency.symbol}${twdToLocal(totalPerPerson, pdfCurrency.rate).toLocaleString()}`
-                      : `$${totalPerPerson.toLocaleString()}`}
+                      : `NT$${totalPerPerson.toLocaleString()}`}
                   </div>
                 </div>
               </div>
