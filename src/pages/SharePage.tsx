@@ -214,6 +214,9 @@ export default function SharePage() {
     }, 0);
   }, [project]);
 
+  // Optional dual currency; null => shared page keeps its TWD-only display.
+  const shareCurrency = useMemo(() => resolveProjectCurrency(project), [project]);
+
   // Signed URL for cover image
   const signedCoverImage = useSignedImageUrl(project?.coverImageUrl);
 
