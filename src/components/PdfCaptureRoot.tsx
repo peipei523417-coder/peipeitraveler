@@ -244,7 +244,6 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
 
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   const allItems = itinerary.flatMap((d) => (Array.isArray(d?.items) ? d.items : []));
-  const totalRaw = allItems.reduce((s, i) => s + (i.price ?? 0), 0);
   const totalPerPerson = allItems.reduce((s, i) => {
     if (!i.price || i.price <= 0) return s;
     return s + Math.round(i.price / (i.persons || 1));
