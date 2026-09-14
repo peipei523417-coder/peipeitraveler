@@ -36,6 +36,14 @@ import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import pencilIcon from "@/assets/pencil-icon.png";
 import { saveDraft, getDraft, clearDraft, ProjectDraft } from "@/lib/draft-storage";
+import { COMMON_CURRENCIES, currencyDisplayName } from "@/lib/currency";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ProjectDialogProps {
   open: boolean;
@@ -67,6 +75,11 @@ export function ProjectDialog({
   const [showDraftAlert, setShowDraftAlert] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<ProjectDraft | null>(null);
   const [coverSheetOpen, setCoverSheetOpen] = useState(false);
+  // Dual-currency settings. "" = TWD-only (existing behaviour), "custom" = user-defined.
+  const [currencyCode, setCurrencyCode] = useState<string>("");
+  const [customCurrencyName, setCustomCurrencyName] = useState("");
+  const [customCurrencySymbol, setCustomCurrencySymbol] = useState("");
+  const [rateInput, setRateInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const hasInitialized = useRef(false);
