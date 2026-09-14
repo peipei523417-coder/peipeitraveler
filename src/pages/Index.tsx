@@ -231,7 +231,14 @@ export default function Index() {
         data.endDate, 
         undefined, 
         data.isPublic, 
-        data.editPassword
+        data.editPassword,
+        {
+          localCurrencyCode: data.localCurrencyCode ?? null,
+          localCurrencyName: data.localCurrencyName ?? null,
+          localCurrencySymbol: data.localCurrencySymbol ?? null,
+          exchangeRate: data.exchangeRate ?? null,
+          isCustomCurrency: data.isCustomCurrency ?? null,
+        }
       );
       if (!project) {
         toast.error(t("saveFailed"));
@@ -282,6 +289,12 @@ export default function Index() {
         endDate: data.endDate,
         coverImageUrl,
         isPublic: data.isPublic,
+        // Currency columns only; itinerary prices are never touched.
+        localCurrencyCode: data.localCurrencyCode ?? null,
+        localCurrencyName: data.localCurrencyName ?? null,
+        localCurrencySymbol: data.localCurrencySymbol ?? null,
+        exchangeRate: data.exchangeRate ?? null,
+        isCustomCurrency: data.isCustomCurrency ?? null,
       });
 
       if (data.isPublic && data.editPassword) {
