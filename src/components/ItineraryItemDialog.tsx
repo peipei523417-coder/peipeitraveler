@@ -93,6 +93,8 @@ export function ItineraryItemDialog({
   );
   const [price, setPrice] = useState<string>(initialData?.price?.toString() || "");
   const [persons, setPersons] = useState<string>(initialData?.persons?.toString() || "1");
+  // Display-only local-currency mirror of `price`. Never persisted.
+  const [localPrice, setLocalPrice] = useState<string>("");
   const [timeError, setTimeError] = useState<string | null>(null);
   const [mapUrlInvalid, setMapUrlInvalid] = useState(false);
   const [overlapWarningOpen, setOverlapWarningOpen] = useState(false);
