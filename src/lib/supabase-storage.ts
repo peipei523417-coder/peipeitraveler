@@ -217,6 +217,8 @@ export async function createProject(
     user_id: user?.id || null,
     is_public: isPublic || false,
   };
+  applyCurrencyColumns(insertData, currency);
+  
   
   const { data, error } = await supabase
     .from("travel_projects")
@@ -247,7 +249,7 @@ export async function updateProject(
     visibility?: string;
     isShared?: boolean;
     isPublic?: boolean;
-  }
+  } & ProjectCurrencyInput
 ): Promise<TravelProject | undefined> {
   const updateData: any = {};
   if (updates.name !== undefined) updateData.name = updates.name;
@@ -257,6 +259,9 @@ export async function updateProject(
   if (updates.visibility !== undefined) updateData.visibility = updates.visibility;
   if (updates.isShared !== undefined) updateData.is_shared = updates.isShared;
   if (updates.isPublic !== undefined) updateData.is_public = updates.isPublic;
+  // Currency columns only — NEVER touches itinerary_items / price / persons.
+  applyCurrencyColumns(updateData, updates);
+  
   
   const { error } = await supabase
     .from("travel_projects")
