@@ -35,6 +35,7 @@ import { hasTimeConflict, findOverlappingItem } from "@/lib/time-validation";
 import { sanitizeMapUrl } from "@/utils/mapLink";
 import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/switch";
+import { ProjectCurrency, twdToLocal, localToTwd } from "@/lib/currency";
 
 
 export interface MoveDayOption {
@@ -56,6 +57,11 @@ interface ItineraryItemDialogProps {
   currentDayNumber?: number;
   /** Edit mode only: moves the existing row to another day (day_number only). */
   onMoveToDay?: (targetDayNumber: number) => void | Promise<void>;
+  /**
+   * Optional project dual-currency config. When null/undefined the budget
+   * field keeps its existing TWD-only behaviour, unchanged.
+   */
+  currency?: ProjectCurrency | null;
 }
 
 
