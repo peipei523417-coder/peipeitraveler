@@ -36,6 +36,7 @@ import { sanitizeMapUrl } from "@/utils/mapLink";
 import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/switch";
 import { ProjectCurrency, twdToLocal, localToTwd } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 
 
 export interface MoveDayOption {
@@ -292,6 +293,7 @@ export function ItineraryItemDialog({
     setHighlightColor("none");
     setPrice("");
     setPersons("1");
+    setLocalPrice("");
     onOpenChange(false);
   };
 
