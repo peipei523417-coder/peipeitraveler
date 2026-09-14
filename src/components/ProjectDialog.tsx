@@ -503,6 +503,71 @@ export function ProjectDialog({
               )}
             </div>
 
+            {/* Local currency + exchange rate (optional; blank = TWD only) */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">{t("localCurrency")}</Label>
+              <Select
+                value={currencyCode || "none"}
+                onValueChange={(v) => setCurrencyCode(v === "none" ? "" : v)}
+              >
+                <SelectTrigger className="rounded-xl h-11">
+                  <SelectValue placeholder={t("currencyNone")} />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  <SelectItem value="none">{t("currencyNone")}</SelectItem>
+                  {COMMON_CURRENCIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.code} {currencyDisplayName(c.code)} ({c.symbol})
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">{t("currencyOther")}</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {isCustomCurrency && (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={t("currencyNameLabel")}
+                    value={customCurrencyName}
+                    onChange={(e) => setCustomCurrencyName(e.target.value)}
+                    className="rounded-xl h-11 text-base"
+                  />
+                  <Input
+                    placeholder={t("currencySymbolLabel")}
+                    value={customCurrencySymbol}
+                    onChange={(e) => setCustomCurrencySymbol(e.target.value)}
+                    className="rounded-xl h-11 text-base w-24"
+                  />
+                </div>
+              )}
+
+              {!!currencyCode && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">1 TWD =</span>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      min="0"
+                      placeholder="4.85"
+                      value={rateInput}
+                      onChange={(e) => setRateInput(e.target.value)}
+                      className="rounded-xl h-11 text-base w-28"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {isCustomCurrency
+                        ? customCurrencySymbol || t("currencySymbolLabel")
+                        : COMMON_CURRENCIES.find((c) => c.code === currencyCode)?.symbol || currencyCode}
+                    </span>
+                  </div>
+                  {!currencyReady && (
+                    <p className="text-xs text-muted-foreground">{t("currencyIncompleteHint")}</p>
+                  )}
+                </>
+              )}
+            </div>
+
             {/* Project Visibility Toggle */}
             <div className="space-y-3 pt-2 border-t border-border">
               <div className="flex items-center justify-between">
