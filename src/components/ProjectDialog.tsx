@@ -93,6 +93,23 @@ export function ProjectDialog({
   // Initialize form when dialog opens or initialData changes
   useEffect(() => {
     if (open) {
+      // Currency settings are ALWAYS seeded from the project itself, even when a
+      // draft is pending (drafts never store currency). Otherwise re-opening the
+      // edit dialog with a draft would submit empty currency and clear it.
+      if (initialData) {
+        const isCustom = !!initialData.isCustomCurrency;
+        setCurrencyCode(
+          isCustom ? "custom" : (initialData.localCurrencyCode || "")
+        );
+        setCustomCurrencyName(isCustom ? initialData.localCurrencyName || "" : "");
+        setCustomCurrencySymbol(isCustom ? initialData.localCurrencySymbol || "" : "");
+        setRateInput(
+          initialData.exchangeRate && initialData.exchangeRate > 0
+            ? String(initialData.exchangeRate)
+            : ""
+        );
+      }
+
       // Check for draft on first open
       if (!hasInitialized.current) {
         const draft = getDraft();
@@ -123,17 +140,6 @@ export function ProjectDialog({
         setCoverPreview(initialData.coverImageUrl);
         setIsPublic(initialData.isPublic || false);
         setEditPassword("");
-        const isCustom = !!initialData.isCustomCurrency;
-        setCurrencyCode(
-          isCustom ? "custom" : (initialData.localCurrencyCode || "")
-        );
-        setCustomCurrencyName(isCustom ? initialData.localCurrencyName || "" : "");
-        setCustomCurrencySymbol(isCustom ? initialData.localCurrencySymbol || "" : "");
-        setRateInput(
-          initialData.exchangeRate && initialData.exchangeRate > 0
-            ? String(initialData.exchangeRate)
-            : ""
-        );
       } else {
         resetForm();
       }
@@ -141,6 +147,7 @@ export function ProjectDialog({
       hasInitialized.current = false;
     }
   }, [open, initialData, mode, projectId]);
+
 
   // Auto-save draft when form changes
   const saveDraftDebounced = useCallback(() => {
@@ -615,7 +622,7 @@ export function ProjectDialog({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!name.trim() || !dateRange?.from || !dateRange?.to}
+              disabled={!name.trim() || !dateRange?.from || !dateRange?.to || (!!currencyCode && !currencyReady)}
               className="samoyed-button rounded-xl min-h-[44px]"
             >
               {mode === "create" ? t("createProjectBtn") : t("saveChanges")}
