@@ -901,6 +901,7 @@ function ProjectDetailInner() {
             setEditingItem(null);
           }
         }}
+        currency={currency}
         onSubmit={editingItem ? handleEditItem : handleAddItem}
         initialData={editingItem || undefined}
         mode={editingItem ? "edit" : "create"}
