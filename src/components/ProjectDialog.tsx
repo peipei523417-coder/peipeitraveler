@@ -227,19 +227,49 @@ export function ProjectDialog({
     setShowPublicConfirm(false);
   };
 
+  const parsedRate = (() => {
+    const r = Number(rateInput);
+    return Number.isFinite(r) && r > 0 ? r : null;
+  })();
+
+  const isCustomCurrency = currencyCode === "custom";
+  // Incomplete data => currency stays off and the app keeps its TWD-only UI.
+  const currencyReady =
+    !!currencyCode &&
+    parsedRate !== null &&
+    (isCustomCurrency
+      ? !!customCurrencyName.trim() && !!customCurrencySymbol.trim()
+      : true);
+
   const handleSubmit = () => {
     if (!name.trim() || !dateRange?.from || !dateRange?.to) return;
     
     // Clear draft on successful submit
     clearDraft();
-    
+
+    const selected = COMMON_CURRENCIES.find((c) => c.code === currencyCode);
+
     onSubmit({
       name: name.trim(),
       startDate: dateRange.from,
       endDate: dateRange.to,
       coverImageUrl: coverPreview,
       isPublic,
+      // Currency is written as an explicit set-or-clear. It never touches
+      // itinerary prices.
+      localCurrencyCode: currencyReady
+        ? (isCustomCurrency ? customCurrencyName.trim().toUpperCase().slice(0, 8) : currencyCode)
+        : null,
+      localCurrencyName: currencyReady
+        ? (isCustomCurrency ? customCurrencyName.trim() : currencyDisplayName(currencyCode))
+        : null,
+      localCurrencySymbol: currencyReady
+        ? (isCustomCurrency ? customCurrencySymbol.trim() : selected?.symbol || currencyCode)
+        : null,
+      exchangeRate: currencyReady ? parsedRate : null,
+      isCustomCurrency: currencyReady ? isCustomCurrency : null,
     }, coverFile);
+    
     
     resetForm();
     onOpenChange(false);
