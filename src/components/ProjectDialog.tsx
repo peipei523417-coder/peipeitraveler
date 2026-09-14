@@ -373,13 +373,13 @@ export function ProjectDialog({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-3 sm:py-4">
-            <div className="space-y-3 sm:space-y-5">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-2 sm:px-6 sm:py-3">
+            <div className="space-y-2.5 sm:space-y-3">
             {/* Cover Image Upload */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-sm font-medium">{t("projectCover")}</Label>
               <div className="relative">
-                <div className="h-24 sm:h-32 rounded-xl overflow-hidden bg-secondary border-2 border-dashed border-border">
+                <div className="h-20 sm:h-24 rounded-xl overflow-hidden bg-secondary border-2 border-dashed border-border">
                   {coverPreview ? (
                     <img
                       src={coverPreview}
@@ -435,7 +435,7 @@ export function ProjectDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="name" className="text-sm font-medium">
                 {t("projectName")}
               </Label>
@@ -448,7 +448,7 @@ export function ProjectDialog({
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-sm font-medium">{t("travelDate")}</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -503,48 +503,31 @@ export function ProjectDialog({
               )}
             </div>
 
-            {/* Local currency + exchange rate (optional; blank = TWD only) */}
-            <div className="space-y-2">
+            {/* Local currency + exchange rate — compact, single row when possible */}
+            <div className="space-y-1.5">
               <Label className="text-sm font-medium">{t("localCurrency")}</Label>
-              <Select
-                value={currencyCode || "none"}
-                onValueChange={(v) => setCurrencyCode(v === "none" ? "" : v)}
-              >
-                <SelectTrigger className="rounded-xl h-11">
-                  <SelectValue placeholder={t("currencyNone")} />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  <SelectItem value="none">{t("currencyNone")}</SelectItem>
-                  {COMMON_CURRENCIES.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.code} {currencyDisplayName(c.code)} ({c.symbol})
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="custom">{t("currencyOther")}</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={currencyCode || "none"}
+                  onValueChange={(v) => setCurrencyCode(v === "none" ? "" : v)}
+                >
+                  <SelectTrigger className="rounded-xl h-11 flex-1 min-w-0">
+                    <SelectValue placeholder={t("currencyNone")} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    <SelectItem value="none">{t("currencyNone")}</SelectItem>
+                    {COMMON_CURRENCIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.code} {currencyDisplayName(c.code)} ({c.symbol})
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">{t("currencyOther")}</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              {isCustomCurrency && (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={t("currencyNameLabel")}
-                    value={customCurrencyName}
-                    onChange={(e) => setCustomCurrencyName(e.target.value)}
-                    className="rounded-xl h-11 text-base"
-                  />
-                  <Input
-                    placeholder={t("currencySymbolLabel")}
-                    value={customCurrencySymbol}
-                    onChange={(e) => setCustomCurrencySymbol(e.target.value)}
-                    className="rounded-xl h-11 text-base w-24"
-                  />
-                </div>
-              )}
-
-              {!!currencyCode && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">1 TWD =</span>
+                {!!currencyCode && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">1 TWD =</span>
                     <Input
                       type="number"
                       inputMode="decimal"
@@ -553,23 +536,41 @@ export function ProjectDialog({
                       placeholder="4.85"
                       value={rateInput}
                       onChange={(e) => setRateInput(e.target.value)}
-                      className="rounded-xl h-11 text-base w-28"
+                      className="rounded-xl h-11 text-base w-20 px-2"
                     />
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {isCustomCurrency
-                        ? customCurrencySymbol || t("currencySymbolLabel")
+                        ? customCurrencySymbol || "?"
                         : COMMON_CURRENCIES.find((c) => c.code === currencyCode)?.symbol || currencyCode}
                     </span>
                   </div>
-                  {!currencyReady && (
-                    <p className="text-xs text-muted-foreground">{t("currencyIncompleteHint")}</p>
-                  )}
-                </>
+                )}
+              </div>
+
+              {isCustomCurrency && (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={t("currencyNameLabel")}
+                    value={customCurrencyName}
+                    onChange={(e) => setCustomCurrencyName(e.target.value)}
+                    className="rounded-xl h-11 text-base flex-1 min-w-0"
+                  />
+                  <Input
+                    placeholder={t("currencySymbolLabel")}
+                    value={customCurrencySymbol}
+                    onChange={(e) => setCustomCurrencySymbol(e.target.value)}
+                    className="rounded-xl h-11 text-base w-20"
+                  />
+                </div>
+              )}
+
+              {!!currencyCode && !currencyReady && (
+                <p className="text-xs text-muted-foreground">{t("currencyIncompleteHint")}</p>
               )}
             </div>
 
             {/* Project Visibility Toggle */}
-            <div className="space-y-3 pt-2 border-t border-border">
+            <div className="space-y-1.5 pt-2 border-t border-border">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {isPublic ? (
@@ -604,7 +605,7 @@ export function ProjectDialog({
             </div>
           </div>
 
-          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-6 py-3 sm:py-4 border-t border-border bg-background">
+          <DialogFooter className="shrink-0 gap-2 sm:gap-2 px-5 py-2 sm:px-6 sm:py-3 border-t border-border bg-background">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
