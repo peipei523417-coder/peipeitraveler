@@ -29,6 +29,7 @@ import { TripOverviewDialog } from "@/components/TripOverviewDialog";
 import { PdfCaptureRoot } from "@/components/PdfCaptureRoot";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectErrorBoundary } from "@/components/ProjectErrorBoundary";
+import { resolveProjectCurrency, twdToLocal } from "@/lib/currency";
 
 /** Safely coerce a possibly-string/Date/undefined into a Date for formatting. */
 function safeDate(value: unknown): Date | null {
@@ -89,6 +90,19 @@ function ProjectDetailInner() {
       return total + calculateDayTotal(day?.items ?? []);
     }, 0);
   }, [project]);
+
+  // Optional dual-currency config. null => existing TWD-only behaviour.
+  const currency = useMemo(
+    () => resolveProjectCurrency(project, i18n.language),
+    [
+      project?.localCurrencyCode,
+      project?.localCurrencyName,
+      project?.localCurrencySymbol,
+      project?.exchangeRate,
+      project?.isCustomCurrency,
+      i18n.language,
+    ]
+  );
 
   // Get signed URL for cover image
   const signedCoverImage = useSignedImageUrl(project?.coverImageUrl);
