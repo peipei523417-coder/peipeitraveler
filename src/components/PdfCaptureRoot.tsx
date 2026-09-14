@@ -536,6 +536,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
               </div>
             </div>
             <ItineraryList
+              currency={pdfCurrency}
               day={day}
               readOnly
               isLastDay={false}
