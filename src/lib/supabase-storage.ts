@@ -171,13 +171,39 @@ function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Optional project-level currency settings (all nullable, additive). */
+export interface ProjectCurrencyInput {
+  localCurrencyCode?: string | null;
+  localCurrencyName?: string | null;
+  localCurrencySymbol?: string | null;
+  exchangeRate?: number | null;
+  isCustomCurrency?: boolean | null;
+}
+
+/**
+ * Maps currency settings onto DB columns. Only writes keys that were
+ * explicitly provided, so nothing is ever unintentionally nulled.
+ */
+function applyCurrencyColumns(target: any, c?: ProjectCurrencyInput | null): void {
+  if (!c) return;
+  if (c.localCurrencyCode !== undefined) target.local_currency_code = c.localCurrencyCode || null;
+  if (c.localCurrencyName !== undefined) target.local_currency_name = c.localCurrencyName || null;
+  if (c.localCurrencySymbol !== undefined) target.local_currency_symbol = c.localCurrencySymbol || null;
+  if (c.exchangeRate !== undefined) {
+    const r = Number(c.exchangeRate);
+    target.exchange_rate = Number.isFinite(r) && r > 0 ? r : null;
+  }
+  if (c.isCustomCurrency !== undefined) target.is_custom_currency = c.isCustomCurrency ?? null;
+}
+
 export async function createProject(
   name: string, 
   startDate: Date, 
   endDate: Date,
   coverImageUrl?: string,
   isPublic?: boolean,
-  editPassword?: string
+  editPassword?: string,
+  currency?: ProjectCurrencyInput
 ): Promise<TravelProject | undefined> {
   // Get current user ID for RLS policy
   const { data: { session } } = await supabase.auth.getSession();
