@@ -93,6 +93,12 @@ export interface ProjectFormData {
   coverImageUrl?: string;
   isPublic?: boolean;
   editPassword?: string;
+  /** Optional dual-currency settings. `null` clears the setting. */
+  localCurrencyCode?: string | null;
+  localCurrencyName?: string | null;
+  localCurrencySymbol?: string | null;
+  exchangeRate?: number | null;
+  isCustomCurrency?: boolean | null;
 }
 
 // Generate 24-hour time options with 10-minute intervals
