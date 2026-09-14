@@ -6,7 +6,7 @@ import { differenceInDays, addDays } from "date-fns";
 // anon/authenticated for security. Using SELECT * would fail with permission
 // denied. Only server-side edge functions (service_role) can read the hash.
 const PROJECT_COLUMNS =
-  "id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public";
+  "id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public, local_currency_code, local_currency_name, local_currency_symbol, exchange_rate, is_custom_currency";
 
 // Convert database row to TravelProject
 function dbRowToProject(row: any, items: any[] = []): TravelProject {
@@ -66,6 +66,16 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
     updatedAt: new Date(row.updated_at),
     itinerary,
     isPublic: row.is_public || false,
+    // Optional dual-currency settings. Absent on projects created by older
+    // app versions — callers fall back to TWD-only.
+    localCurrencyCode: row.local_currency_code || undefined,
+    localCurrencyName: row.local_currency_name || undefined,
+    localCurrencySymbol: row.local_currency_symbol || undefined,
+    exchangeRate:
+      row.exchange_rate === null || row.exchange_rate === undefined
+        ? undefined
+        : Number(row.exchange_rate),
+    isCustomCurrency: row.is_custom_currency ?? undefined,
   };
 }
 
