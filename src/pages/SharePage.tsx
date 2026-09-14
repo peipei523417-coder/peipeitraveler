@@ -336,6 +336,7 @@ export default function SharePage() {
         is_public: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        ...(currencyRow || {}),
       };
 
       const loadedProject = dbRowToProject(projectRow, items || []);
@@ -773,7 +774,11 @@ export default function SharePage() {
                 </p>
                 {totalBudget > 0 && (
                   <p className="text-sm font-bold text-primary">
-                    ({t("totalBudget")}: ${totalBudget.toLocaleString()})
+                    ({t("totalBudget")}:{" "}
+                    {shareCurrency
+                      ? `NT$${totalBudget.toLocaleString()} ≈ ${shareCurrency.symbol}${twdToLocal(totalBudget, shareCurrency.rate).toLocaleString()}`
+                      : `$${totalBudget.toLocaleString()}`}
+                    )
                   </p>
                 )}
               </div>
