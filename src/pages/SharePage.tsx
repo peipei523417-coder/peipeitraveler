@@ -10,6 +10,7 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { DayTabs } from "@/components/DayTabs";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
 import { TripOverviewDialog } from "@/components/TripOverviewDialog";
+import { resolveProjectCurrency, twdToLocal } from "@/lib/currency";
 import { ItineraryItemDialog } from "@/components/ItineraryItemDialog";
 import { SmartAppBanner } from "@/components/SmartAppBanner";
 import { LoginDialog } from "@/components/LoginDialog";
