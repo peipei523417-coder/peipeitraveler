@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ProjectCurrency, twdToLocal } from "@/lib/currency";
 
 
 import {
@@ -44,6 +45,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 interface ItineraryListProps {
+  /** Optional project dual-currency config. Null => existing TWD-only display. */
+  currency?: ProjectCurrency | null;
   day: DayItinerary;
   onAddItem: () => void;
   onEditItem: (item: ItineraryItem) => void;
@@ -80,6 +83,7 @@ interface RowProps {
   item: ItineraryItem;
   signedImageUrl: string | undefined;
   perPersonCost: number;
+  currency?: ProjectCurrency | null;
   hasTime: boolean;
   readOnly: boolean;
   onEditItem: (item: ItineraryItem) => void;
