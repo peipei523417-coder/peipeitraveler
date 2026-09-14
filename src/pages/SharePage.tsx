@@ -854,6 +854,7 @@ export default function SharePage() {
       <main className="container max-w-4xl py-6">
         {currentDay && (
           <ItineraryList
+            currency={shareCurrency}
             day={currentDay}
             onAddItem={() => canEdit && setDialogOpen(true)}
             onEditItem={(item) => canEdit && setEditingItem(item)}
@@ -867,6 +868,7 @@ export default function SharePage() {
 
       {/* Add/Edit Dialog */}
       <ItineraryItemDialog
+        currency={shareCurrency}
         open={dialogOpen || !!editingItem}
         onOpenChange={(open) => {
           if (!open) {
