@@ -287,6 +287,37 @@ function ProjectDetailInner() {
           }
         }
       )
+      // Minimal addition: watch this ONE project row so a collaborator's
+      // currency / exchange-rate change is picked up immediately. Itinerary
+      // realtime above is untouched.
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'travel_projects',
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          if (cancelled) return;
+          const row: any = payload.new || {};
+          setProject((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  localCurrencyCode: row.local_currency_code || undefined,
+                  localCurrencyName: row.local_currency_name || undefined,
+                  localCurrencySymbol: row.local_currency_symbol || undefined,
+                  exchangeRate:
+                    row.exchange_rate === null || row.exchange_rate === undefined
+                      ? undefined
+                      : Number(row.exchange_rate),
+                  isCustomCurrency: row.is_custom_currency ?? undefined,
+                }
+              : prev
+          );
+        }
+      )
       .subscribe();
 
     return () => {
