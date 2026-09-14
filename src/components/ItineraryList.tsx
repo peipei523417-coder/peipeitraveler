@@ -100,6 +100,7 @@ function ItemRow({
   item,
   signedImageUrl,
   perPersonCost,
+  currency,
   hasTime,
   readOnly,
   onEditItem,
@@ -160,9 +161,20 @@ function ItemRow({
               {item.price && item.price > 0 && (
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-3">
                   <DollarSign className="w-3.5 h-3.5" />
-                  <span>
-                    {item.price.toLocaleString()} / {item.persons || 1} = <span className="font-bold text-primary">${perPersonCost.toLocaleString()}</span>
-                  </span>
+                  {currency ? (
+                    <span>
+                      NT${item.price.toLocaleString()} ≈ {currency.symbol}
+                      {twdToLocal(item.price, currency.rate).toLocaleString()} / {item.persons || 1} ={" "}
+                      <span className="font-bold text-primary">
+                        NT${perPersonCost.toLocaleString()} ≈ {currency.symbol}
+                        {twdToLocal(perPersonCost, currency.rate).toLocaleString()}
+                      </span>
+                    </span>
+                  ) : (
+                    <span>
+                      {item.price.toLocaleString()} / {item.persons || 1} = <span className="font-bold text-primary">${perPersonCost.toLocaleString()}</span>
+                    </span>
+                  )}
                 </div>
               )}
 
