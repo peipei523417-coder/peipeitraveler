@@ -123,6 +123,17 @@ export function ProjectDialog({
         setCoverPreview(initialData.coverImageUrl);
         setIsPublic(initialData.isPublic || false);
         setEditPassword("");
+        const isCustom = !!initialData.isCustomCurrency;
+        setCurrencyCode(
+          isCustom ? "custom" : (initialData.localCurrencyCode || "")
+        );
+        setCustomCurrencyName(isCustom ? initialData.localCurrencyName || "" : "");
+        setCustomCurrencySymbol(isCustom ? initialData.localCurrencySymbol || "" : "");
+        setRateInput(
+          initialData.exchangeRate && initialData.exchangeRate > 0
+            ? String(initialData.exchangeRate)
+            : ""
+        );
       } else {
         resetForm();
       }
@@ -158,6 +169,10 @@ export function ProjectDialog({
     setIsPublic(true);
     setEditPassword("");
     setPasswordError("");
+    setCurrencyCode("");
+    setCustomCurrencyName("");
+    setCustomCurrencySymbol("");
+    setRateInput("");
   };
 
   const handleRestoreDraft = () => {
