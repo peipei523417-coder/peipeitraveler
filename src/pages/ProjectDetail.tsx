@@ -836,7 +836,11 @@ function ProjectDetailInner() {
                   </p>
                   {totalBudget > 0 && (
                     <p className="text-sm font-bold text-primary">
-                      ({t("totalBudget")}: ${totalBudget.toLocaleString()})
+                      ({t("totalBudget")}:{" "}
+                      {currency
+                        ? `NT$${totalBudget.toLocaleString()} ≈ ${currency.symbol}${twdToLocal(totalBudget, currency.rate).toLocaleString()}`
+                        : `$${totalBudget.toLocaleString()}`}
+                      )
                     </p>
                   )}
                 </div>
@@ -873,6 +877,7 @@ function ProjectDetailInner() {
       <main className="container max-w-4xl py-6">
         {currentDay && (
           <ItineraryList
+            currency={currency}
             day={currentDay}
             onAddItem={() => { if (!isViewer) setDialogOpen(true); }}
             onEditItem={(item) => { if (!isViewer) setEditingItem(item); }}
