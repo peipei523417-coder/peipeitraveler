@@ -512,6 +512,16 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
     new Date(original.start_date),
     new Date(original.end_date),
     original.cover_image_url || undefined,
+    undefined,
+    undefined,
+    // Carry the source project's currency settings over to the copy.
+    {
+      localCurrencyCode: (original as any).local_currency_code ?? null,
+      localCurrencyName: (original as any).local_currency_name ?? null,
+      localCurrencySymbol: (original as any).local_currency_symbol ?? null,
+      exchangeRate: (original as any).exchange_rate ?? null,
+      isCustomCurrency: (original as any).is_custom_currency ?? null,
+    },
   );
   if (!newProject) return undefined;
 
