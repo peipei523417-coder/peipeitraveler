@@ -10,6 +10,7 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { DayTabs } from "@/components/DayTabs";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
 import { TripOverviewDialog } from "@/components/TripOverviewDialog";
+import { resolveProjectCurrency, twdToLocal } from "@/lib/currency";
 import { ItineraryItemDialog } from "@/components/ItineraryItemDialog";
 import { SmartAppBanner } from "@/components/SmartAppBanner";
 import { LoginDialog } from "@/components/LoginDialog";
@@ -214,6 +215,9 @@ export default function SharePage() {
     }, 0);
   }, [project]);
 
+  // Optional dual currency; null => shared page keeps its TWD-only display.
+  const shareCurrency = useMemo(() => resolveProjectCurrency(project), [project]);
+
   // Signed URL for cover image
   const signedCoverImage = useSignedImageUrl(project?.coverImageUrl);
 
@@ -263,6 +267,8 @@ export default function SharePage() {
       let endDate: string | null = null;
       let coverImageUrl: string | null = null;
       let requiresPassword = false;
+      // Optional dual-currency settings; stays null => shared page is TWD-only.
+      let currencyRow: Record<string, unknown> | null = null;
 
       // Strategy 1: treat as share_code via RPC (works for share_links rows)
       const { data: sharedData, error: rpcErr } = await supabase
@@ -285,7 +291,9 @@ export default function SharePage() {
       if (!projectId && looksLikeUuid) {
         const { data: publicData, error: viewErr } = await supabase
           .from("public_travel_projects")
-          .select("id, name, start_date, end_date, cover_image_url, is_public, has_edit_password")
+          .select(
+            "id, name, start_date, end_date, cover_image_url, is_public, has_edit_password, local_currency_code, local_currency_name, local_currency_symbol, exchange_rate, is_custom_currency"
+          )
           .eq("id", cleanCode)
           .maybeSingle();
         if (viewErr) console.warn("[SharePage] public view error:", viewErr.message);
@@ -297,6 +305,13 @@ export default function SharePage() {
           endDate = publicData.end_date;
           coverImageUrl = publicData.cover_image_url;
           requiresPassword = publicData.has_edit_password || false;
+          currencyRow = {
+            local_currency_code: (publicData as any).local_currency_code ?? null,
+            local_currency_name: (publicData as any).local_currency_name ?? null,
+            local_currency_symbol: (publicData as any).local_currency_symbol ?? null,
+            exchange_rate: (publicData as any).exchange_rate ?? null,
+            is_custom_currency: (publicData as any).is_custom_currency ?? null,
+          };
         }
       }
 
@@ -325,6 +340,7 @@ export default function SharePage() {
         is_public: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        ...(currencyRow || {}),
       };
 
       const loadedProject = dbRowToProject(projectRow, items || []);
@@ -762,7 +778,11 @@ export default function SharePage() {
                 </p>
                 {totalBudget > 0 && (
                   <p className="text-sm font-bold text-primary">
-                    ({t("totalBudget")}: ${totalBudget.toLocaleString()})
+                    ({t("totalBudget")}:{" "}
+                    {shareCurrency
+                      ? `NT$${totalBudget.toLocaleString()} ≈ ${shareCurrency.symbol}${twdToLocal(totalBudget, shareCurrency.rate).toLocaleString()}`
+                      : `$${totalBudget.toLocaleString()}`}
+                    )
                   </p>
                 )}
               </div>
@@ -834,6 +854,7 @@ export default function SharePage() {
       <main className="container max-w-4xl py-6">
         {currentDay && (
           <ItineraryList
+            currency={shareCurrency}
             day={currentDay}
             onAddItem={() => canEdit && setDialogOpen(true)}
             onEditItem={(item) => canEdit && setEditingItem(item)}
@@ -847,6 +868,7 @@ export default function SharePage() {
 
       {/* Add/Edit Dialog */}
       <ItineraryItemDialog
+        currency={shareCurrency}
         open={dialogOpen || !!editingItem}
         onOpenChange={(open) => {
           if (!open) {

@@ -36,6 +36,14 @@ import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import pencilIcon from "@/assets/pencil-icon.png";
 import { saveDraft, getDraft, clearDraft, ProjectDraft } from "@/lib/draft-storage";
+import { COMMON_CURRENCIES, currencyDisplayName } from "@/lib/currency";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ProjectDialogProps {
   open: boolean;
@@ -67,6 +75,11 @@ export function ProjectDialog({
   const [showDraftAlert, setShowDraftAlert] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<ProjectDraft | null>(null);
   const [coverSheetOpen, setCoverSheetOpen] = useState(false);
+  // Dual-currency settings. "" = TWD-only (existing behaviour), "custom" = user-defined.
+  const [currencyCode, setCurrencyCode] = useState<string>("");
+  const [customCurrencyName, setCustomCurrencyName] = useState("");
+  const [customCurrencySymbol, setCustomCurrencySymbol] = useState("");
+  const [rateInput, setRateInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const hasInitialized = useRef(false);
@@ -110,6 +123,17 @@ export function ProjectDialog({
         setCoverPreview(initialData.coverImageUrl);
         setIsPublic(initialData.isPublic || false);
         setEditPassword("");
+        const isCustom = !!initialData.isCustomCurrency;
+        setCurrencyCode(
+          isCustom ? "custom" : (initialData.localCurrencyCode || "")
+        );
+        setCustomCurrencyName(isCustom ? initialData.localCurrencyName || "" : "");
+        setCustomCurrencySymbol(isCustom ? initialData.localCurrencySymbol || "" : "");
+        setRateInput(
+          initialData.exchangeRate && initialData.exchangeRate > 0
+            ? String(initialData.exchangeRate)
+            : ""
+        );
       } else {
         resetForm();
       }
@@ -145,6 +169,10 @@ export function ProjectDialog({
     setIsPublic(true);
     setEditPassword("");
     setPasswordError("");
+    setCurrencyCode("");
+    setCustomCurrencyName("");
+    setCustomCurrencySymbol("");
+    setRateInput("");
   };
 
   const handleRestoreDraft = () => {
@@ -199,19 +227,49 @@ export function ProjectDialog({
     setShowPublicConfirm(false);
   };
 
+  const parsedRate = (() => {
+    const r = Number(rateInput);
+    return Number.isFinite(r) && r > 0 ? r : null;
+  })();
+
+  const isCustomCurrency = currencyCode === "custom";
+  // Incomplete data => currency stays off and the app keeps its TWD-only UI.
+  const currencyReady =
+    !!currencyCode &&
+    parsedRate !== null &&
+    (isCustomCurrency
+      ? !!customCurrencyName.trim() && !!customCurrencySymbol.trim()
+      : true);
+
   const handleSubmit = () => {
     if (!name.trim() || !dateRange?.from || !dateRange?.to) return;
     
     // Clear draft on successful submit
     clearDraft();
-    
+
+    const selected = COMMON_CURRENCIES.find((c) => c.code === currencyCode);
+
     onSubmit({
       name: name.trim(),
       startDate: dateRange.from,
       endDate: dateRange.to,
       coverImageUrl: coverPreview,
       isPublic,
+      // Currency is written as an explicit set-or-clear. It never touches
+      // itinerary prices.
+      localCurrencyCode: currencyReady
+        ? (isCustomCurrency ? customCurrencyName.trim().toUpperCase().slice(0, 8) : currencyCode)
+        : null,
+      localCurrencyName: currencyReady
+        ? (isCustomCurrency ? customCurrencyName.trim() : currencyDisplayName(currencyCode))
+        : null,
+      localCurrencySymbol: currencyReady
+        ? (isCustomCurrency ? customCurrencySymbol.trim() : selected?.symbol || currencyCode)
+        : null,
+      exchangeRate: currencyReady ? parsedRate : null,
+      isCustomCurrency: currencyReady ? isCustomCurrency : null,
     }, coverFile);
+    
     
     resetForm();
     onOpenChange(false);
@@ -442,6 +500,71 @@ export function ProjectDialog({
                   <Plane className="w-4 h-4" />
                   {days} {t("dayTrip")}
                 </p>
+              )}
+            </div>
+
+            {/* Local currency + exchange rate (optional; blank = TWD only) */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">{t("localCurrency")}</Label>
+              <Select
+                value={currencyCode || "none"}
+                onValueChange={(v) => setCurrencyCode(v === "none" ? "" : v)}
+              >
+                <SelectTrigger className="rounded-xl h-11">
+                  <SelectValue placeholder={t("currencyNone")} />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  <SelectItem value="none">{t("currencyNone")}</SelectItem>
+                  {COMMON_CURRENCIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.code} {currencyDisplayName(c.code)} ({c.symbol})
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">{t("currencyOther")}</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {isCustomCurrency && (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={t("currencyNameLabel")}
+                    value={customCurrencyName}
+                    onChange={(e) => setCustomCurrencyName(e.target.value)}
+                    className="rounded-xl h-11 text-base"
+                  />
+                  <Input
+                    placeholder={t("currencySymbolLabel")}
+                    value={customCurrencySymbol}
+                    onChange={(e) => setCustomCurrencySymbol(e.target.value)}
+                    className="rounded-xl h-11 text-base w-24"
+                  />
+                </div>
+              )}
+
+              {!!currencyCode && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">1 TWD =</span>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      min="0"
+                      placeholder="4.85"
+                      value={rateInput}
+                      onChange={(e) => setRateInput(e.target.value)}
+                      className="rounded-xl h-11 text-base w-28"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {isCustomCurrency
+                        ? customCurrencySymbol || t("currencySymbolLabel")
+                        : COMMON_CURRENCIES.find((c) => c.code === currencyCode)?.symbol || currencyCode}
+                    </span>
+                  </div>
+                  {!currencyReady && (
+                    <p className="text-xs text-muted-foreground">{t("currencyIncompleteHint")}</p>
+                  )}
+                </>
               )}
             </div>
 

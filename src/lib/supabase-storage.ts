@@ -6,7 +6,7 @@ import { differenceInDays, addDays } from "date-fns";
 // anon/authenticated for security. Using SELECT * would fail with permission
 // denied. Only server-side edge functions (service_role) can read the hash.
 const PROJECT_COLUMNS =
-  "id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public";
+  "id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public, local_currency_code, local_currency_name, local_currency_symbol, exchange_rate, is_custom_currency";
 
 // Convert database row to TravelProject
 function dbRowToProject(row: any, items: any[] = []): TravelProject {
@@ -66,6 +66,16 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
     updatedAt: new Date(row.updated_at),
     itinerary,
     isPublic: row.is_public || false,
+    // Optional dual-currency settings. Absent on projects created by older
+    // app versions — callers fall back to TWD-only.
+    localCurrencyCode: row.local_currency_code || undefined,
+    localCurrencyName: row.local_currency_name || undefined,
+    localCurrencySymbol: row.local_currency_symbol || undefined,
+    exchangeRate:
+      row.exchange_rate === null || row.exchange_rate === undefined
+        ? undefined
+        : Number(row.exchange_rate),
+    isCustomCurrency: row.is_custom_currency ?? undefined,
   };
 }
 
@@ -161,13 +171,39 @@ function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Optional project-level currency settings (all nullable, additive). */
+export interface ProjectCurrencyInput {
+  localCurrencyCode?: string | null;
+  localCurrencyName?: string | null;
+  localCurrencySymbol?: string | null;
+  exchangeRate?: number | null;
+  isCustomCurrency?: boolean | null;
+}
+
+/**
+ * Maps currency settings onto DB columns. Only writes keys that were
+ * explicitly provided, so nothing is ever unintentionally nulled.
+ */
+function applyCurrencyColumns(target: any, c?: ProjectCurrencyInput | null): void {
+  if (!c) return;
+  if (c.localCurrencyCode !== undefined) target.local_currency_code = c.localCurrencyCode || null;
+  if (c.localCurrencyName !== undefined) target.local_currency_name = c.localCurrencyName || null;
+  if (c.localCurrencySymbol !== undefined) target.local_currency_symbol = c.localCurrencySymbol || null;
+  if (c.exchangeRate !== undefined) {
+    const r = Number(c.exchangeRate);
+    target.exchange_rate = Number.isFinite(r) && r > 0 ? r : null;
+  }
+  if (c.isCustomCurrency !== undefined) target.is_custom_currency = c.isCustomCurrency ?? null;
+}
+
 export async function createProject(
   name: string, 
   startDate: Date, 
   endDate: Date,
   coverImageUrl?: string,
   isPublic?: boolean,
-  editPassword?: string
+  editPassword?: string,
+  currency?: ProjectCurrencyInput
 ): Promise<TravelProject | undefined> {
   // Get current user ID for RLS policy
   const { data: { session } } = await supabase.auth.getSession();
@@ -181,6 +217,8 @@ export async function createProject(
     user_id: user?.id || null,
     is_public: isPublic || false,
   };
+  applyCurrencyColumns(insertData, currency);
+  
   
   const { data, error } = await supabase
     .from("travel_projects")
@@ -211,7 +249,7 @@ export async function updateProject(
     visibility?: string;
     isShared?: boolean;
     isPublic?: boolean;
-  }
+  } & ProjectCurrencyInput
 ): Promise<TravelProject | undefined> {
   const updateData: any = {};
   if (updates.name !== undefined) updateData.name = updates.name;
@@ -221,6 +259,9 @@ export async function updateProject(
   if (updates.visibility !== undefined) updateData.visibility = updates.visibility;
   if (updates.isShared !== undefined) updateData.is_shared = updates.isShared;
   if (updates.isPublic !== undefined) updateData.is_public = updates.isPublic;
+  // Currency columns only — NEVER touches itinerary_items / price / persons.
+  applyCurrencyColumns(updateData, updates);
+  
   
   const { error } = await supabase
     .from("travel_projects")
@@ -471,6 +512,16 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
     new Date(original.start_date),
     new Date(original.end_date),
     original.cover_image_url || undefined,
+    undefined,
+    undefined,
+    // Carry the source project's currency settings over to the copy.
+    {
+      localCurrencyCode: (original as any).local_currency_code ?? null,
+      localCurrencyName: (original as any).local_currency_name ?? null,
+      localCurrencySymbol: (original as any).local_currency_symbol ?? null,
+      exchangeRate: (original as any).exchange_rate ?? null,
+      isCustomCurrency: (original as any).is_custom_currency ?? null,
+    },
   );
   if (!newProject) return undefined;
 

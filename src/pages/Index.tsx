@@ -231,7 +231,14 @@ export default function Index() {
         data.endDate, 
         undefined, 
         data.isPublic, 
-        data.editPassword
+        data.editPassword,
+        {
+          localCurrencyCode: data.localCurrencyCode ?? null,
+          localCurrencyName: data.localCurrencyName ?? null,
+          localCurrencySymbol: data.localCurrencySymbol ?? null,
+          exchangeRate: data.exchangeRate ?? null,
+          isCustomCurrency: data.isCustomCurrency ?? null,
+        }
       );
       if (!project) {
         toast.error(t("saveFailed"));
@@ -282,6 +289,12 @@ export default function Index() {
         endDate: data.endDate,
         coverImageUrl,
         isPublic: data.isPublic,
+        // Currency columns only; itinerary prices are never touched.
+        localCurrencyCode: data.localCurrencyCode ?? null,
+        localCurrencyName: data.localCurrencyName ?? null,
+        localCurrencySymbol: data.localCurrencySymbol ?? null,
+        exchangeRate: data.exchangeRate ?? null,
+        isCustomCurrency: data.isCustomCurrency ?? null,
       });
 
       if (data.isPublic && data.editPassword) {
@@ -672,6 +685,11 @@ export default function Index() {
           endDate: editingProject.endDate,
           coverImageUrl: editingProject.coverImageUrl,
           isPublic: editingProject.isPublic,
+          localCurrencyCode: editingProject.localCurrencyCode,
+          localCurrencyName: editingProject.localCurrencyName,
+          localCurrencySymbol: editingProject.localCurrencySymbol,
+          exchangeRate: editingProject.exchangeRate,
+          isCustomCurrency: editingProject.isCustomCurrency,
         } : undefined}
         mode="edit"
         projectId={editingProject?.id}

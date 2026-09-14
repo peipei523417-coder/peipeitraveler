@@ -358,9 +358,14 @@ export type Database = {
           created_at: string
           edit_password_hash: string | null
           end_date: string
+          exchange_rate: number | null
           id: string
+          is_custom_currency: boolean | null
           is_public: boolean
           is_shared: boolean
+          local_currency_code: string | null
+          local_currency_name: string | null
+          local_currency_symbol: string | null
           name: string
           start_date: string
           updated_at: string
@@ -372,9 +377,14 @@ export type Database = {
           created_at?: string
           edit_password_hash?: string | null
           end_date: string
+          exchange_rate?: number | null
           id?: string
+          is_custom_currency?: boolean | null
           is_public?: boolean
           is_shared?: boolean
+          local_currency_code?: string | null
+          local_currency_name?: string | null
+          local_currency_symbol?: string | null
           name: string
           start_date: string
           updated_at?: string
@@ -386,9 +396,14 @@ export type Database = {
           created_at?: string
           edit_password_hash?: string | null
           end_date?: string
+          exchange_rate?: number | null
           id?: string
+          is_custom_currency?: boolean | null
           is_public?: boolean
           is_shared?: boolean
+          local_currency_code?: string | null
+          local_currency_name?: string | null
+          local_currency_symbol?: string | null
           name?: string
           start_date?: string
           updated_at?: string
@@ -463,9 +478,14 @@ export type Database = {
           cover_image_url: string | null
           created_at: string | null
           end_date: string | null
+          exchange_rate: number | null
           has_edit_password: boolean | null
           id: string | null
+          is_custom_currency: boolean | null
           is_public: boolean | null
+          local_currency_code: string | null
+          local_currency_name: string | null
+          local_currency_symbol: string | null
           name: string | null
           start_date: string | null
           updated_at: string | null
@@ -474,9 +494,14 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string | null
           end_date?: string | null
+          exchange_rate?: number | null
           has_edit_password?: never
           id?: string | null
+          is_custom_currency?: boolean | null
           is_public?: boolean | null
+          local_currency_code?: string | null
+          local_currency_name?: string | null
+          local_currency_symbol?: string | null
           name?: string | null
           start_date?: string | null
           updated_at?: string | null
@@ -485,9 +510,14 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string | null
           end_date?: string | null
+          exchange_rate?: number | null
           has_edit_password?: never
           id?: string | null
+          is_custom_currency?: boolean | null
           is_public?: boolean | null
+          local_currency_code?: string | null
+          local_currency_name?: string | null
+          local_currency_symbol?: string | null
           name?: string | null
           start_date?: string | null
           updated_at?: string | null

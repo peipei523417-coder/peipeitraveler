@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ProjectCurrency, twdToLocal } from "@/lib/currency";
 
 
 import {
@@ -44,6 +45,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 interface ItineraryListProps {
+  /** Optional project dual-currency config. Null => existing TWD-only display. */
+  currency?: ProjectCurrency | null;
   day: DayItinerary;
   onAddItem: () => void;
   onEditItem: (item: ItineraryItem) => void;
@@ -80,6 +83,7 @@ interface RowProps {
   item: ItineraryItem;
   signedImageUrl: string | undefined;
   perPersonCost: number;
+  currency?: ProjectCurrency | null;
   hasTime: boolean;
   readOnly: boolean;
   onEditItem: (item: ItineraryItem) => void;
@@ -96,6 +100,7 @@ function ItemRow({
   item,
   signedImageUrl,
   perPersonCost,
+  currency,
   hasTime,
   readOnly,
   onEditItem,
@@ -156,9 +161,20 @@ function ItemRow({
               {item.price && item.price > 0 && (
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-3">
                   <DollarSign className="w-3.5 h-3.5" />
-                  <span>
-                    {item.price.toLocaleString()} / {item.persons || 1} = <span className="font-bold text-primary">${perPersonCost.toLocaleString()}</span>
-                  </span>
+                  {currency ? (
+                    <span>
+                      NT${item.price.toLocaleString()} ≈ {currency.symbol}
+                      {twdToLocal(item.price, currency.rate).toLocaleString()} / {item.persons || 1} ={" "}
+                      <span className="font-bold text-primary">
+                        NT${perPersonCost.toLocaleString()} ≈ {currency.symbol}
+                        {twdToLocal(perPersonCost, currency.rate).toLocaleString()}
+                      </span>
+                    </span>
+                  ) : (
+                    <span>
+                      {item.price.toLocaleString()} / {item.persons || 1} = <span className="font-bold text-primary">${perPersonCost.toLocaleString()}</span>
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -306,6 +322,7 @@ function SortableRow(props: RowProps & { id: string; disabled: boolean }) {
 }
 
 export function ItineraryList({
+  currency,
   day,
   onAddItem,
   onEditItem,
@@ -459,6 +476,7 @@ export function ItineraryList({
       item={item}
       signedImageUrl={signedImageUrls[indexInAll]}
       perPersonCost={calculateItemPerPerson(item)}
+      currency={currency}
       hasTime={true}
       readOnly={readOnly}
       onEditItem={onEditItem}
@@ -502,6 +520,7 @@ export function ItineraryList({
                       item={item}
                       signedImageUrl={signedImageUrls[indexInAll]}
                       perPersonCost={calculateItemPerPerson(item)}
+                      currency={currency}
                       hasTime={false}
                       readOnly={readOnly}
                       onEditItem={onEditItem}
@@ -521,7 +540,10 @@ export function ItineraryList({
       {dayTotal > 0 && (
         <div className="flex justify-center pt-2">
           <div className="bg-primary/10 rounded-xl px-4 py-2 text-sm font-bold text-primary">
-            {t("todayTotal")}: ${dayTotal.toLocaleString()}
+            {t("todayTotal")}:{" "}
+            {currency
+              ? `NT$${dayTotal.toLocaleString()} ≈ ${currency.symbol}${twdToLocal(dayTotal, currency.rate).toLocaleString()}`
+              : `$${dayTotal.toLocaleString()}`}
           </div>
         </div>
       )}

@@ -35,6 +35,8 @@ import { hasTimeConflict, findOverlappingItem } from "@/lib/time-validation";
 import { sanitizeMapUrl } from "@/utils/mapLink";
 import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/switch";
+import { ProjectCurrency, twdToLocal, localToTwd } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 
 
 export interface MoveDayOption {
@@ -56,6 +58,11 @@ interface ItineraryItemDialogProps {
   currentDayNumber?: number;
   /** Edit mode only: moves the existing row to another day (day_number only). */
   onMoveToDay?: (targetDayNumber: number) => void | Promise<void>;
+  /**
+   * Optional project dual-currency config. When null/undefined the budget
+   * field keeps its existing TWD-only behaviour, unchanged.
+   */
+  currency?: ProjectCurrency | null;
 }
 
 
@@ -70,7 +77,7 @@ export function ItineraryItemDialog({
   moveDayOptions = [],
   currentDayNumber,
   onMoveToDay,
-
+  currency,
 }: ItineraryItemDialogProps) {
   const { t } = useTranslation();
   const [useTime, setUseTime] = useState(!!initialData?.startTime);
@@ -87,6 +94,8 @@ export function ItineraryItemDialog({
   );
   const [price, setPrice] = useState<string>(initialData?.price?.toString() || "");
   const [persons, setPersons] = useState<string>(initialData?.persons?.toString() || "1");
+  // Display-only local-currency mirror of `price`. Never persisted.
+  const [localPrice, setLocalPrice] = useState<string>("");
   const [timeError, setTimeError] = useState<string | null>(null);
   const [mapUrlInvalid, setMapUrlInvalid] = useState(false);
   const [overlapWarningOpen, setOverlapWarningOpen] = useState(false);
@@ -149,6 +158,12 @@ export function ItineraryItemDialog({
       setHighlightColor(initialData.highlightColor || "none");
       setPrice(initialData.price?.toString() || "");
       setPersons(initialData.persons?.toString() || "1");
+      // Local amount is always DERIVED from the canonical TWD price.
+      setLocalPrice(
+        currency && initialData.price && initialData.price > 0
+          ? String(twdToLocal(initialData.price, currency.rate))
+          : ""
+      );
     } else {
       // Use suggested start time if available
       const defaultStart = suggestedStartTime || "09:00";
@@ -164,6 +179,7 @@ export function ItineraryItemDialog({
       setHighlightColor("none");
       setPrice("");
       setPersons("1");
+      setLocalPrice("");
     }
     setTimeError(null);
     setMapUrlInvalid(false);
@@ -196,6 +212,21 @@ export function ItineraryItemDialog({
   };
 
   const perPersonCost = calculatePerPerson();
+
+  // Dual-currency handlers. TWD stays canonical; the local field is derived.
+  const handlePriceChange = (value: string) => {
+    setPrice(value);
+    if (!currency) return;
+    const n = parseInt(value, 10);
+    setLocalPrice(!isNaN(n) && n > 0 ? String(twdToLocal(n, currency.rate)) : "");
+  };
+
+  const handleLocalPriceChange = (value: string) => {
+    setLocalPrice(value);
+    if (!currency) return;
+    const n = parseInt(value, 10);
+    setPrice(!isNaN(n) && n > 0 ? String(localToTwd(n, currency.rate)) : "");
+  };
 
   const handleSubmit = () => {
     if (!description.trim()) return;
@@ -262,6 +293,7 @@ export function ItineraryItemDialog({
     setHighlightColor("none");
     setPrice("");
     setPersons("1");
+    setLocalPrice("");
     onOpenChange(false);
   };
 
@@ -420,15 +452,30 @@ export function ItineraryItemDialog({
                 <DollarSign className="w-4 h-4" />
                 {t("price")} ({t("persons")}: <Users className="w-3 h-3 inline" />)
               </Label>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                {currency && <span className="text-sm text-muted-foreground">NT$</span>}
                 <Input
                   type="number"
                   placeholder={t("price")}
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="rounded-xl w-28 text-base"
+                  onChange={(e) => handlePriceChange(e.target.value)}
+                  className={cn("rounded-xl text-base", currency ? "w-24" : "w-28")}
                   min="0"
                 />
+                {currency && (
+                  <>
+                    <span className="text-sm text-muted-foreground">≈</span>
+                    <span className="text-sm text-muted-foreground">{currency.symbol}</span>
+                    <Input
+                      type="number"
+                      placeholder={currency.code}
+                      value={localPrice}
+                      onChange={(e) => handleLocalPriceChange(e.target.value)}
+                      className="rounded-xl w-24 text-base"
+                      min="0"
+                    />
+                  </>
+                )}
                 <span className="text-foreground font-bold">/</span>
                 <Input
                   type="number"
@@ -441,7 +488,13 @@ export function ItineraryItemDialog({
                 <span className="text-sm text-muted-foreground">{t("personsUnit")}</span>
                 {perPersonCost !== null && (
                   <span className="text-sm text-muted-foreground">
-                    = <span className="font-bold text-primary">${perPersonCost}</span> {t("perPerson")}
+                    ={" "}
+                    <span className="font-bold text-primary">
+                      {currency
+                        ? `NT$${perPersonCost.toLocaleString()} ≈ ${currency.symbol}${twdToLocal(perPersonCost, currency.rate).toLocaleString()}`
+                        : `$${perPersonCost}`}
+                    </span>{" "}
+                    {t("perPerson")}
                   </span>
                 )}
               </div>

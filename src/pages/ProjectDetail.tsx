@@ -29,6 +29,7 @@ import { TripOverviewDialog } from "@/components/TripOverviewDialog";
 import { PdfCaptureRoot } from "@/components/PdfCaptureRoot";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectErrorBoundary } from "@/components/ProjectErrorBoundary";
+import { resolveProjectCurrency, twdToLocal } from "@/lib/currency";
 
 /** Safely coerce a possibly-string/Date/undefined into a Date for formatting. */
 function safeDate(value: unknown): Date | null {
@@ -89,6 +90,19 @@ function ProjectDetailInner() {
       return total + calculateDayTotal(day?.items ?? []);
     }, 0);
   }, [project]);
+
+  // Optional dual-currency config. null => existing TWD-only behaviour.
+  const currency = useMemo(
+    () => resolveProjectCurrency(project, i18n.language),
+    [
+      project?.localCurrencyCode,
+      project?.localCurrencyName,
+      project?.localCurrencySymbol,
+      project?.exchangeRate,
+      project?.isCustomCurrency,
+      i18n.language,
+    ]
+  );
 
   // Get signed URL for cover image
   const signedCoverImage = useSignedImageUrl(project?.coverImageUrl);
@@ -271,6 +285,37 @@ function ProjectDetailInner() {
           if (!isLocalUpdateRef.current && !cancelled) {
             loadProject(false, isCancelled);
           }
+        }
+      )
+      // Minimal addition: watch this ONE project row so a collaborator's
+      // currency / exchange-rate change is picked up immediately. Itinerary
+      // realtime above is untouched.
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'travel_projects',
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          if (cancelled) return;
+          const row: any = payload.new || {};
+          setProject((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  localCurrencyCode: row.local_currency_code || undefined,
+                  localCurrencyName: row.local_currency_name || undefined,
+                  localCurrencySymbol: row.local_currency_symbol || undefined,
+                  exchangeRate:
+                    row.exchange_rate === null || row.exchange_rate === undefined
+                      ? undefined
+                      : Number(row.exchange_rate),
+                  isCustomCurrency: row.is_custom_currency ?? undefined,
+                }
+              : prev
+          );
         }
       )
       .subscribe();
@@ -791,7 +836,11 @@ function ProjectDetailInner() {
                   </p>
                   {totalBudget > 0 && (
                     <p className="text-sm font-bold text-primary">
-                      ({t("totalBudget")}: ${totalBudget.toLocaleString()})
+                      ({t("totalBudget")}:{" "}
+                      {currency
+                        ? `NT$${totalBudget.toLocaleString()} ≈ ${currency.symbol}${twdToLocal(totalBudget, currency.rate).toLocaleString()}`
+                        : `$${totalBudget.toLocaleString()}`}
+                      )
                     </p>
                   )}
                 </div>
@@ -828,6 +877,7 @@ function ProjectDetailInner() {
       <main className="container max-w-4xl py-6">
         {currentDay && (
           <ItineraryList
+            currency={currency}
             day={currentDay}
             onAddItem={() => { if (!isViewer) setDialogOpen(true); }}
             onEditItem={(item) => { if (!isViewer) setEditingItem(item); }}
@@ -851,6 +901,7 @@ function ProjectDetailInner() {
             setEditingItem(null);
           }
         }}
+        currency={currency}
         onSubmit={editingItem ? handleEditItem : handleAddItem}
         initialData={editingItem || undefined}
         mode={editingItem ? "edit" : "create"}

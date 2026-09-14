@@ -18,6 +18,7 @@ import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { buildPdfMapAnnotation } from "@/lib/maps-url";
 import pdfEndBrand from "@/assets/pdf-end-brand.png.asset.json";
+import { resolveProjectCurrency, twdToLocal } from "@/lib/currency";
 
 
 export interface CapturedCardBounds {
@@ -255,6 +256,8 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
     return Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1;
   })();
   const totalItems = allItems.length;
+  // Null for old / TWD-only projects: the PDF then keeps its existing output.
+  const pdfCurrency = resolveProjectCurrency(project);
 
   const fontStack =
     '"Noto Sans TC", "PingFang TC", "Hiragino Sans", "Microsoft JhengHei", system-ui, sans-serif';
@@ -386,13 +389,17 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                 <div style={{ background: "#f1f7fd", borderRadius: 14, padding: "12px 14px" }}>
                   <div style={{ fontSize: 11, color: "#64748b" }}>總花費</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>
-                    ${totalRaw.toLocaleString()}
+                    {pdfCurrency
+                      ? `NT$${totalRaw.toLocaleString()} ≈ ${pdfCurrency.symbol}${twdToLocal(totalRaw, pdfCurrency.rate).toLocaleString()}`
+                      : `$${totalRaw.toLocaleString()}`}
                   </div>
                 </div>
                 <div style={{ background: "#f1f7fd", borderRadius: 14, padding: "12px 14px" }}>
                   <div style={{ fontSize: 11, color: "#64748b" }}>單人總花費</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: "#0285c7", marginTop: 4 }}>
-                    ${totalPerPerson.toLocaleString()}
+                    {pdfCurrency
+                      ? `NT$${totalPerPerson.toLocaleString()} ≈ ${pdfCurrency.symbol}${twdToLocal(totalPerPerson, pdfCurrency.rate).toLocaleString()}`
+                      : `$${totalPerPerson.toLocaleString()}`}
                   </div>
                 </div>
               </div>
@@ -529,6 +536,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
               </div>
             </div>
             <ItineraryList
+              currency={pdfCurrency}
               day={day}
               readOnly
               isLastDay={false}
