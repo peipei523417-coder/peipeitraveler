@@ -322,6 +322,7 @@ function SortableRow(props: RowProps & { id: string; disabled: boolean }) {
 }
 
 export function ItineraryList({
+  currency,
   day,
   onAddItem,
   onEditItem,
@@ -475,6 +476,7 @@ export function ItineraryList({
       item={item}
       signedImageUrl={signedImageUrls[indexInAll]}
       perPersonCost={calculateItemPerPerson(item)}
+      currency={currency}
       hasTime={true}
       readOnly={readOnly}
       onEditItem={onEditItem}
@@ -518,6 +520,7 @@ export function ItineraryList({
                       item={item}
                       signedImageUrl={signedImageUrls[indexInAll]}
                       perPersonCost={calculateItemPerPerson(item)}
+                      currency={currency}
                       hasTime={false}
                       readOnly={readOnly}
                       onEditItem={onEditItem}
@@ -537,7 +540,10 @@ export function ItineraryList({
       {dayTotal > 0 && (
         <div className="flex justify-center pt-2">
           <div className="bg-primary/10 rounded-xl px-4 py-2 text-sm font-bold text-primary">
-            {t("todayTotal")}: ${dayTotal.toLocaleString()}
+            {t("todayTotal")}:{" "}
+            {currency
+              ? `NT$${dayTotal.toLocaleString()} ≈ ${currency.symbol}${twdToLocal(dayTotal, currency.rate).toLocaleString()}`
+              : `$${dayTotal.toLocaleString()}`}
           </div>
         </div>
       )}
