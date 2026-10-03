@@ -10,7 +10,8 @@ import {
   updateItineraryItemIcon,
   uploadProjectImage,
   reorderItineraryItems,
-  moveItineraryItemToDay
+  moveItineraryItemToDay,
+  type CommitSignature,
 
 } from "@/lib/supabase-storage";
 import { useProjectCache } from "@/contexts/ProjectCacheContext";
@@ -535,8 +536,9 @@ function ProjectDetailInner() {
         };
       });
       toast.error(t("saveFailed"));
-      endMutation([tempId], false);
+      endMutation([tempId]);
     } else {
+      if (inserted.updatedAt) recordCommits([{ id: inserted.id, updatedAt: inserted.updatedAt }]);
       setProject(prev => {
         if (!prev) return prev;
         const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
@@ -552,6 +554,7 @@ function ProjectDetailInner() {
         updateProjectInCache(next);
         return next;
       });
+      endMutation([tempId]);
     }
 
   };
@@ -590,7 +593,7 @@ function ProjectDetailInner() {
     showSaveIndicator();
 
     let ok = false;
-    try { ok = await patchItineraryItem(previous.id, finalItem); } catch { ok = false; }
+    try { ok = await patchItineraryItem(previous.id, finalItem, recordCommits); } catch { ok = false; }
     if (!ok) {
       setProject(prev => {
         if (!prev) return prev;
@@ -612,7 +615,7 @@ function ProjectDetailInner() {
         return prev;
       });
     }
-    endMutation([editId], ok);
+    endMutation([editId]);
 
   };
 
@@ -666,7 +669,8 @@ function ProjectDetailInner() {
         return prev;
       });
     }
-    endMutation([itemId], ok);
+    if (ok) recordCommitKeys([`${itemId}|DELETE`], committedDeletesRef.current);
+    endMutation([itemId]);
 
   };
 
@@ -696,8 +700,9 @@ function ProjectDetailInner() {
     // Background sync - only update DB, don't replace entire project state
     // This prevents cross-contamination of other items' icons
     let iconOk = true;
-    try { await updateItineraryItemIcon(project.id, itemId, iconType); } catch { iconOk = false; }
-    endMutation([itemId], iconOk);
+    try { await updateItineraryItemIcon(project.id, itemId, iconType, recordCommits); } catch { iconOk = false; }
+    void iconOk;
+    endMutation([itemId]);
     
   };
 
@@ -743,7 +748,7 @@ function ProjectDetailInner() {
       .map(id => ({ id, sortOrder: idToOrder.get(id)! }));
 
     let ok = false;
-    try { ok = await reorderItineraryItems(updates); } catch { ok = false; }
+    try { ok = await reorderItineraryItems(updates, recordCommits); } catch { ok = false; }
     if (!ok) {
       setProject(previous);
       toast.error(t("saveFailed"));
@@ -753,7 +758,7 @@ function ProjectDetailInner() {
         return prev;
       });
     }
-    endMutation(reorderIds, ok);
+    endMutation(reorderIds);
 
   };
 
@@ -803,7 +808,7 @@ function ProjectDetailInner() {
     showSaveIndicator();
 
     let ok = false;
-    try { ok = await moveItineraryItemToDay(item.id, targetDay, newSortOrder); } catch { ok = false; }
+    try { ok = await moveItineraryItemToDay(item.id, targetDay, newSortOrder, recordCommits); } catch { ok = false; }
     if (!ok) {
       // Restore the exact previous state — item stays on its original day.
       setProject(previous);
@@ -815,7 +820,7 @@ function ProjectDetailInner() {
         return prev;
       });
     }
-    endMutation([item.id], ok);
+    endMutation([item.id]);
 
   };
 
