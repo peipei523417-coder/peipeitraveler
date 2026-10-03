@@ -267,7 +267,9 @@ export function ProjectDialog({
         ? (isCustomCurrency ? customCurrencyName.trim() : currencyDisplayName(currencyCode))
         : null,
       localCurrencySymbol: currencyReady
-        ? (isCustomCurrency ? customCurrencySymbol.trim() : selected?.symbol || currencyCode)
+        ? (isCustomCurrency
+            ? customCurrencyName.trim().charAt(0)
+            : selected?.symbol || currencyCode)
         : null,
       exchangeRate: currencyReady ? parsedRate : null,
       isCustomCurrency: currencyReady ? isCustomCurrency : null,
@@ -541,11 +543,11 @@ export function ProjectDialog({
                       onChange={(e) => setRateInput(e.target.value)}
                       className="rounded-xl h-11 text-base w-20 px-2"
                     />
-                    <span className="text-xs text-muted-foreground">
-                      {isCustomCurrency
-                        ? customCurrencySymbol || "?"
-                        : COMMON_CURRENCIES.find((c) => c.code === currencyCode)?.symbol || currencyCode}
-                    </span>
+                    {!isCustomCurrency && (
+                      <span className="text-xs text-muted-foreground">
+                        {COMMON_CURRENCIES.find((c) => c.code === currencyCode)?.symbol || currencyCode}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
