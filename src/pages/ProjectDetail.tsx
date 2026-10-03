@@ -514,7 +514,8 @@ function ProjectDetailInner() {
     showSaveIndicator();
 
     // Insert -> only on confirmed success, swap temp id with real id. On failure rollback.
-    const inserted = await insertItineraryItem(project.id, targetDay, finalItem);
+    let inserted: Awaited<ReturnType<typeof insertItineraryItem>> = null as any;
+    try { inserted = await insertItineraryItem(project.id, targetDay, finalItem); } catch { inserted = null as any; }
     if (!inserted) {
       setProject(prev => {
         if (!prev) return prev;
@@ -635,7 +636,8 @@ function ProjectDetailInner() {
     });
     showSaveIndicator();
 
-    const ok = await removeItineraryItem(itemId);
+    let ok = false;
+    try { ok = await removeItineraryItem(itemId); } catch { ok = false; }
     if (!ok && removed) {
       // Rollback restore.
       setProject(prev => {
