@@ -359,6 +359,7 @@ export type Database = {
           edit_password_hash: string | null
           end_date: string
           exchange_rate: number | null
+          hybrid_days: number[]
           id: string
           is_custom_currency: boolean | null
           is_public: boolean
@@ -378,6 +379,7 @@ export type Database = {
           edit_password_hash?: string | null
           end_date: string
           exchange_rate?: number | null
+          hybrid_days?: number[]
           id?: string
           is_custom_currency?: boolean | null
           is_public?: boolean
@@ -397,6 +399,7 @@ export type Database = {
           edit_password_hash?: string | null
           end_date?: string
           exchange_rate?: number | null
+          hybrid_days?: number[]
           id?: string
           is_custom_currency?: boolean | null
           is_public?: boolean
@@ -480,6 +483,7 @@ export type Database = {
           end_date: string | null
           exchange_rate: number | null
           has_edit_password: boolean | null
+          hybrid_days: number[] | null
           id: string | null
           is_custom_currency: boolean | null
           is_public: boolean | null
@@ -496,6 +500,7 @@ export type Database = {
           end_date?: string | null
           exchange_rate?: number | null
           has_edit_password?: never
+          hybrid_days?: number[] | null
           id?: string | null
           is_custom_currency?: boolean | null
           is_public?: boolean | null
@@ -512,6 +517,7 @@ export type Database = {
           end_date?: string | null
           exchange_rate?: number | null
           has_edit_password?: never
+          hybrid_days?: number[] | null
           id?: string | null
           is_custom_currency?: boolean | null
           is_public?: boolean | null
@@ -526,6 +532,14 @@ export type Database = {
       }
     }
     Functions: {
+      apply_hybrid_day_order: {
+        Args: {
+          p_day_number: number
+          p_ordered_ids: string[]
+          p_project_id: string
+        }
+        Returns: undefined
+      }
       can_access_project: { Args: { project_id: string }; Returns: boolean }
       can_modify_project: { Args: { project_id: string }; Returns: boolean }
       get_auth_user_email: { Args: never; Returns: string }
