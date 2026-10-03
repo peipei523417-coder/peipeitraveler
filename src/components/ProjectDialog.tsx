@@ -78,7 +78,6 @@ export function ProjectDialog({
   // Dual-currency settings. "" = TWD-only (existing behaviour), "custom" = user-defined.
   const [currencyCode, setCurrencyCode] = useState<string>("");
   const [customCurrencyName, setCustomCurrencyName] = useState("");
-  const [customCurrencySymbol, setCustomCurrencySymbol] = useState("");
   const [rateInput, setRateInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -102,7 +101,6 @@ export function ProjectDialog({
           isCustom ? "custom" : (initialData.localCurrencyCode || "")
         );
         setCustomCurrencyName(isCustom ? initialData.localCurrencyName || "" : "");
-        setCustomCurrencySymbol(isCustom ? initialData.localCurrencySymbol || "" : "");
         setRateInput(
           initialData.exchangeRate && initialData.exchangeRate > 0
             ? String(initialData.exchangeRate)
