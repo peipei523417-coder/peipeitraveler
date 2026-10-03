@@ -139,7 +139,7 @@ function ItemRow({
         className={cn(
           "flex-1 samoyed-card group overflow-hidden transition-shadow",
           getHighlightClass(item.highlightColor),
-          !hasTime && !readOnly && "touch-none select-none cursor-grab active:cursor-grabbing",
+          !hasTime && !readOnly && "touch-pan-y select-none cursor-grab active:cursor-grabbing",
         )}
         {...(dragAttrs || {})}
         {...(dragListeners || {})}
