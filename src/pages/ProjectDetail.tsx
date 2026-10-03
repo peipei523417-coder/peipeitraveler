@@ -9,7 +9,8 @@ import {
   removeItineraryItem,
   updateItineraryItemIcon,
   uploadProjectImage,
-  reorderItineraryItems,
+  applyHybridDayOrder,
+  setItemRank,
   moveItineraryItemToDay,
   type CommitSignature,
 
@@ -27,6 +28,7 @@ import { useSignedImageUrl } from "@/hooks/useSignedImageUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { ExpiryWarningDialog } from "@/components/ExpiryWarningDialog";
 import { TripOverviewDialog } from "@/components/TripOverviewDialog";
+import { isHybridDay, placementRank, appendRank, dragRank } from "@/lib/itinerary-order";
 import { PdfCaptureRoot } from "@/components/PdfCaptureRoot";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectErrorBoundary } from "@/components/ProjectErrorBoundary";
@@ -490,6 +492,28 @@ function ProjectDetailInner() {
 
   loadProjectRef.current = loadProject;
 
+  /** Apply a server-confirmed rank to one item (Hybrid days only). */
+  const applyServerRank = (itemId: string, sortOrder: number) => {
+    setProject(prev => {
+      if (!prev) return prev;
+      const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+      return {
+        ...prev,
+        itinerary: base.map(day => ({
+          ...day,
+          items: (Array.isArray(day?.items) ? day.items : []).map(i =>
+            i.id === itemId && i.sortOrder !== sortOrder ? { ...i, sortOrder } : i
+          ),
+        })),
+      };
+    });
+  };
+
+  const dayItemsOf = (dayNumber: number, excludeId?: string): ItineraryItem[] => {
+    const base = Array.isArray(project?.itinerary) ? project!.itinerary : [];
+    return (base.find(d => d?.dayNumber === dayNumber)?.items || []).filter(i => i.id !== excludeId);
+  };
+
   const handleAddItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project) return;
 
@@ -506,6 +530,13 @@ function ProjectDetailInner() {
 
     // Optimistic UI: add a temp item; we'll swap its id with the real one on success.
     const targetDay = activeDay;
+    // Hybrid day: mirror the server trigger's placement for the optimistic rank.
+    let needsRespaceReload = false;
+    if (isHybridDay(project.hybridDays, targetDay)) {
+      const rank = placementRank(dayItemsOf(targetDay), finalItem.startTime);
+      if (rank === null) needsRespaceReload = true;
+      finalItem.sortOrder = rank ?? appendRank(dayItemsOf(targetDay));
+    }
     const optimisticItem: ItineraryItem = { ...finalItem, id: tempId } as ItineraryItem;
     setProject(prev => {
       if (!prev) return prev;
@@ -548,7 +579,9 @@ function ProjectDetailInner() {
           itinerary: base.map(day => ({
             ...day,
             items: (Array.isArray(day?.items) ? day.items : []).map(i =>
-              i.id === tempId ? { ...i, id: inserted.id } : i
+              i.id === tempId
+                ? { ...i, id: inserted.id, ...(typeof inserted.sortOrder === "number" ? { sortOrder: inserted.sortOrder } : {}) }
+                : i
             ),
           })),
         };
@@ -556,6 +589,8 @@ function ProjectDetailInner() {
         return next;
       });
       endMutation([tempId]);
+      // Server re-spaced the day's ranks — pull the new ranks once.
+      if (needsRespaceReload) void loadProjectRef.current?.(false);
     }
 
   };
@@ -577,6 +612,16 @@ function ProjectDetailInner() {
 
     // Snapshot the original for rollback.
     const previous = editingItem;
+
+    // Hybrid day + time changed: only THIS item is re-placed by its new time.
+    let needsRespaceReloadEdit = false;
+    const editDay = (project.itinerary || []).find(d => (d?.items || []).some(i => i.id === previous.id))?.dayNumber;
+    const timeChanged = (finalItem.startTime || "") !== (previous.startTime || "");
+    if (editDay && isHybridDay(project.hybridDays, editDay) && timeChanged && finalItem.startTime) {
+      const rank = placementRank(dayItemsOf(editDay, previous.id), finalItem.startTime);
+      if (rank === null) needsRespaceReloadEdit = true;
+      else finalItem.sortOrder = rank;
+    }
     setProject(prev => {
       if (!prev) return prev;
       const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
@@ -594,7 +639,9 @@ function ProjectDetailInner() {
     showSaveIndicator();
 
     let ok = false;
-    try { ok = await patchItineraryItem(previous.id, finalItem, recordCommits); } catch { ok = false; }
+    try {
+      ok = await patchItineraryItem(previous.id, finalItem, recordCommits, (so) => applyServerRank(previous.id, so));
+    } catch { ok = false; }
     if (!ok) {
       setProject(prev => {
         if (!prev) return prev;
@@ -617,6 +664,7 @@ function ProjectDetailInner() {
       });
     }
     endMutation([editId]);
+    if (ok && needsRespaceReloadEdit) void loadProjectRef.current?.(false);
 
   };
 
@@ -708,28 +756,36 @@ function ProjectDetailInner() {
   };
 
   /**
-   * Persist manual drag-to-reorder of no-time items within a single day.
-   * `orderedIds` is the new top-to-bottom order of NO-TIME items for `dayNumber`.
-   * Items with a startTime are untouched (they keep auto-sorting by time).
+   * Untimed drag (any position in the whole day list).
+   * - Hybrid day with a free rank gap: ONE row UPDATE (the dragged item only).
+   * - Legacy day (first Hybrid use) or exhausted gap: ONE atomic RPC that
+   *   normalizes ranks to 100, 200, ... AND marks the day Hybrid together.
+   * On failure the previous state is restored and the user can retry.
    */
-  const handleReorderNoTimeItems = async (dayNumber: number, orderedIds: string[]) => {
+  const handleReorderItem = async (dayNumber: number, movedId: string, orderedIds: string[]) => {
     if (!project) return;
-    const reorderIds = orderedIds.filter(i => !i.startsWith("temp-"));
-    beginMutation(reorderIds);
-
-    // Snapshot for rollback.
+    if (orderedIds.some(id => id.startsWith("temp-"))) {
+      toast.error(t("saveFailed"));
+      return;
+    }
     const previous = project;
+    const dayItems = dayItemsOf(dayNumber);
+    const hybrid = isHybridDay(project.hybridDays, dayNumber);
+    const rank = hybrid ? dragRank(dayItems, orderedIds, movedId) : null;
+    const lockIds = rank === null ? orderedIds : [movedId];
+    beginMutation(lockIds);
 
-    // Build new sortOrder values (multiples of 10 to leave room for future inserts).
     const idToOrder = new Map<string, number>();
-    orderedIds.forEach((id, idx) => idToOrder.set(id, (idx + 1) * 10));
+    if (rank === null) orderedIds.forEach((id, idx) => idToOrder.set(id, (idx + 1) * 100));
+    else idToOrder.set(movedId, rank);
 
-    // Optimistic update.
     setProject(prev => {
       if (!prev) return prev;
       const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
+      const hd = prev.hybridDays || [];
       return {
         ...prev,
+        hybridDays: hd.includes(dayNumber) ? hd : [...hd, dayNumber],
         itinerary: base.map(day => {
           if (day?.dayNumber !== dayNumber) return day;
           return {
@@ -743,13 +799,12 @@ function ProjectDetailInner() {
     });
     showSaveIndicator();
 
-    const updates = orderedIds
-      // Only persist real DB ids (skip optimistic temp- ids if any).
-      .filter(id => !id.startsWith("temp-"))
-      .map(id => ({ id, sortOrder: idToOrder.get(id)! }));
-
     let ok = false;
-    try { ok = await reorderItineraryItems(updates, recordCommits); } catch { ok = false; }
+    try {
+      ok = rank === null
+        ? await applyHybridDayOrder(project.id, dayNumber, orderedIds)
+        : await setItemRank(movedId, rank, recordCommits);
+    } catch { ok = false; }
     if (!ok) {
       setProject(previous);
       toast.error(t("saveFailed"));
@@ -759,8 +814,7 @@ function ProjectDetailInner() {
         return prev;
       });
     }
-    endMutation(reorderIds);
-
+    endMutation(lockIds);
   };
 
   /**
@@ -777,8 +831,15 @@ function ProjectDetailInner() {
     const previous = project;
 
     // No-time items go to the end of the target day's no-time section.
+    // Hybrid target day: optimistic rank mirrors the server trigger.
     let newSortOrder: number | undefined;
-    if (!item.startTime) {
+    const targetHybrid = isHybridDay(project.hybridDays, targetDay);
+    let needsRespaceReloadMove = false;
+    if (targetHybrid) {
+      const r = placementRank(dayItemsOf(targetDay), item.startTime);
+      if (r === null) needsRespaceReloadMove = true;
+      newSortOrder = r ?? appendRank(dayItemsOf(targetDay));
+    } else if (!item.startTime) {
       const targetItems = (base.find(d => d?.dayNumber === targetDay)?.items || []).filter(i => !i.startTime);
       newSortOrder = targetItems.reduce((max, i) => Math.max(max, i.sortOrder ?? 0), 0) + 1;
     }
@@ -809,7 +870,15 @@ function ProjectDetailInner() {
     showSaveIndicator();
 
     let ok = false;
-    try { ok = await moveItineraryItemToDay(item.id, targetDay, newSortOrder, recordCommits); } catch { ok = false; }
+    try {
+      ok = await moveItineraryItemToDay(
+        item.id,
+        targetDay,
+        targetHybrid ? undefined : newSortOrder,
+        recordCommits,
+        (so) => applyServerRank(item.id, so),
+      );
+    } catch { ok = false; }
     if (!ok) {
       // Restore the exact previous state — item stays on its original day.
       setProject(previous);
@@ -822,7 +891,7 @@ function ProjectDetailInner() {
       });
     }
     endMutation([item.id]);
-
+    if (ok && needsRespaceReloadMove) void loadProjectRef.current?.(false);
   };
 
   const showSaveIndicator = () => {
