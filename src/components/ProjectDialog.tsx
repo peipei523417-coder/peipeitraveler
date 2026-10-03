@@ -78,7 +78,6 @@ export function ProjectDialog({
   // Dual-currency settings. "" = TWD-only (existing behaviour), "custom" = user-defined.
   const [currencyCode, setCurrencyCode] = useState<string>("");
   const [customCurrencyName, setCustomCurrencyName] = useState("");
-  const [customCurrencySymbol, setCustomCurrencySymbol] = useState("");
   const [rateInput, setRateInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -102,7 +101,6 @@ export function ProjectDialog({
           isCustom ? "custom" : (initialData.localCurrencyCode || "")
         );
         setCustomCurrencyName(isCustom ? initialData.localCurrencyName || "" : "");
-        setCustomCurrencySymbol(isCustom ? initialData.localCurrencySymbol || "" : "");
         setRateInput(
           initialData.exchangeRate && initialData.exchangeRate > 0
             ? String(initialData.exchangeRate)
@@ -178,7 +176,6 @@ export function ProjectDialog({
     setPasswordError("");
     setCurrencyCode("");
     setCustomCurrencyName("");
-    setCustomCurrencySymbol("");
     setRateInput("");
   };
 
@@ -240,13 +237,12 @@ export function ProjectDialog({
   })();
 
   const isCustomCurrency = currencyCode === "custom";
-  // Incomplete data => currency stays off and the app keeps its TWD-only UI.
+  // Currency is fully optional: incomplete data simply means TWD-only.
+  // Custom currency only needs a name (symbol is derived from it).
   const currencyReady =
     !!currencyCode &&
     parsedRate !== null &&
-    (isCustomCurrency
-      ? !!customCurrencyName.trim() && !!customCurrencySymbol.trim()
-      : true);
+    (isCustomCurrency ? !!customCurrencyName.trim() : true);
 
   const handleSubmit = () => {
     if (!name.trim() || !dateRange?.from || !dateRange?.to) return;
@@ -271,7 +267,9 @@ export function ProjectDialog({
         ? (isCustomCurrency ? customCurrencyName.trim() : currencyDisplayName(currencyCode))
         : null,
       localCurrencySymbol: currencyReady
-        ? (isCustomCurrency ? customCurrencySymbol.trim() : selected?.symbol || currencyCode)
+        ? (isCustomCurrency
+            ? customCurrencyName.trim().charAt(0)
+            : selected?.symbol || currencyCode)
         : null,
       exchangeRate: currencyReady ? parsedRate : null,
       isCustomCurrency: currencyReady ? isCustomCurrency : null,
@@ -545,34 +543,22 @@ export function ProjectDialog({
                       onChange={(e) => setRateInput(e.target.value)}
                       className="rounded-xl h-11 text-base w-20 px-2"
                     />
-                    <span className="text-xs text-muted-foreground">
-                      {isCustomCurrency
-                        ? customCurrencySymbol || "?"
-                        : COMMON_CURRENCIES.find((c) => c.code === currencyCode)?.symbol || currencyCode}
-                    </span>
+                    {!isCustomCurrency && (
+                      <span className="text-xs text-muted-foreground">
+                        {COMMON_CURRENCIES.find((c) => c.code === currencyCode)?.symbol || currencyCode}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
 
               {isCustomCurrency && (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={t("currencyNameLabel")}
-                    value={customCurrencyName}
-                    onChange={(e) => setCustomCurrencyName(e.target.value)}
-                    className="rounded-xl h-11 text-base flex-1 min-w-0"
-                  />
-                  <Input
-                    placeholder={t("currencySymbolLabel")}
-                    value={customCurrencySymbol}
-                    onChange={(e) => setCustomCurrencySymbol(e.target.value)}
-                    className="rounded-xl h-11 text-base w-20"
-                  />
-                </div>
-              )}
-
-              {!!currencyCode && !currencyReady && (
-                <p className="text-xs text-muted-foreground">{t("currencyIncompleteHint")}</p>
+                <Input
+                  placeholder={t("currencyNameLabel")}
+                  value={customCurrencyName}
+                  onChange={(e) => setCustomCurrencyName(e.target.value)}
+                  className="rounded-xl h-11 text-base"
+                />
               )}
             </div>
 
@@ -622,7 +608,7 @@ export function ProjectDialog({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!name.trim() || !dateRange?.from || !dateRange?.to || (!!currencyCode && !currencyReady)}
+              disabled={!name.trim() || !dateRange?.from || !dateRange?.to}
               className="samoyed-button rounded-xl min-h-[44px]"
             >
               {mode === "create" ? t("createProjectBtn") : t("saveChanges")}
