@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { sortDayItems, isHybridDay } from "@/lib/itinerary-order";
 
 /**
  * Remove the current authenticated user from a shared project's collaborators.
@@ -111,7 +112,7 @@ export async function getJoinedProjects() {
   // Fetch those projects (RLS policy allows collaborator access)
   const { data: projects, error: projError } = await supabase
     .from("travel_projects")
-    .select("id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public")
+    .select("id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public, hybrid_days")
     .in("id", projectIds);
 
   if (projError || !projects) return [];
@@ -148,10 +149,11 @@ export async function getJoinedProjects() {
       });
     });
 
+    const hybridDays: number[] = Array.isArray(row.hybrid_days) ? (row.hybrid_days as number[]) : [];
     const itinerary = Array.from({ length: days }, (_, i) => ({
       dayNumber: i + 1,
       date: addDays(startDate, i),
-      items: (itemsByDay[i + 1] || [])
+      items: sortDayItems(itemsByDay[i + 1] || [], isHybridDay(hybridDays, i + 1)),
     }));
 
     return {
@@ -163,6 +165,7 @@ export async function getJoinedProjects() {
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
       itinerary,
+      hybridDays,
       isJoined: true,
       joinedRole: roleByProject.get(row.id) || "viewer",
     };

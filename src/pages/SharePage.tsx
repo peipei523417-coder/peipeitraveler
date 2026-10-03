@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { sortDayItems, isHybridDay } from "@/lib/itinerary-order";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,10 +51,11 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
     });
   });
   
+  const hybridDays: number[] = Array.isArray(row.hybrid_days) ? (row.hybrid_days as number[]) : [];
   const itinerary: DayItinerary[] = Array.from({ length: days }, (_, i) => ({
     dayNumber: i + 1,
     date: addDays(startDate, i),
-    items: (itemsByDay[i + 1] || [])
+    items: sortDayItems(itemsByDay[i + 1] || [], isHybridDay(hybridDays, i + 1)),
   }));
   
   return {
@@ -65,6 +67,7 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
     itinerary,
+    hybridDays,
   };
 }
 
@@ -282,7 +285,7 @@ export default function SharePage() {
         const { data: publicData, error: viewErr } = await supabase
           .from("public_travel_projects")
           .select(
-            "id, name, start_date, end_date, cover_image_url, is_public, has_edit_password, local_currency_code, local_currency_name, local_currency_symbol, exchange_rate, is_custom_currency"
+            "id, name, start_date, end_date, cover_image_url, is_public, has_edit_password, local_currency_code, local_currency_name, local_currency_symbol, exchange_rate, is_custom_currency, hybrid_days"
           )
           .eq("id", cleanCode)
           .maybeSingle();

@@ -23,6 +23,8 @@ export interface TravelProject {
   exchangeRate?: number;
   /** True when the user entered a custom (non-listed) currency. */
   isCustomCurrency?: boolean;
+  /** Day numbers using Hybrid ordering (sort_order is the whole-day rank). */
+  hybridDays?: number[];
 }
 
 export interface DayItinerary {
@@ -43,7 +45,7 @@ export interface ItineraryItem {
   price?: number; // Budget price in local currency
   persons?: number; // Number of persons (default 1)
   iconType?: TimelineIconType; // Custom timeline marker icon
-  sortOrder?: number; // Manual order for items without a time (drag-to-reorder)
+  sortOrder?: number; // Legacy day: manual order of untimed items. Hybrid day: display rank of every item.
 }
 
 export type TimelineIconType = 

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { sortDayItems, isHybridDay } from "@/lib/itinerary-order";
 import { TravelProject, DayItinerary, ItineraryItem } from "@/types/travel";
 import { differenceInDays, addDays } from "date-fns";
 
@@ -6,7 +7,7 @@ import { differenceInDays, addDays } from "date-fns";
 // anon/authenticated for security. Using SELECT * would fail with permission
 // denied. Only server-side edge functions (service_role) can read the hash.
 const PROJECT_COLUMNS =
-  "id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public, local_currency_code, local_currency_name, local_currency_symbol, exchange_rate, is_custom_currency";
+  "id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public, local_currency_code, local_currency_name, local_currency_symbol, exchange_rate, is_custom_currency, hybrid_days";
 
 // Convert database row to TravelProject
 function dbRowToProject(row: any, items: any[] = []): TravelProject {
@@ -40,10 +41,11 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
   // Create itinerary for all days. Items with a start_time auto-sort by time;
   // items without a time fall to the bottom and sort by manual sort_order
   // (drag-to-reorder), then by id as a stable tiebreaker.
+  const hybridDays: number[] = Array.isArray(row.hybrid_days) ? (row.hybrid_days as number[]) : [];
   const itinerary: DayItinerary[] = Array.from({ length: days }, (_, i) => ({
     dayNumber: i + 1,
     date: addDays(startDate, i),
-    items: (itemsByDay[i + 1] || [])
+    items: sortDayItems(itemsByDay[i + 1] || [], isHybridDay(hybridDays, i + 1)),
   }));
   
   return {
@@ -55,6 +57,7 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
     itinerary,
+    hybridDays,
     isPublic: row.is_public || false,
     // Optional dual-currency settings. Absent on projects created by older
     // app versions — callers fall back to TWD-only.
