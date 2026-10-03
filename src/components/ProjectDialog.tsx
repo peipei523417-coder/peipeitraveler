@@ -176,7 +176,6 @@ export function ProjectDialog({
     setPasswordError("");
     setCurrencyCode("");
     setCustomCurrencyName("");
-    setCustomCurrencySymbol("");
     setRateInput("");
   };
 
@@ -238,13 +237,12 @@ export function ProjectDialog({
   })();
 
   const isCustomCurrency = currencyCode === "custom";
-  // Incomplete data => currency stays off and the app keeps its TWD-only UI.
+  // Currency is fully optional: incomplete data simply means TWD-only.
+  // Custom currency only needs a name (symbol is derived from it).
   const currencyReady =
     !!currencyCode &&
     parsedRate !== null &&
-    (isCustomCurrency
-      ? !!customCurrencyName.trim() && !!customCurrencySymbol.trim()
-      : true);
+    (isCustomCurrency ? !!customCurrencyName.trim() : true);
 
   const handleSubmit = () => {
     if (!name.trim() || !dateRange?.from || !dateRange?.to) return;
