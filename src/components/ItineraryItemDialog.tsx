@@ -143,7 +143,18 @@ export function ItineraryItemDialog({
     }
   };
 
+  // Initialize form only when the dialog opens (closed -> open) or when the
+  // edited item ID actually changes. Parent rerenders / realtime / a changed
+  // suggestedStartTime must never reset what the user is typing.
+  const initKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!open) {
+      initKeyRef.current = null;
+      return;
+    }
+    const key = initialData ? `edit:${(initialData as any).id ?? "noid"}` : "create";
+    if (initKeyRef.current === key) return;
+    initKeyRef.current = key;
 
     if (initialData) {
       setUseTime(!!initialData.startTime);
