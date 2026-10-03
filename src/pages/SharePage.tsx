@@ -867,6 +867,7 @@ export default function SharePage() {
             onDeleteItem={canEdit ? handleDeleteItem : () => {}}
             onUpdateItemIcon={canEdit ? handleUpdateItemIcon : undefined}
             readOnly={!canEdit}
+            hybrid={isHybridDay(project.hybridDays, currentDay.dayNumber)}
           />
         )}
       </main>

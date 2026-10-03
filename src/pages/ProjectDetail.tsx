@@ -1037,7 +1037,8 @@ function ProjectDetailInner() {
             onEditItem={(item) => { if (!isViewer) setEditingItem(item); }}
             onDeleteItem={isViewer ? () => {} : handleDeleteItem}
             onUpdateItemIcon={isViewer ? undefined : handleUpdateItemIcon}
-            onReorderNoTimeItems={isViewer ? undefined : handleReorderNoTimeItems}
+            onReorderItem={isViewer ? undefined : handleReorderItem}
+            hybrid={isHybridDay(project.hybridDays, currentDay.dayNumber)}
             readOnly={isViewer}
             isLastDay={itinerary.length > 0 && currentDay.dayNumber === itinerary[itinerary.length - 1]?.dayNumber}
             exportingPdf={exportingPdf}
