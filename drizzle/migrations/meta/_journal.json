@@ -8,6 +8,13 @@
       "when": 1789395769497,
       "tag": "0000_add_project_currency_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791055398066,
+      "tag": "0001_hybrid_itinerary_sorting",
+      "breakpoints": true
     }
   ]
 }

@@ -24,6 +24,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ProjectCurrency, twdToLocal } from "@/lib/currency";
+import { sortDayItems } from "@/lib/itinerary-order";
+import { PdfBackupButton } from "@/components/PdfBackupButton";
 
 
 import {
@@ -52,7 +54,10 @@ interface ItineraryListProps {
   onEditItem: (item: ItineraryItem) => void;
   onDeleteItem: (itemId: string) => void;
   onUpdateItemIcon?: (itemId: string, iconType: TimelineIconType) => void;
-  onReorderNoTimeItems?: (dayNumber: number, orderedIds: string[]) => void;
+  /** Untimed drag: final full-day order (timed + untimed ids) after the drop. */
+  onReorderItem?: (dayNumber: number, movedId: string, orderedIds: string[]) => void;
+  /** True when this day uses Hybrid ordering (sort_order is the whole-day rank). */
+  hybrid?: boolean;
   readOnly?: boolean;
   isLastDay?: boolean;
   onExportPdf?: () => void;
@@ -295,6 +300,8 @@ function ItemRow({
 
 function SortableRow(props: RowProps & { id: string; disabled: boolean }) {
   const { id, disabled, ...rest } = props;
+  // Timed rows are drop targets only: never draggable themselves.
+  const draggable = !disabled && !rest.hasTime;
   const {
     attributes,
     listeners,
@@ -302,7 +309,7 @@ function SortableRow(props: RowProps & { id: string; disabled: boolean }) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id, disabled });
+  } = useSortable({ id, disabled: { draggable: !draggable, droppable: false } });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -313,8 +320,8 @@ function SortableRow(props: RowProps & { id: string; disabled: boolean }) {
     <div ref={setNodeRef} style={style}>
       <ItemRow
         {...rest}
-        dragAttrs={attributes as React.HTMLAttributes<HTMLDivElement>}
-        dragListeners={listeners as React.HTMLAttributes<HTMLDivElement>}
+        dragAttrs={draggable ? (attributes as React.HTMLAttributes<HTMLDivElement>) : undefined}
+        dragListeners={draggable ? (listeners as React.HTMLAttributes<HTMLDivElement>) : undefined}
         isDragging={isDragging}
       />
     </div>
@@ -328,7 +335,8 @@ export function ItineraryList({
   onEditItem,
   onDeleteItem,
   onUpdateItemIcon,
-  onReorderNoTimeItems,
+  onReorderItem,
+  hybrid = false,
   readOnly = false,
   isLastDay = false,
   onExportPdf,
@@ -349,25 +357,9 @@ export function ItineraryList({
   };
   const pendingDeleteItem = day.items.find(i => i.id === pendingDeleteId) || null;
 
-  // Split with-time vs without-time. With-time auto-sort by time;
-  // without-time keep their manual sortOrder (set via drag).
-  const { withTime, withoutTimeOrdered } = useMemo(() => {
-    const wt = day.items.filter(i => !!i.startTime);
-    const wo = day.items.filter(i => !i.startTime);
-    wt.sort((a, b) => a.startTime.localeCompare(b.startTime));
-    wo.sort((a, b) => {
-      const ao = a.sortOrder ?? 0;
-      const bo = b.sortOrder ?? 0;
-      if (ao !== bo) return ao - bo;
-      return a.id.localeCompare(b.id);
-    });
-    return { withTime: wt, withoutTimeOrdered: wo };
-  }, [day.items]);
-
-  const orderedAll = useMemo(
-    () => [...withTime, ...withoutTimeOrdered],
-    [withTime, withoutTimeOrdered]
-  );
+  // One deterministic order for the whole day.
+  // Legacy: timed by time, then untimed by sort_order. Hybrid: sort_order, id.
+  const orderedAll = useMemo(() => sortDayItems(day.items, hybrid), [day.items, hybrid]);
   const imageUrls = useMemo(() => orderedAll.map(item => item.imageUrl), [orderedAll]);
   const signedImageUrls = useSignedImageUrls(imageUrls);
   const dayTotal = useMemo(() => calculateDayTotal(orderedAll), [orderedAll]);
@@ -423,13 +415,13 @@ export function ItineraryList({
       console.log("[DRAG_END]", { activeId: active.id, overId: over?.id, newOrder: null });
       return;
     }
-    const oldIndex = withoutTimeOrdered.findIndex(i => i.id === active.id);
-    const newIndex = withoutTimeOrdered.findIndex(i => i.id === over.id);
+    const oldIndex = orderedAll.findIndex(i => i.id === active.id);
+    const newIndex = orderedAll.findIndex(i => i.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
-    const newList = arrayMove(withoutTimeOrdered, oldIndex, newIndex);
-    const newOrder = newList.map(i => i.id);
+    if (orderedAll[oldIndex].startTime) return; // timed items are never dragged
+    const newOrder = arrayMove(orderedAll, oldIndex, newIndex).map(i => i.id);
     console.log("[DRAG_END]", { activeId: active.id, overId: over.id, newOrder });
-    onReorderNoTimeItems?.(day.dayNumber, newOrder);
+    onReorderItem?.(day.dayNumber, String(active.id), newOrder);
   };
 
   if (orderedAll.length === 0) {
@@ -452,15 +444,11 @@ export function ItineraryList({
             </p>
             {onExportPdf && (
               <div className="flex justify-center pt-3">
-                <Button
+                <PdfBackupButton
                   onClick={onExportPdf}
                   disabled={exportingPdf}
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl gap-1.5 text-xs"
-                >
-                  {exportingPdf ? t("exportingPdf") : t("exportPdf")}
-                </Button>
+                  exporting={exportingPdf}
+                />
               </div>
             )}
           </>
@@ -469,72 +457,46 @@ export function ItineraryList({
     );
   }
 
-  // Build the with-time block (no DnD).
-  const renderWithTimeRow = (item: ItineraryItem, indexInAll: number) => (
-    <ItemRow
-      key={item.id}
-      item={item}
-      signedImageUrl={signedImageUrls[indexInAll]}
-      perPersonCost={calculateItemPerPerson(item)}
-      currency={currency}
-      hasTime={true}
-      readOnly={readOnly}
-      onEditItem={onEditItem}
-      onDeleteItem={requestDeleteItem}
-      onUpdateItemIcon={onUpdateItemIcon}
-      onIconPickerOpenChange={handleIconPickerOpenChange}
-      onPreviewImage={() => setPreviewImageIndex(indexInAll)}
-    />
-  );
-
-  const canDrag = !readOnly && !!onReorderNoTimeItems;
-  const noTimeIds = withoutTimeOrdered.map(i => i.id);
+  const canDrag = !readOnly && !!onReorderItem;
+  const allIds = orderedAll.map(i => i.id);
 
   return (
     <div className="space-y-4">
       <div className="relative" style={{ isolation: 'isolate' }}>
         <div className="absolute left-[23px] top-8 bottom-8 w-0.5 bg-primary/30" />
 
-        {/* With-time rows */}
         <div className="space-y-4">
-          {withTime.map((item, i) => renderWithTimeRow(item, i))}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={allIds} strategy={verticalListSortingStrategy}>
+              {orderedAll.map((item, indexInAll) => {
+                const hasTime = !!item.startTime;
+                return (
+                  <SortableRow
+                    key={item.id}
+                    id={item.id}
+                    disabled={!canDrag || iconPickerOpen || item.id.startsWith("temp-")}
+                    item={item}
+                    signedImageUrl={signedImageUrls[indexInAll]}
+                    perPersonCost={calculateItemPerPerson(item)}
+                    currency={currency}
+                    hasTime={hasTime}
+                    readOnly={readOnly}
+                    onEditItem={onEditItem}
+                    onDeleteItem={requestDeleteItem}
+                    onUpdateItemIcon={onUpdateItemIcon}
+                    onIconPickerOpenChange={handleIconPickerOpenChange}
+                    onPreviewImage={() => setPreviewImageIndex(indexInAll)}
+                  />
+                );
+              })}
+            </SortableContext>
+          </DndContext>
         </div>
-
-        {/* No-time rows (sortable) */}
-        {withoutTimeOrdered.length > 0 && (
-          <div className={cn("space-y-4", withTime.length > 0 && "mt-4")}>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext items={noTimeIds} strategy={verticalListSortingStrategy}>
-                {withoutTimeOrdered.map((item, i) => {
-                  const indexInAll = withTime.length + i;
-                  return (
-                    <SortableRow
-                      key={item.id}
-                      id={item.id}
-                      disabled={!canDrag || iconPickerOpen || item.id.startsWith("temp-")}
-                      item={item}
-                      signedImageUrl={signedImageUrls[indexInAll]}
-                      perPersonCost={calculateItemPerPerson(item)}
-                      currency={currency}
-                      hasTime={false}
-                      readOnly={readOnly}
-                      onEditItem={onEditItem}
-                      onDeleteItem={requestDeleteItem}
-                      onUpdateItemIcon={onUpdateItemIcon}
-                      onIconPickerOpenChange={handleIconPickerOpenChange}
-                      onPreviewImage={() => setPreviewImageIndex(indexInAll)}
-                    />
-                  );
-                })}
-              </SortableContext>
-            </DndContext>
-          </div>
-        )}
       </div>
 
       {dayTotal > 0 && (
@@ -568,15 +530,11 @@ export function ItineraryList({
           </p>
           {onExportPdf && (
             <div className="flex justify-center pt-2 pb-2">
-              <Button
+              <PdfBackupButton
                 onClick={onExportPdf}
                 disabled={exportingPdf}
-                variant="outline"
-                size="sm"
-                className="rounded-xl gap-1.5 text-xs"
-              >
-                {exportingPdf ? t("exportingPdf") : t("exportPdf")}
-              </Button>
+                exporting={exportingPdf}
+              />
             </div>
           )}
         </>

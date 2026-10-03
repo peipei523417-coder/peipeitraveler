@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { sortDayItems, isHybridDay } from "@/lib/itinerary-order";
 import { TravelProject, DayItinerary, ItineraryItem } from "@/types/travel";
 import { differenceInDays, addDays } from "date-fns";
 
@@ -6,7 +7,7 @@ import { differenceInDays, addDays } from "date-fns";
 // anon/authenticated for security. Using SELECT * would fail with permission
 // denied. Only server-side edge functions (service_role) can read the hash.
 const PROJECT_COLUMNS =
-  "id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public, local_currency_code, local_currency_name, local_currency_symbol, exchange_rate, is_custom_currency";
+  "id, name, start_date, end_date, cover_image_url, created_at, updated_at, user_id, visibility, is_shared, is_public, local_currency_code, local_currency_name, local_currency_symbol, exchange_rate, is_custom_currency, hybrid_days";
 
 // Convert database row to TravelProject
 function dbRowToProject(row: any, items: any[] = []): TravelProject {
@@ -40,20 +41,11 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
   // Create itinerary for all days. Items with a start_time auto-sort by time;
   // items without a time fall to the bottom and sort by manual sort_order
   // (drag-to-reorder), then by id as a stable tiebreaker.
+  const hybridDays: number[] = Array.isArray(row.hybrid_days) ? (row.hybrid_days as number[]) : [];
   const itinerary: DayItinerary[] = Array.from({ length: days }, (_, i) => ({
     dayNumber: i + 1,
     date: addDays(startDate, i),
-    items: (itemsByDay[i + 1] || []).sort((a, b) => {
-      const aHas = !!a.startTime;
-      const bHas = !!b.startTime;
-      if (aHas && bHas) return a.startTime.localeCompare(b.startTime);
-      if (aHas) return -1;
-      if (bHas) return 1;
-      const ao = a.sortOrder ?? 0;
-      const bo = b.sortOrder ?? 0;
-      if (ao !== bo) return ao - bo;
-      return a.id.localeCompare(b.id);
-    }),
+    items: sortDayItems(itemsByDay[i + 1] || [], isHybridDay(hybridDays, i + 1)),
   }));
   
   return {
@@ -65,6 +57,7 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
     itinerary,
+    hybridDays,
     isPublic: row.is_public || false,
     // Optional dual-currency settings. Absent on projects created by older
     // app versions — callers fall back to TWD-only.
@@ -584,6 +577,16 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
     }
   }
 
+  // Copy the Hybrid-day marker AFTER items exist so copied ranks are kept verbatim.
+  const srcHybrid = (original as any).hybrid_days;
+  if (Array.isArray(srcHybrid) && srcHybrid.length > 0) {
+    const { error: hdErr } = await supabase
+      .from("travel_projects")
+      .update({ hybrid_days: srcHybrid } as any)
+      .eq("id", newProject.id);
+    if (hdErr) console.error("[duplicate] hybrid_days copy failed (copy keeps Legacy order)", hdErr);
+  }
+
   return getProject(newProject.id);
 }
 
@@ -609,7 +612,7 @@ export async function insertItineraryItem(
   projectId: string,
   dayNumber: number,
   item: Omit<ItineraryItem, "id">
-): Promise<{ id: string; dayNumber: number; updatedAt: string | null } | null> {
+): Promise<{ id: string; dayNumber: number; updatedAt: string | null; sortOrder: number | null } | null> {
   const payload = {
     project_id: projectId,
     day_number: dayNumber,
@@ -629,7 +632,7 @@ export async function insertItineraryItem(
   const { data, error } = await supabase
     .from("itinerary_items")
     .insert(payload)
-    .select("id, day_number, updated_at")
+    .select("id, day_number, updated_at, sort_order")
     .single();
 
   if (error || !data) {
@@ -637,7 +640,12 @@ export async function insertItineraryItem(
     return null;
   }
   console.log("[itinerary] insert success", { id: data.id, day_number: data.day_number });
-  return { id: data.id, dayNumber: data.day_number, updatedAt: (data as any).updated_at ?? null };
+  return {
+    id: data.id,
+    dayNumber: data.day_number,
+    updatedAt: (data as any).updated_at ?? null,
+    sortOrder: typeof (data as any).sort_order === "number" ? (data as any).sort_order : null,
+  };
 }
 
 export async function updateItineraryItem(
@@ -662,11 +670,58 @@ function emitCommit(rows: unknown, onCommit?: CommitListener) {
   if (sigs.length) onCommit(sigs);
 }
 
+function emitSortOrder(rows: unknown, cb?: (n: number) => void) {
+  if (!cb || !Array.isArray(rows) || !rows.length) return;
+  const v = (rows[0] as { sort_order?: unknown })?.sort_order;
+  if (typeof v === "number") cb(v);
+}
+
+/**
+ * Atomic per-day Hybrid ordering (one RPC = one transaction): writes ranks
+ * 100, 200, ... in `orderedIds` order AND marks the day Hybrid. Used for the
+ * first Legacy → Hybrid drag and for rank-gap re-spacing. On any error
+ * nothing is changed (ranks and marker roll back together).
+ */
+export async function applyHybridDayOrder(
+  projectId: string,
+  dayNumber: number,
+  orderedIds: string[]
+): Promise<boolean> {
+  const { error } = await (supabase as any).rpc("apply_hybrid_day_order", {
+    p_project_id: projectId,
+    p_day_number: dayNumber,
+    p_ordered_ids: orderedIds,
+  });
+  if (error) {
+    console.error("[itinerary] apply_hybrid_day_order error", error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Single-row rank update for a dragged untimed item in a Hybrid day.
+ */
+export async function setItemRank(itemId: string, sortOrder: number, onCommit?: CommitListener): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("itinerary_items")
+    .update({ sort_order: sortOrder })
+    .eq("id", itemId)
+    .select("id, updated_at");
+  if (error) {
+    console.error("[itinerary] rank update error", { itemId, error });
+    return false;
+  }
+  emitCommit(data, onCommit);
+  return true;
+}
+
 /** Per-item update returning success boolean (no full-project refetch). */
 export async function patchItineraryItem(
   itemId: string,
   updates: Partial<Omit<ItineraryItem, "id">>,
-  onCommit?: CommitListener
+  onCommit?: CommitListener,
+  onSortOrder?: (sortOrder: number) => void
 ): Promise<boolean> {
   const updateData: any = {};
   if (updates.startTime !== undefined) updateData.start_time = updates.startTime || null;
@@ -685,13 +740,14 @@ export async function patchItineraryItem(
     .from("itinerary_items")
     .update(updateData)
     .eq("id", itemId)
-    .select("id, updated_at");
+    .select("id, updated_at, sort_order");
 
   if (error) {
     console.error("[itinerary] update error", { itemId, error });
     return false;
   }
   emitCommit(data, onCommit);
+  emitSortOrder(data, onSortOrder);
   console.log("[itinerary] update success", { itemId });
   return true;
 }
@@ -705,7 +761,8 @@ export async function moveItineraryItemToDay(
   itemId: string,
   dayNumber: number,
   sortOrder?: number,
-  onCommit?: CommitListener
+  onCommit?: CommitListener,
+  onSortOrder?: (sortOrder: number) => void
 ): Promise<boolean> {
   const updateData: { day_number: number; sort_order?: number } = { day_number: dayNumber };
   if (typeof sortOrder === "number") updateData.sort_order = sortOrder;
@@ -714,13 +771,14 @@ export async function moveItineraryItemToDay(
     .from("itinerary_items")
     .update(updateData)
     .eq("id", itemId)
-    .select("id, updated_at");
+    .select("id, updated_at, sort_order");
 
   if (error) {
     console.error("[itinerary] move-day error", { itemId, dayNumber, error });
     return false;
   }
   emitCommit(data, onCommit);
+  emitSortOrder(data, onSortOrder);
   console.log("[itinerary] move-day success", { itemId, dayNumber });
   return true;
 }
