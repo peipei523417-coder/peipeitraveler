@@ -492,7 +492,8 @@ function ProjectDetailInner() {
     // Upload image to Storage if a file was provided
     let finalItem = { ...item };
     if (imageFile) {
-      const storagePath = await uploadProjectImage(project.id, imageFile);
+      let storagePath: string | null | undefined = null;
+      try { storagePath = await uploadProjectImage(project.id, imageFile); } catch (e) { console.error(e); }
       if (storagePath) finalItem.imageUrl = storagePath;
     }
 
@@ -558,7 +559,8 @@ function ProjectDetailInner() {
 
     let finalItem = { ...item };
     if (imageFile) {
-      const storagePath = await uploadProjectImage(project.id, imageFile);
+      let storagePath: string | null | undefined = null;
+      try { storagePath = await uploadProjectImage(project.id, imageFile); } catch (e) { console.error(e); }
       if (storagePath) finalItem.imageUrl = storagePath;
     } else if (!item.imageUrl && editingItem.imageUrl) {
       finalItem.imageUrl = "";
