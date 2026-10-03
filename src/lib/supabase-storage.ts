@@ -609,7 +609,7 @@ export async function insertItineraryItem(
   projectId: string,
   dayNumber: number,
   item: Omit<ItineraryItem, "id">
-): Promise<{ id: string; dayNumber: number } | null> {
+): Promise<{ id: string; dayNumber: number; updatedAt: string | null } | null> {
   const payload = {
     project_id: projectId,
     day_number: dayNumber,
@@ -629,7 +629,7 @@ export async function insertItineraryItem(
   const { data, error } = await supabase
     .from("itinerary_items")
     .insert(payload)
-    .select("id, day_number")
+    .select("id, day_number, updated_at")
     .single();
 
   if (error || !data) {
@@ -637,7 +637,7 @@ export async function insertItineraryItem(
     return null;
   }
   console.log("[itinerary] insert success", { id: data.id, day_number: data.day_number });
-  return { id: data.id, dayNumber: data.day_number };
+  return { id: data.id, dayNumber: data.day_number, updatedAt: (data as any).updated_at ?? null };
 }
 
 export async function updateItineraryItem(
@@ -650,10 +650,23 @@ export async function updateItineraryItem(
   return getProject(projectId);
 }
 
+/** Commit signature of a row written by this client: exact id + DB updated_at (RETURNING, same request). */
+export type CommitSignature = { id: string; updatedAt: string };
+export type CommitListener = (sigs: CommitSignature[]) => void;
+
+function emitCommit(rows: unknown, onCommit?: CommitListener) {
+  if (!onCommit || !Array.isArray(rows)) return;
+  const sigs = (rows as Array<{ id?: string; updated_at?: string | null }>)
+    .filter(r => r?.id && r?.updated_at)
+    .map(r => ({ id: r.id as string, updatedAt: r.updated_at as string }));
+  if (sigs.length) onCommit(sigs);
+}
+
 /** Per-item update returning success boolean (no full-project refetch). */
 export async function patchItineraryItem(
   itemId: string,
-  updates: Partial<Omit<ItineraryItem, "id">>
+  updates: Partial<Omit<ItineraryItem, "id">>,
+  onCommit?: CommitListener
 ): Promise<boolean> {
   const updateData: any = {};
   if (updates.startTime !== undefined) updateData.start_time = updates.startTime || null;
@@ -668,15 +681,17 @@ export async function patchItineraryItem(
   if (updates.iconType !== undefined) updateData.icon_type = updates.iconType || "default";
   if (updates.sortOrder !== undefined) updateData.sort_order = typeof updates.sortOrder === "number" ? updates.sortOrder : 0;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("itinerary_items")
     .update(updateData)
-    .eq("id", itemId);
+    .eq("id", itemId)
+    .select("id, updated_at");
 
   if (error) {
     console.error("[itinerary] update error", { itemId, error });
     return false;
   }
+  emitCommit(data, onCommit);
   console.log("[itinerary] update success", { itemId });
   return true;
 }
@@ -689,20 +704,23 @@ export async function patchItineraryItem(
 export async function moveItineraryItemToDay(
   itemId: string,
   dayNumber: number,
-  sortOrder?: number
+  sortOrder?: number,
+  onCommit?: CommitListener
 ): Promise<boolean> {
   const updateData: { day_number: number; sort_order?: number } = { day_number: dayNumber };
   if (typeof sortOrder === "number") updateData.sort_order = sortOrder;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("itinerary_items")
     .update(updateData)
-    .eq("id", itemId);
+    .eq("id", itemId)
+    .select("id, updated_at");
 
   if (error) {
     console.error("[itinerary] move-day error", { itemId, dayNumber, error });
     return false;
   }
+  emitCommit(data, onCommit);
   console.log("[itinerary] move-day success", { itemId, dayNumber });
   return true;
 }
@@ -715,12 +733,13 @@ export async function moveItineraryItemToDay(
  * stays simple; small list (typically <20) so this is fine.
  */
 export async function reorderItineraryItems(
-  updates: Array<{ id: string; sortOrder: number }>
+  updates: Array<{ id: string; sortOrder: number }>,
+  onCommit?: CommitListener
 ): Promise<boolean> {
   if (!updates.length) return true;
   const results = await Promise.all(
     updates.map(({ id, sortOrder }) =>
-      supabase.from("itinerary_items").update({ sort_order: sortOrder }).eq("id", id)
+      supabase.from("itinerary_items").update({ sort_order: sortOrder }).eq("id", id).select("id, updated_at")
     )
   );
   const failed = results.find(r => r.error);
@@ -728,6 +747,7 @@ export async function reorderItineraryItems(
     console.error("[itinerary] reorder error", failed.error);
     return false;
   }
+  results.forEach(r => emitCommit(r.data, onCommit));
   console.log("[itinerary] reorder success", { count: updates.length });
   return true;
 }
@@ -759,16 +779,19 @@ export async function removeItineraryItem(itemId: string): Promise<boolean> {
 export async function updateItineraryItemIcon(
   projectId: string,
   itemId: string,
-  iconType: string
+  iconType: string,
+  onCommit?: CommitListener
 ): Promise<TravelProject | undefined> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("itinerary_items")
     .update({ icon_type: iconType })
-    .eq("id", itemId);
+    .eq("id", itemId)
+    .select("id, updated_at");
   
   if (error) {
     return undefined;
   }
+  emitCommit(data, onCommit);
   
   return getProject(projectId);
 }

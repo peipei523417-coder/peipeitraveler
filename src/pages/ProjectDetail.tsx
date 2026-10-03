@@ -10,7 +10,8 @@ import {
   updateItineraryItemIcon,
   uploadProjectImage,
   reorderItineraryItems,
-  moveItineraryItemToDay
+  moveItineraryItemToDay,
+  type CommitSignature,
 
 } from "@/lib/supabase-storage";
 import { useProjectCache } from "@/contexts/ProjectCacheContext";
@@ -30,6 +31,7 @@ import { PdfCaptureRoot } from "@/components/PdfCaptureRoot";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectErrorBoundary } from "@/components/ProjectErrorBoundary";
 import { resolveProjectCurrency, twdToLocal } from "@/lib/currency";
+import { addBounded, signatureKey } from "@/lib/commit-signature";
 
 /** Safely coerce a possibly-string/Date/undefined into a Date for formatting. */
 function safeDate(value: unknown): Date | null {
@@ -83,13 +85,15 @@ function ProjectDetailInner() {
   // Pending-mutation tracking (request-lifecycle based, no fixed timers).
   // - pendingIdsRef: item ids with an in-flight local request.
   // - pendingCountRef: number of in-flight local mutations (covers inserts whose real id is unknown yet).
-  // - pendingEchoSeenRef: pending ids whose realtime echo already arrived during flight.
-  // - expectedEchoRef: committed local ids whose realtime echo has not arrived yet (consumed once).
-  // - deferredRemoteRef: remote event ids received while local mutations were in flight.
+  // - committedSignaturesRef: exact "id|updated_at" of rows this client wrote, awaiting their echo.
+  // - committedDeletesRef: ids this client deleted, awaiting their DELETE echo (DELETE events only).
+  // - deferredRemoteRef: event keys received while local mutations were in flight.
+  // A collaborator write always yields a different updated_at, so it can never
+  // match our signature; stale signatures are harmless and FIFO-bounded.
   const pendingIdsRef = useRef<Map<string, number>>(new Map());
   const pendingCountRef = useRef(0);
-  const pendingEchoSeenRef = useRef<Set<string>>(new Set());
-  const expectedEchoRef = useRef<Set<string>>(new Set());
+  const committedSignaturesRef = useRef<Set<string>>(new Set());
+  const committedDeletesRef = useRef<Set<string>>(new Set());
   const deferredRemoteRef = useRef<Set<string>>(new Set());
   const realtimeCancelledRef = useRef<() => boolean>(() => false);
   const loadProjectRef = useRef<(isInitialLoad: boolean, isCancelled?: () => boolean) => Promise<void>>();
@@ -99,51 +103,54 @@ function ProjectDetailInner() {
     ids.forEach(i => pendingIdsRef.current.set(i, (pendingIdsRef.current.get(i) || 0) + 1));
   };
 
-  /** ids: ids touched; committedIds: real DB ids written on success (e.g. inserted UUID). */
-  const endMutation = (ids: string[], ok: boolean, committedIds: string[] = ids) => {
+  /** Record exact commit keys from the write's own response; consume any echo that already arrived. */
+  const recordCommitKeys = (keys: string[], target: Set<string>) => {
+    keys.forEach(k => {
+      if (deferredRemoteRef.current.has(k)) deferredRemoteRef.current.delete(k); // echo arrived in flight
+      else addBounded(target, k);
+    });
+  };
+  const recordCommits = (sigs: CommitSignature[]) =>
+    recordCommitKeys(
+      sigs.map(s => signatureKey(s.id, s.updatedAt)).filter((k): k is string => !!k),
+      committedSignaturesRef.current
+    );
+
+  const endMutation = (ids: string[]) => {
     ids.forEach(i => {
       const n = (pendingIdsRef.current.get(i) || 0) - 1;
       if (n <= 0) pendingIdsRef.current.delete(i); else pendingIdsRef.current.set(i, n);
     });
-    if (ok) {
-      committedIds.forEach(i => {
-        if (pendingEchoSeenRef.current.has(i)) {
-          pendingEchoSeenRef.current.delete(i); // echo already consumed in flight
-        } else if (deferredRemoteRef.current.has(i)) {
-          deferredRemoteRef.current.delete(i); // insert echo arrived before UUID was known
-        } else {
-          expectedEchoRef.current.add(i);
-        }
-      });
-    } else {
-      ids.forEach(i => pendingEchoSeenRef.current.delete(i));
-    }
     pendingCountRef.current = Math.max(0, pendingCountRef.current - 1);
-    if (pendingCountRef.current === 0) {
-      pendingEchoSeenRef.current.clear();
-      if (deferredRemoteRef.current.size > 0) {
-        // Collaborator updates arrived mid-flight: sync once now, never dropped.
-        deferredRemoteRef.current.clear();
-        expectedEchoRef.current.clear();
-        if (!realtimeCancelledRef.current()) loadProjectRef.current?.(false, realtimeCancelledRef.current);
-      }
+    if (pendingCountRef.current === 0 && deferredRemoteRef.current.size > 0) {
+      // Genuine remote updates arrived mid-flight: sync once now, never dropped.
+      deferredRemoteRef.current.clear();
+      if (!realtimeCancelledRef.current()) loadProjectRef.current?.(false, realtimeCancelledRef.current);
     }
   };
 
   const handleItineraryRealtime = (payload: any) => {
     if (realtimeCancelledRef.current()) return;
+    const eventType: string | undefined = payload?.eventType;
     const affectedId: string | undefined = payload?.new?.id || payload?.old?.id;
-    if (affectedId && pendingIdsRef.current.has(affectedId)) {
-      pendingEchoSeenRef.current.add(affectedId); // our own in-flight write
-      return;
-    }
-    if (affectedId && expectedEchoRef.current.has(affectedId)) {
-      expectedEchoRef.current.delete(affectedId); // our own committed write's echo
-      return;
+    let key: string | null = null;
+    if (eventType === "DELETE") {
+      key = affectedId ? `${affectedId}|DELETE` : null;
+      if (key && committedDeletesRef.current.has(key)) {
+        committedDeletesRef.current.delete(key); // our own delete echo, consumed once
+        return;
+      }
+    } else if (affectedId) {
+      key = signatureKey(affectedId, payload?.new?.updated_at);
+      if (key && committedSignaturesRef.current.has(key)) {
+        committedSignaturesRef.current.delete(key); // exact match of our own commit
+        return;
+      }
     }
     if (pendingCountRef.current > 0) {
-      // Don't overwrite pending optimistic state; sync after local mutations settle.
-      deferredRemoteRef.current.add(affectedId || `unknown-${Date.now()}`);
+      // May be our own not-yet-acknowledged write or a collaborator's; keep it.
+      // If our response later carries the same exact key, it's consumed; otherwise we sync.
+      deferredRemoteRef.current.add(key || `unknown-${Math.random()}`);
       return;
     }
     loadProjectRef.current?.(false, realtimeCancelledRef.current);
@@ -530,8 +537,9 @@ function ProjectDetailInner() {
         };
       });
       toast.error(t("saveFailed"));
-      endMutation([tempId], false);
+      endMutation([tempId]);
     } else {
+      if (inserted.updatedAt) recordCommits([{ id: inserted.id, updatedAt: inserted.updatedAt }]);
       setProject(prev => {
         if (!prev) return prev;
         const base = Array.isArray(prev.itinerary) ? prev.itinerary : [];
@@ -547,6 +555,7 @@ function ProjectDetailInner() {
         updateProjectInCache(next);
         return next;
       });
+      endMutation([tempId]);
     }
 
   };
@@ -585,7 +594,7 @@ function ProjectDetailInner() {
     showSaveIndicator();
 
     let ok = false;
-    try { ok = await patchItineraryItem(previous.id, finalItem); } catch { ok = false; }
+    try { ok = await patchItineraryItem(previous.id, finalItem, recordCommits); } catch { ok = false; }
     if (!ok) {
       setProject(prev => {
         if (!prev) return prev;
@@ -607,7 +616,7 @@ function ProjectDetailInner() {
         return prev;
       });
     }
-    endMutation([editId], ok);
+    endMutation([editId]);
 
   };
 
@@ -661,7 +670,8 @@ function ProjectDetailInner() {
         return prev;
       });
     }
-    endMutation([itemId], ok);
+    if (ok) recordCommitKeys([`${itemId}|DELETE`], committedDeletesRef.current);
+    endMutation([itemId]);
 
   };
 
@@ -691,8 +701,9 @@ function ProjectDetailInner() {
     // Background sync - only update DB, don't replace entire project state
     // This prevents cross-contamination of other items' icons
     let iconOk = true;
-    try { await updateItineraryItemIcon(project.id, itemId, iconType); } catch { iconOk = false; }
-    endMutation([itemId], iconOk);
+    try { await updateItineraryItemIcon(project.id, itemId, iconType, recordCommits); } catch { iconOk = false; }
+    void iconOk;
+    endMutation([itemId]);
     
   };
 
@@ -738,7 +749,7 @@ function ProjectDetailInner() {
       .map(id => ({ id, sortOrder: idToOrder.get(id)! }));
 
     let ok = false;
-    try { ok = await reorderItineraryItems(updates); } catch { ok = false; }
+    try { ok = await reorderItineraryItems(updates, recordCommits); } catch { ok = false; }
     if (!ok) {
       setProject(previous);
       toast.error(t("saveFailed"));
@@ -748,7 +759,7 @@ function ProjectDetailInner() {
         return prev;
       });
     }
-    endMutation(reorderIds, ok);
+    endMutation(reorderIds);
 
   };
 
@@ -798,7 +809,7 @@ function ProjectDetailInner() {
     showSaveIndicator();
 
     let ok = false;
-    try { ok = await moveItineraryItemToDay(item.id, targetDay, newSortOrder); } catch { ok = false; }
+    try { ok = await moveItineraryItemToDay(item.id, targetDay, newSortOrder, recordCommits); } catch { ok = false; }
     if (!ok) {
       // Restore the exact previous state — item stays on its original day.
       setProject(previous);
@@ -810,7 +821,7 @@ function ProjectDetailInner() {
         return prev;
       });
     }
-    endMutation([item.id], ok);
+    endMutation([item.id]);
 
   };
 
