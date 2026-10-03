@@ -304,6 +304,7 @@ export default function SharePage() {
             local_currency_symbol: (publicData as any).local_currency_symbol ?? null,
             exchange_rate: (publicData as any).exchange_rate ?? null,
             is_custom_currency: (publicData as any).is_custom_currency ?? null,
+            hybrid_days: (publicData as any).hybrid_days ?? [],
           };
         }
       }
@@ -324,6 +325,17 @@ export default function SharePage() {
         .eq("project_id", projectId);
       if (itemsErr) console.warn("[SharePage] items error:", itemsErr.message);
 
+      // Hybrid ordering marker (share-code path doesn't carry it).
+      let hybridDaysRow: number[] | undefined = (currencyRow as any)?.hybrid_days;
+      if (!hybridDaysRow) {
+        const { data: hd } = await supabase
+          .from("public_travel_projects")
+          .select("hybrid_days")
+          .eq("id", projectId)
+          .maybeSingle();
+        hybridDaysRow = ((hd as any)?.hybrid_days as number[] | undefined) ?? [];
+      }
+
       const projectRow = {
         id: projectId,
         name: projectName,
@@ -334,6 +346,7 @@ export default function SharePage() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         ...(currencyRow || {}),
+        hybrid_days: hybridDaysRow,
       };
 
       const loadedProject = dbRowToProject(projectRow, items || []);
