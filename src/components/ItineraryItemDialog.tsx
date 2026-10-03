@@ -263,8 +263,6 @@ export function ItineraryItemDialog({
   const submitItem = () => {
     const priceNum = parseInt(price, 10);
     const personsNum = parseInt(persons, 10) || 1;
-    const priceUnchanged = !!initialData && price === (initialData.price?.toString() || "");
-    const personsUnchanged = !!initialData && persons === (initialData.persons?.toString() || "1");
     const cleanMapUrl = sanitizeMapUrl(googleMapsUrl);
     
     // If there's a new file, pass it along; don't store base64/blob URL in imageUrl
@@ -290,12 +288,8 @@ export function ItineraryItemDialog({
       relatedLink: trimmedRelated || undefined,
       imageUrl: itemImageUrl as string | undefined,
       highlightColor: highlightColor,
-      // Editing without touching price/persons: send undefined so the update
-      // patch skips these columns and the stored values stay exactly as-is.
-      price: priceUnchanged
-        ? undefined
-        : !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
-      persons: personsUnchanged ? undefined : personsNum > 0 ? personsNum : 1,
+      price: !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
+      persons: personsNum > 0 ? personsNum : 1,
     }, imageFile || undefined);
     
     // Reset form
