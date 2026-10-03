@@ -31,6 +31,7 @@ import { PdfCaptureRoot } from "@/components/PdfCaptureRoot";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectErrorBoundary } from "@/components/ProjectErrorBoundary";
 import { resolveProjectCurrency, twdToLocal } from "@/lib/currency";
+import { addBounded, signatureKey } from "@/lib/commit-signature";
 
 /** Safely coerce a possibly-string/Date/undefined into a Date for formatting. */
 function safeDate(value: unknown): Date | null {
