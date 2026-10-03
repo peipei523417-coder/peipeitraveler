@@ -472,3 +472,11 @@ npx cap run ios
 ## 📄 License
 
 MIT License — Built with ❤️ using [Lovable](https://lovable.dev)
+
+## Hybrid itinerary ordering (per day)
+
+- `travel_projects.hybrid_days integer[] NOT NULL DEFAULT '{}'` — explicit marker. Days not listed keep Legacy order (timed by `start_time`, then untimed by `sort_order`, `id`).
+- Hybrid day order = `sort_order ASC, id ASC` for every item. Sparse ranks (100, 200, …).
+- Trigger `itinerary_hybrid_rank` (BEFORE INSERT / UPDATE OF day_number, start_time): in Hybrid days places a timed item right after the last timed item with time ≤ its time (or just before the first later timed item); untimed inserts/moves append; re-spaces the day when the integer gap is exhausted.
+- RPC `apply_hybrid_day_order(project_id, day_number, ordered_ids uuid[])` (SECURITY DEFINER, `can_modify_project`): validates the id set, writes 100,200,… and adds the day to `hybrid_days` atomically.
+- `public_travel_projects` view exposes `hybrid_days`.
