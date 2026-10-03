@@ -81,9 +81,7 @@ export function TripOverviewDialog({
                   </p>
                 ) : (
                   <div className="ml-9 space-y-1.5">
-                    {(isHybridDay(project.hybridDays, day.dayNumber)
-                      ? sortDayItems(day.items, true)
-                      : [...day.items].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || "")))
+                    {sortDayItems(day.items, isHybridDay(project.hybridDays, day.dayNumber))
                       .map((item) => (
                         <div key={item.id} className="flex items-start gap-2 text-sm min-w-0">
                           {item.startTime ? (
