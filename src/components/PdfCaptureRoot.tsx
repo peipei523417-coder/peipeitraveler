@@ -15,6 +15,7 @@
 import { useEffect, useRef } from "react";
 import { TravelProject, ItineraryItem } from "@/types/travel";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
+import { isHybridDay, sortDayItems } from "@/lib/itinerary-order";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { buildPdfMapAnnotation } from "@/lib/maps-url";
 import pdfEndBrand from "@/assets/pdf-end-brand.png.asset.json";
@@ -449,7 +450,8 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
           </div>
 
           {itinerary.map((day) => {
-            const items = Array.isArray(day.items) ? day.items : [];
+            const rawItems = Array.isArray(day.items) ? day.items : [];
+            const items = isHybridDay(project.hybridDays, day.dayNumber) ? sortDayItems(rawItems, true) : rawItems;
             // Mirror App overview: render EVERY itinerary item, preserve user
             // line breaks via whitespace: pre-wrap, let long titles wrap
             // naturally. No filtering / no truncation — overview is the trip
@@ -539,6 +541,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
             <ItineraryList
               currency={pdfCurrency}
               day={day}
+              hybrid={isHybridDay(project.hybridDays, day.dayNumber)}
               readOnly
               isLastDay={false}
               onAddItem={() => {}}
