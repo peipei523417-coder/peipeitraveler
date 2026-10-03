@@ -1,8 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
+import { PdfBackupButton } from "@/components/PdfBackupButton";
 import { TravelProject } from "@/types/travel";
+import { isHybridDay, sortDayItems } from "@/lib/itinerary-order";
 import { formatShortDate } from "@/i18n/date-utils";
 
 interface TripOverviewDialogProps {
@@ -38,18 +39,15 @@ export function TripOverviewDialog({
           {/* PDF export — primary entry point */}
           {onExportPdf && (
             <div className="pt-3">
-              <Button
+              <PdfBackupButton
                 onClick={(e) => {
                   e.stopPropagation();
                   onExportPdf();
                 }}
                 disabled={exportingPdf}
-                variant="outline"
-                size="sm"
-                className="w-full rounded-xl text-xs gap-1.5"
-              >
-                {exportingPdf ? t("exportingPdf") : t("exportPdf")}
-              </Button>
+                exporting={exportingPdf}
+                className="w-full"
+              />
             </div>
           )}
         </DialogHeader>
@@ -83,8 +81,9 @@ export function TripOverviewDialog({
                   </p>
                 ) : (
                   <div className="ml-9 space-y-1.5">
-                    {[...day.items]
-                      .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""))
+                    {(isHybridDay(project.hybridDays, day.dayNumber)
+                      ? sortDayItems(day.items, true)
+                      : [...day.items].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || "")))
                       .map((item) => (
                         <div key={item.id} className="flex items-start gap-2 text-sm min-w-0">
                           {item.startTime ? (
