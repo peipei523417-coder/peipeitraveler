@@ -553,24 +553,12 @@ export function ProjectDialog({
               </div>
 
               {isCustomCurrency && (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={t("currencyNameLabel")}
-                    value={customCurrencyName}
-                    onChange={(e) => setCustomCurrencyName(e.target.value)}
-                    className="rounded-xl h-11 text-base flex-1 min-w-0"
-                  />
-                  <Input
-                    placeholder={t("currencySymbolLabel")}
-                    value={customCurrencySymbol}
-                    onChange={(e) => setCustomCurrencySymbol(e.target.value)}
-                    className="rounded-xl h-11 text-base w-20"
-                  />
-                </div>
-              )}
-
-              {!!currencyCode && !currencyReady && (
-                <p className="text-xs text-muted-foreground">{t("currencyIncompleteHint")}</p>
+                <Input
+                  placeholder={t("currencyNameLabel")}
+                  value={customCurrencyName}
+                  onChange={(e) => setCustomCurrencyName(e.target.value)}
+                  className="rounded-xl h-11 text-base"
+                />
               )}
             </div>
 
@@ -620,7 +608,7 @@ export function ProjectDialog({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!name.trim() || !dateRange?.from || !dateRange?.to || (!!currencyCode && !currencyReady)}
+              disabled={!name.trim() || !dateRange?.from || !dateRange?.to}
               className="samoyed-button rounded-xl min-h-[44px]"
             >
               {mode === "create" ? t("createProjectBtn") : t("saveChanges")}
