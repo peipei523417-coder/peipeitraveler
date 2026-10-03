@@ -90,7 +90,13 @@ export function ProjectDialog({
   };
 
   // Initialize form when dialog opens or initialData changes
+  // Seed only on the closed -> open transition. The edit dialog receives a
+  // fresh initialData object on every parent render; re-seeding on each one
+  // wiped the currency / rate the user had just picked.
+  const wasOpenRef = useRef(false);
   useEffect(() => {
+    if (open && wasOpenRef.current) return;
+    wasOpenRef.current = open;
     if (open) {
       // Currency settings are ALWAYS seeded from the project itself, even when a
       // draft is pending (drafts never store currency). Otherwise re-opening the
@@ -538,7 +544,7 @@ export function ProjectDialog({
                       inputMode="decimal"
                       step="any"
                       min="0"
-                      placeholder="4.85"
+                      placeholder={t("exchangeRateLabel")}
                       value={rateInput}
                       onChange={(e) => setRateInput(e.target.value)}
                       className="rounded-xl h-11 text-base w-20 px-2"
@@ -551,6 +557,10 @@ export function ProjectDialog({
                   </div>
                 )}
               </div>
+
+              {!!currencyCode && parsedRate === null && (
+                <p className="text-xs text-destructive">{t("exchangeRateRequiredHint")}</p>
+              )}
 
               {isCustomCurrency && (
                 <Input
