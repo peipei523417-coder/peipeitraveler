@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { ItineraryItem } from "@/types/travel";
 import {
   sortDayItems,
+  isHybridDay,
   legacyCompare,
   timedInsertRank,
   placementRank,
@@ -93,5 +94,19 @@ describe("legacy ordering is unchanged", () => {
     };
     const items = [mk("q", "", 0), mk("p", "", 0), mk("c", "09:00", 5), mk("d", "09:00", 1), mk("e", "", 30)];
     expect(names([...items].sort(legacyCompare))).toEqual(names([...items].sort(old)));
+  });
+});
+
+describe("day list vs trip overview ordering parity", () => {
+  const items = [mk("u2", "", 20), mk("t2", "12:00", 0), mk("u1", "", 10), mk("t1", "09:00", 0), mk("u0", "", 10), mk("t3", "08:00", 300)];
+  const dayList = (hybridDays: number[], day: number) => sortDayItems(items, isHybridDay(hybridDays, day)).map(i => i.id);
+  const overview = (hybridDays: number[], day: number) => sortDayItems(items, isHybridDay(hybridDays, day)).map(i => i.id);
+  it("legacy day identical", () => {
+    expect(overview([], 1)).toEqual(dayList([], 1));
+    expect(overview([], 1)).toEqual(["t3", "t1", "t2", "u0", "u1", "u2"]);
+  });
+  it("hybrid day identical", () => {
+    expect(overview([1], 1)).toEqual(dayList([1], 1));
+    expect(overview([1], 1)).toEqual(["t1", "t2", "u0", "u1", "u2", "t3"]);
   });
 });
