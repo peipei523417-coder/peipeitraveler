@@ -49,7 +49,7 @@ export function SimpleTimePicker({ value, onChange, minTime }: SimpleTimePickerP
     <div className="flex items-center gap-1">
       {/* Hour Dropdown */}
       <Select value={hour || "00"} onValueChange={handleHourChange}>
-        <SelectTrigger className="w-[70px] rounded-xl h-11">
+        <SelectTrigger className="w-[70px] max-[389px]:w-[60px] max-[389px]:px-2 rounded-xl h-11">
           <SelectValue placeholder="時" />
         </SelectTrigger>
         <SelectContent className="max-h-[300px] z-[100] bg-background">
@@ -65,7 +65,7 @@ export function SimpleTimePicker({ value, onChange, minTime }: SimpleTimePickerP
       
       {/* Minute Dropdown */}
       <Select value={minute || "00"} onValueChange={handleMinuteChange}>
-        <SelectTrigger className="w-[70px] rounded-xl h-11">
+        <SelectTrigger className="w-[70px] max-[389px]:w-[60px] max-[389px]:px-2 rounded-xl h-11">
           <SelectValue placeholder="分" />
         </SelectTrigger>
         <SelectContent className="max-h-[300px] z-[100] bg-background">

@@ -424,7 +424,7 @@ export function ItineraryItemDialog({
               </div>
               
               {useTime && (
-                <div className="flex items-center gap-3 mt-1.5">
+                <div className="flex items-center gap-1.5 min-[390px]:gap-3 mt-1.5">
                   <SimpleTimePicker value={startTime} onChange={handleStartTimeChange} />
                   <span className="text-foreground font-bold">-</span>
                   <SimpleTimePicker 
