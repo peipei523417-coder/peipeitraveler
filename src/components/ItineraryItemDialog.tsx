@@ -389,7 +389,7 @@ export function ItineraryItemDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md rounded-2xl max-h-[92dvh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 touch-manipulation">
+        <DialogContent className="sm:max-w-md rounded-2xl max-h-[92dvh] sm:max-h-[90vh] overflow-hidden overflow-x-hidden flex flex-col p-0 gap-0 touch-manipulation w-[calc(100vw-1rem)] max-w-md">
           <DialogHeader className="shrink-0 px-5 pt-3 pb-2 sm:px-6 sm:pt-6 sm:pb-3 border-b border-border bg-background">
             <div className="flex items-center gap-3 pr-8">
               <DialogTitle className="text-lg sm:text-xl">
@@ -408,10 +408,10 @@ export function ItineraryItemDialog({
           </DialogHeader>
 
 
-          <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-2 sm:px-6 sm:py-3">
-            <div className="space-y-2 sm:space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 min-[375px]:px-5 py-2 sm:px-6 sm:py-3">
+            <div className="space-y-2.5 sm:space-y-3">
             {/* Time Toggle and Range - First priority */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-bold flex items-center gap-2">
                   <Clock className="w-4 h-4" />
@@ -424,7 +424,7 @@ export function ItineraryItemDialog({
               </div>
               
               {useTime && (
-                <div className="flex items-center gap-3 mt-3">
+                <div className="flex items-center gap-3 mt-1.5">
                   <SimpleTimePicker value={startTime} onChange={handleStartTimeChange} />
                   <span className="text-foreground font-bold">-</span>
                   <SimpleTimePicker 
@@ -444,7 +444,7 @@ export function ItineraryItemDialog({
             </div>
 
             {/* Description - Second priority */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="description" className="text-sm font-bold">
                 {t("description")}
               </Label>
@@ -453,12 +453,12 @@ export function ItineraryItemDialog({
                 placeholder={t("descriptionPlaceholder")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="rounded-xl min-h-[64px] sm:min-h-[80px] resize-none text-base"
+                className="rounded-xl min-h-[56px] sm:min-h-[80px] resize-none text-base"
               />
             </div>
             
             {/* Budget Section */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-sm font-bold flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
                 {t("price")} ({t("persons")}: <Users className="w-3 h-3 inline" />)
@@ -518,7 +518,7 @@ export function ItineraryItemDialog({
             </div>
             
             {/* Highlight Color */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-sm font-bold flex items-center gap-2">
                 <Palette className="w-4 h-4" />
                 {t("highlightColor")}
@@ -530,7 +530,7 @@ export function ItineraryItemDialog({
             </div>
             
             {/* Google Maps - Dual Mode Input */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-sm font-bold flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
                 {t("locationLinkOptional")}
@@ -543,8 +543,8 @@ export function ItineraryItemDialog({
             </div>
 
             {/* Related Link (optional external URL like booking pages, articles) — collapsed by default */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 min-h-[40px]">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 min-h-[36px]">
                 <Label htmlFor="related-link" className="text-sm font-bold flex items-center gap-2">
                   <LinkIcon className="w-4 h-4" />
                   {t("relatedLinkOptional")}
@@ -581,8 +581,8 @@ export function ItineraryItemDialog({
             </div>
 
             {/* Image Upload — collapsed by default; tapping + opens the picker directly */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 min-h-[40px]">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 min-h-[36px]">
                 <Label className="text-sm font-bold flex items-center gap-2">
                   <ImageIcon className="w-4 h-4" />
                   {t("imageOptional")}
@@ -637,7 +637,7 @@ export function ItineraryItemDialog({
           </div>
 
           <DialogFooter
-            className="shrink-0 flex-row w-full gap-3 px-6 py-3 border-t border-border bg-background"
+            className="shrink-0 flex-row w-full gap-3 px-5 sm:px-6 py-2.5 border-t border-border bg-background"
             style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
           >
             <Button
