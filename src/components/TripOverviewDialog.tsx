@@ -109,13 +109,6 @@ export function TripOverviewDialog({
               </div>
             ))}
           </div>
-
-          {/* Expiry notice */}
-          <div className="px-3 py-4 pb-5 border-t border-border/30 bg-muted/20">
-            <p className="text-[10px] leading-[1.6] text-muted-foreground/60 text-center overflow-visible">
-              {t("overviewExpiryNotice")}
-            </p>
-          </div>
         </ScrollArea>
       </DialogContent>
     </Dialog>
