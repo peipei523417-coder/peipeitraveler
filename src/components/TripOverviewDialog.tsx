@@ -48,6 +48,9 @@ export function TripOverviewDialog({
                 exporting={exportingPdf}
                 className="w-full"
               />
+              <p className="text-[11px] leading-snug text-muted-foreground text-center mt-2">
+                {t("pdfBackupHint")}
+              </p>
             </div>
           )}
         </DialogHeader>

@@ -355,6 +355,40 @@ function openInWindowLocation(normalizedUrl: string): boolean {
   }
 }
 
+/**
+ * Desktop Web vs Mobile Web detection (web only — native is handled earlier).
+ * Coarse pointer (touch) or a mobile UA means Mobile Web; otherwise Desktop.
+ */
+function isMobileWeb(): boolean {
+  try {
+    if (window.matchMedia?.("(pointer: coarse)")?.matches) return true;
+  } catch {
+    /* fall through to UA */
+  }
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+/**
+ * Desktop Web fallback: open a real new tab via a synthesized anchor click.
+ * NEVER navigates the current tab away from PeiTravel.
+ */
+function openInNewTabViaAnchor(normalizedUrl: string): boolean {
+  try {
+    const a = document.createElement("a");
+    a.href = normalizedUrl;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  } catch (e) {
+    console.error("[MAP_OPEN_ANCHOR_FAIL]", e);
+    return false;
+  }
+}
+
 async function openWebFallback(normalizedUrl: string): Promise<boolean> {
   try {
     const w = window.open(normalizedUrl, "_blank", "noopener,noreferrer");
@@ -362,6 +396,15 @@ async function openWebFallback(normalizedUrl: string): Promise<boolean> {
   } catch (e) {
     console.warn("[MAP_OPEN_WINDOW_OPEN_FAIL]", e);
   }
+  // Desktop Web: keep PeiTravel in the current tab — always open a new tab.
+  if (!isMobileWeb()) {
+    console.log("[MAP_OPEN_FALLBACK]", {
+      reason: "window-open-blocked-desktop",
+      fallbackUrl: normalizedUrl,
+    });
+    return openInNewTabViaAnchor(normalizedUrl);
+  }
+  // Mobile Web: unchanged legacy behaviour.
   console.log("[MAP_OPEN_FALLBACK]", {
     reason: "window-open-blocked",
     fallbackUrl: normalizedUrl,
