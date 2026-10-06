@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { X, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,11 +19,16 @@ export function SmartAppBanner({ projectId }: SmartAppBannerProps) {
   const { t } = useTranslation();
   const [dismissed, setDismissed] = useState(false);
   const [isMobileWeb, setIsMobileWeb] = useState(false);
+  // Deep link must carry the exact share code from the URL so the app opens
+  // the same share entry (same key/password checks), not a different route.
+  const { shareCode: routeShareCode } = useParams<{ shareCode: string }>();
+  const shareTarget = (routeShareCode || projectId || "").trim().replace(/\/+$/, "");
 
   useEffect(() => {
     // Only show on mobile web browsers
     const ua = navigator.userAgent;
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+    const platform = detectStorePlatform();
+    const isMobile = platform === "ios" || platform === "android";
     const isNativeApp = /capacitor/i.test(ua) || (window as unknown as { Capacitor?: unknown }).Capacitor;
     setIsMobileWeb(isMobile && !isNativeApp);
 
@@ -42,8 +48,8 @@ export function SmartAppBanner({ projectId }: SmartAppBannerProps) {
     console.log("[SHARE_DEEPLINK_ATTEMPT]", { shareCode: projectId, platform });
 
     // Try custom scheme first — preserves existing share/deep-link flow.
-    const deepLink = projectId
-      ? `com.peitravel.smartplanner://share/${projectId}`
+    const deepLink = shareTarget
+      ? `com.peitravel.smartplanner://share/${encodeURIComponent(shareTarget)}`
       : `com.peitravel.smartplanner://`;
 
     let leftPage = false;
@@ -81,8 +87,15 @@ export function SmartAppBanner({ projectId }: SmartAppBannerProps) {
       <div className="container max-w-4xl flex items-center gap-3">
         <img src={dogTravelNew} alt="" className="w-10 h-10 rounded-lg object-contain" />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm text-foreground">{t("smartBannerTitle")}</p>
-          <p className="text-xs text-muted-foreground">{t("smartBannerDesc")}</p>
+          <p className="font-semibold text-sm text-foreground">{t("shareAppGateTitle")}</p>
+          <p className="text-xs text-muted-foreground">{t("shareAppGateDesc")}</p>
+          <button
+            type="button"
+            onClick={() => setDismissed(true)}
+            className="mt-1 text-xs text-primary underline underline-offset-2"
+          >
+            {t("shareAppGateWeb")}
+          </button>
         </div>
         <Button
           size="sm"
@@ -90,7 +103,7 @@ export function SmartAppBanner({ projectId }: SmartAppBannerProps) {
           className="gap-1.5 shrink-0"
         >
           <Smartphone className="w-3.5 h-3.5" />
-          {t("openInApp")}
+          {t("shareAppGateOpen")}
         </Button>
         <button
           onClick={() => setDismissed(true)}
