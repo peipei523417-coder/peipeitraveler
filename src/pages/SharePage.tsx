@@ -11,7 +11,7 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { DayTabs } from "@/components/DayTabs";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
 import { TripOverviewDialog } from "@/components/TripOverviewDialog";
-import { resolveProjectCurrency, twdToLocal } from "@/lib/currency";
+import { resolveProjectCurrency, sumPerPerson, formatAmount, currencyDecimals } from "@/lib/currency";
 import { ItineraryItemDialog } from "@/components/ItineraryItemDialog";
 import { SmartAppBanner } from "@/components/SmartAppBanner";
 import { LoginDialog } from "@/components/LoginDialog";
@@ -206,9 +206,7 @@ export default function SharePage() {
   // Calculate total budget for all days
   const totalBudget = useMemo(() => {
     if (!project) return 0;
-    return project.itinerary.reduce((total, day) => {
-      return total + calculateDayTotal(day.items);
-    }, 0);
+    return sumPerPerson(project.itinerary.flatMap((d) => d.items), null).twd;
   }, [project]);
 
   // Optional dual currency; null => shared page keeps its TWD-only display.
@@ -789,7 +787,7 @@ export default function SharePage() {
                   <p className="text-sm font-bold text-primary">
                     ({t("totalBudget")}:{" "}
                     {shareCurrency
-                      ? `NT$${totalBudget.toLocaleString()} ≈ ${shareCurrency.symbol}${twdToLocal(totalBudget, shareCurrency.rate).toLocaleString()}`
+                      ? `NT$${totalBudget.toLocaleString()} ≈ ${shareCurrency.symbol}${formatAmount(sumPerPerson(project.itinerary.flatMap((d) => d.items), shareCurrency).local ?? 0, currencyDecimals(shareCurrency.code))}`
                       : `$${totalBudget.toLocaleString()}`}
                     )
                   </p>

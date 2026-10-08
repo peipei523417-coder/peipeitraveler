@@ -32,7 +32,7 @@ import { isHybridDay, placementRank, appendRank, dragRank } from "@/lib/itinerar
 import { PdfCaptureRoot } from "@/components/PdfCaptureRoot";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectErrorBoundary } from "@/components/ProjectErrorBoundary";
-import { resolveProjectCurrency, twdToLocal } from "@/lib/currency";
+import { resolveProjectCurrency, sumPerPerson, formatAmount, currencyDecimals } from "@/lib/currency";
 import { addBounded, signatureKey } from "@/lib/commit-signature";
 
 /** Safely coerce a possibly-string/Date/undefined into a Date for formatting. */
@@ -161,9 +161,7 @@ function ProjectDetailInner() {
   // Calculate total budget for all days (must be before early returns)
   const totalBudget = useMemo(() => {
     if (!project || !Array.isArray(project.itinerary)) return 0;
-    return project.itinerary.reduce((total, day) => {
-      return total + calculateDayTotal(day?.items ?? []);
-    }, 0);
+    return sumPerPerson(project.itinerary.flatMap((d) => d?.items ?? []), null).twd;
   }, [project]);
 
   // Optional dual-currency config. null => existing TWD-only behaviour.
@@ -992,7 +990,7 @@ function ProjectDetailInner() {
                     <p className="text-sm font-bold text-primary">
                       ({t("totalBudget")}:{" "}
                       {currency
-                        ? `NT$${totalBudget.toLocaleString()} ≈ ${currency.symbol}${twdToLocal(totalBudget, currency.rate).toLocaleString()}`
+                        ? `NT$${totalBudget.toLocaleString()} ≈ ${currency.symbol}${formatAmount(sumPerPerson((project.itinerary || []).flatMap((d) => d?.items ?? []), currency).local ?? 0, currencyDecimals(currency.code))}`
                         : `$${totalBudget.toLocaleString()}`}
                       )
                     </p>
