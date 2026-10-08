@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ProjectCurrency, twdToLocal } from "@/lib/currency";
+import { ProjectCurrency, itemAmounts, sumPerPerson, formatAmount, currencyDecimals } from "@/lib/currency";
 import { sortDayItems } from "@/lib/itinerary-order";
 import { PdfBackupButton } from "@/components/PdfBackupButton";
 
@@ -71,13 +71,12 @@ function getHighlightClass(color?: string): string {
 }
 
 function calculateItemPerPerson(item: ItineraryItem): number {
-  if (!item.price || item.price <= 0) return 0;
-  const persons = item.persons || 1;
-  return Math.round(item.price / persons);
+  return itemAmounts(item, null).twdPer;
 }
 
 export function calculateDayTotal(items: ItineraryItem[]): number {
-  return items.reduce((total, item) => total + calculateItemPerPerson(item), 0);
+  // Per-person shares are summed exactly and rounded once (no per-item rounding).
+  return sumPerPerson(items, null).twd;
 }
 
 // Render one row (icon + card). Drag-listeners are only applied via
@@ -163,25 +162,25 @@ function ItemRow({
                 {item.description}
               </p>
 
-              {item.price && item.price > 0 && (
+              {(() => { const a = itemAmounts(item, currency ?? null); return (a.twd > 0 || (a.local ?? 0) > 0) && (
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-3">
                   <DollarSign className="w-3.5 h-3.5" />
                   {currency ? (
                     <span>
-                      NT${item.price.toLocaleString()} ≈ {currency.symbol}
-                      {twdToLocal(item.price, currency.rate).toLocaleString()} / {item.persons || 1} ={" "}
+                      NT${a.twd.toLocaleString()} ≈ {currency.symbol}
+                      {formatAmount(a.local ?? 0, a.decimals)} / {a.persons} ={" "}
                       <span className="font-bold text-primary">
-                        NT${perPersonCost.toLocaleString()} ≈ {currency.symbol}
-                        {twdToLocal(perPersonCost, currency.rate).toLocaleString()}
+                        NT${a.twdPer.toLocaleString()} ≈ {currency.symbol}
+                        {formatAmount(a.localPer ?? 0, a.decimals)}
                       </span>
                     </span>
                   ) : (
                     <span>
-                      {item.price.toLocaleString()} / {item.persons || 1} = <span className="font-bold text-primary">${perPersonCost.toLocaleString()}</span>
+                      {a.twd.toLocaleString()} / {a.persons} = <span className="font-bold text-primary">${a.twdPer.toLocaleString()}</span>
                     </span>
                   )}
                 </div>
-              )}
+              ); })()}
 
               <div className="flex flex-wrap gap-2">
                 {safeMapUrl && normalizedMapUrl && (
@@ -504,7 +503,7 @@ export function ItineraryList({
           <div className="bg-primary/10 rounded-xl px-4 py-2 text-sm font-bold text-primary">
             {t("todayTotal")}:{" "}
             {currency
-              ? `NT$${dayTotal.toLocaleString()} ≈ ${currency.symbol}${twdToLocal(dayTotal, currency.rate).toLocaleString()}`
+              ? `NT$${dayTotal.toLocaleString()} ≈ ${currency.symbol}${formatAmount(sumPerPerson(orderedAll, currency).local ?? 0, currencyDecimals(currency.code))}`
               : `$${dayTotal.toLocaleString()}`}
           </div>
         </div>

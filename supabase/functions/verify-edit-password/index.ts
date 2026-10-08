@@ -177,6 +177,31 @@ interface ValidatedItemData {
   highlightColor: string | null;
   price: number | null;
   persons: number;
+  /** undefined = client did not send the triple (legacy) -> leave columns untouched. */
+  original?: { original_amount: number | null; original_currency: string | null; exchange_rate_snapshot: number | null };
+}
+
+function validateOriginal(d: Record<string, unknown>): { valid: boolean; error?: string; value?: ValidatedItemData["original"] } {
+  if (!("originalAmount" in d)) return { valid: true, value: undefined };
+  const a = d.originalAmount, c = d.originalCurrency, r = d.exchangeRateSnapshot;
+  if (a === null || a === undefined || a === "") {
+    return { valid: true, value: { original_amount: null, original_currency: null, exchange_rate_snapshot: null } };
+  }
+  const amount = typeof a === "string" ? Number(a) : a;
+  const rate = typeof r === "string" ? Number(r) : r;
+  if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0 || amount > 99999999) {
+    return { valid: false, error: "Original amount is invalid" };
+  }
+  if (typeof c !== "string" || !c.trim() || c.trim().length > 10) {
+    return { valid: false, error: "Original currency is invalid" };
+  }
+  if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0 || rate > 99999999) {
+    return { valid: false, error: "Exchange rate snapshot is invalid" };
+  }
+  if (amount === 0) {
+    return { valid: true, value: { original_amount: null, original_currency: null, exchange_rate_snapshot: null } };
+  }
+  return { valid: true, value: { original_amount: amount, original_currency: c.trim().toUpperCase(), exchange_rate_snapshot: rate } };
 }
 
 function validateItemData(data: unknown): { valid: boolean; error?: string; value?: ValidatedItemData } {
@@ -228,6 +253,11 @@ function validateItemData(data: unknown): { valid: boolean; error?: string; valu
     return { valid: false, error: personsResult.error };
   }
 
+  const originalResult = validateOriginal(itemData);
+  if (!originalResult.valid) {
+    return { valid: false, error: originalResult.error };
+  }
+
   return {
     valid: true,
     value: {
@@ -239,6 +269,7 @@ function validateItemData(data: unknown): { valid: boolean; error?: string; valu
       highlightColor: highlightColorResult.value ?? null,
       price: priceResult.value ?? null,
       persons: personsResult.value ?? 1,
+      original: originalResult.value,
     },
   };
 }
@@ -366,6 +397,7 @@ serve(async (req) => {
           highlight_color: validatedItem.highlightColor,
           price: validatedItem.price,
           persons: validatedItem.persons,
+          ...(validatedItem.original ?? {}),
         })
         .select()
         .single();
@@ -447,6 +479,7 @@ serve(async (req) => {
           highlight_color: validatedItem.highlightColor,
           price: validatedItem.price,
           persons: validatedItem.persons,
+          ...(validatedItem.original ?? {}),
         })
         .eq("id", itemIdResult.value)
         .eq("project_id", projectIdResult.value);

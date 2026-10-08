@@ -1,3 +1,4 @@
+import { sumPerPerson } from "@/lib/currency";
 import { useTranslation } from "react-i18next";
 import { TravelProject } from "@/types/travel";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,12 +59,7 @@ export function ProjectCard({
   const signedCoverImage = useSignedImageUrl(project.coverImageUrl);
   
   // Calculate total budget per person across all days
-  const totalBudget = project.itinerary.reduce((total, day) => {
-    return total + day.items.reduce((dayTotal, item) => {
-      if (!item.price || item.price <= 0) return dayTotal;
-      return dayTotal + Math.round(item.price / (item.persons || 1));
-    }, 0);
-  }, 0);
+  const totalBudget = sumPerPerson(project.itinerary.flatMap((d) => d.items), null).twd;
   
   return (
     <Card 

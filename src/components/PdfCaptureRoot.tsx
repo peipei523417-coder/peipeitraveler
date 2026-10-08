@@ -19,7 +19,7 @@ import { isHybridDay, sortDayItems } from "@/lib/itinerary-order";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { buildPdfMapAnnotation } from "@/lib/maps-url";
 import pdfEndBrand from "@/assets/pdf-end-brand.png.asset.json";
-import { resolveProjectCurrency, twdToLocal } from "@/lib/currency";
+import { resolveProjectCurrency, sumPerPerson, formatAmount, currencyDecimals } from "@/lib/currency";
 
 
 export interface CapturedCardBounds {
@@ -245,10 +245,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
 
   const itinerary = Array.isArray(project.itinerary) ? project.itinerary : [];
   const allItems = itinerary.flatMap((d) => (Array.isArray(d?.items) ? d.items : []));
-  const totalPerPerson = allItems.reduce((s, i) => {
-    if (!i.price || i.price <= 0) return s;
-    return s + Math.round(i.price / (i.persons || 1));
-  }, 0);
+  const totalPerPerson = sumPerPerson(allItems, null).twd;
   const totalDays = (() => {
     const sd = project.startDate instanceof Date ? project.startDate : new Date(project.startDate as unknown as string);
     const ed = project.endDate instanceof Date ? project.endDate : new Date(project.endDate as unknown as string);
@@ -400,7 +397,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                   <div style={{ fontSize: 11, color: "#64748b" }}>單人總額</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: "#0285c7", marginTop: 4 }}>
                     {pdfCurrency
-                      ? `NT$${totalPerPerson.toLocaleString()} ≈ ${pdfCurrency.symbol}${twdToLocal(totalPerPerson, pdfCurrency.rate).toLocaleString()}`
+                      ? `NT$${totalPerPerson.toLocaleString()} ≈ ${pdfCurrency.symbol}${formatAmount(sumPerPerson(allItems, pdfCurrency).local ?? 0, currencyDecimals(pdfCurrency.code))}`
                       : `NT$${totalPerPerson.toLocaleString()}`}
                   </div>
                 </div>

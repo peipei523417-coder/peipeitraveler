@@ -15,6 +15,13 @@
       "when": 1791055398066,
       "tag": "0001_hybrid_itinerary_sorting",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791484517450,
+      "tag": "0002_itinerary_original_amount",
+      "breakpoints": true
     }
   ]
 }

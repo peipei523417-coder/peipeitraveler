@@ -95,11 +95,14 @@ export type Database = {
           day_number: number
           description: string
           end_time: string | null
+          exchange_rate_snapshot: number | null
           google_maps_url: string | null
           highlight_color: string | null
           icon_type: string | null
           id: string
           image_url: string | null
+          original_amount: number | null
+          original_currency: string | null
           persons: number | null
           price: number | null
           project_id: string
@@ -114,11 +117,14 @@ export type Database = {
           day_number: number
           description: string
           end_time?: string | null
+          exchange_rate_snapshot?: number | null
           google_maps_url?: string | null
           highlight_color?: string | null
           icon_type?: string | null
           id?: string
           image_url?: string | null
+          original_amount?: number | null
+          original_currency?: string | null
           persons?: number | null
           price?: number | null
           project_id: string
@@ -133,11 +139,14 @@ export type Database = {
           day_number?: number
           description?: string
           end_time?: string | null
+          exchange_rate_snapshot?: number | null
           google_maps_url?: string | null
           highlight_color?: string | null
           icon_type?: string | null
           id?: string
           image_url?: string | null
+          original_amount?: number | null
+          original_currency?: string | null
           persons?: number | null
           price?: number | null
           project_id?: string
@@ -447,11 +456,14 @@ export type Database = {
           day_number: number | null
           description: string | null
           end_time: string | null
+          exchange_rate_snapshot: number | null
           google_maps_url: string | null
           highlight_color: string | null
           icon_type: string | null
           id: string | null
           image_url: string | null
+          original_amount: number | null
+          original_currency: string | null
           persons: number | null
           price: number | null
           project_id: string | null
