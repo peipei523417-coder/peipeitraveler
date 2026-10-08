@@ -33,6 +33,9 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
       highlightColor: item.highlight_color || undefined,
       price: item.price || undefined,
       persons: item.persons || 1,
+      originalAmount: item.original_amount != null ? Number(item.original_amount) : null,
+      originalCurrency: item.original_currency ?? null,
+      exchangeRateSnapshot: item.exchange_rate_snapshot != null ? Number(item.exchange_rate_snapshot) : null,
       iconType: item.icon_type || 'default',
       sortOrder: typeof item.sort_order === 'number' ? item.sort_order : 0,
     });
@@ -488,7 +491,7 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
 
   const { data: sourceItems, error: itemsErr } = await supabase
     .from("itinerary_items")
-    .select("day_number, start_time, end_time, description, google_maps_url, related_link, image_url, highlight_color, price, persons, icon_type, sort_order")
+    .select("day_number, start_time, end_time, description, google_maps_url, related_link, image_url, highlight_color, price, persons, original_amount, original_currency, exchange_rate_snapshot, icon_type, sort_order")
     .eq("project_id", id)
     .order("day_number", { ascending: true })
     .order("sort_order", { ascending: true });
@@ -535,6 +538,9 @@ export async function duplicateProject(id: string): Promise<TravelProject | unde
       highlight_color: it.highlight_color,
       price: it.price,
       persons: it.persons,
+      original_amount: (it as any).original_amount ?? null,
+      original_currency: (it as any).original_currency ?? null,
+      exchange_rate_snapshot: (it as any).exchange_rate_snapshot ?? null,
       icon_type: it.icon_type,
       sort_order: it.sort_order,
     }));
@@ -608,6 +614,17 @@ export async function addItineraryItem(
  * WITHOUT refetching the entire project — that refetch was racing concurrent
  * inserts and silently dropping recently added items.
  */
+/** DB columns for the original-amount triple; all-or-nothing (DB CHECK). */
+function originalPayload(item: Partial<ItineraryItem>) {
+  const a = item.originalAmount;
+  const c = (item.originalCurrency || "").trim();
+  const r = item.exchangeRateSnapshot;
+  if (typeof a === "number" && Number.isFinite(a) && a > 0 && c && typeof r === "number" && Number.isFinite(r) && r > 0) {
+    return { original_amount: a, original_currency: c.toUpperCase().slice(0, 10), exchange_rate_snapshot: r };
+  }
+  return { original_amount: null, original_currency: null, exchange_rate_snapshot: null };
+}
+
 export async function insertItineraryItem(
   projectId: string,
   dayNumber: number,
@@ -625,6 +642,7 @@ export async function insertItineraryItem(
     highlight_color: item.highlightColor || null,
     price: item.price || null,
     persons: item.persons || 1,
+    ...originalPayload(item),
     icon_type: item.iconType || "default",
     sort_order: typeof item.sortOrder === "number" ? item.sortOrder : 0,
   };
@@ -733,6 +751,7 @@ export async function patchItineraryItem(
   if (updates.highlightColor !== undefined) updateData.highlight_color = updates.highlightColor || null;
   if (updates.price !== undefined) updateData.price = updates.price || null;
   if (updates.persons !== undefined) updateData.persons = updates.persons || 1;
+  if (updates.originalAmount !== undefined) Object.assign(updateData, originalPayload(updates));
   if (updates.iconType !== undefined) updateData.icon_type = updates.iconType || "default";
   if (updates.sortOrder !== undefined) updateData.sort_order = typeof updates.sortOrder === "number" ? updates.sortOrder : 0;
 

@@ -44,6 +44,12 @@ export interface ItineraryItem {
   highlightColor?: HighlightColor;
   price?: number; // Budget price in local currency
   persons?: number; // Number of persons (default 1)
+  /** Exact amount as entered, in originalCurrency. Source of truth when set. */
+  originalAmount?: number | null;
+  /** Currency code of originalAmount, e.g. "EUR" or "TWD". */
+  originalCurrency?: string | null;
+  /** 1 TWD = snapshot × originalCurrency at record time (1 for TWD). */
+  exchangeRateSnapshot?: number | null;
   iconType?: TimelineIconType; // Custom timeline marker icon
   sortOrder?: number; // Legacy day: manual order of untimed items. Hybrid day: display rank of every item.
 }

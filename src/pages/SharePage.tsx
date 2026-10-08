@@ -47,6 +47,9 @@ function dbRowToProject(row: any, items: any[] = []): TravelProject {
       iconType: item.icon_type || 'default',
       price: item.price || undefined,
       persons: item.persons || 1,
+      originalAmount: item.original_amount != null ? Number(item.original_amount) : null,
+      originalCurrency: item.original_currency ?? null,
+      exchangeRateSnapshot: item.exchange_rate_snapshot != null ? Number(item.exchange_rate_snapshot) : null,
       sortOrder: typeof item.sort_order === 'number' ? item.sort_order : 0,
     });
   });
