@@ -129,3 +129,123 @@ export function formatLocal(amount: number, symbol: string): string {
 export function formatDual(twd: number, currency: ProjectCurrency): string {
   return `${formatTwd(twd)} ≈ ${formatLocal(twdToLocal(twd, currency.rate), currency.symbol)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Original-amount bookkeeping (itinerary_items.original_amount & co).
+// The original amount + currency + rate snapshot is the source of truth when
+// present; `price` (TWD integer) is a compatibility mirror derived by the DB.
+// ---------------------------------------------------------------------------
+
+/** Fraction digits used for a currency. TWD is kept integer (app convention). */
+export function currencyDecimals(code?: string | null): number {
+  const c = (code || "").toUpperCase();
+  if (!c || c === "TWD") return 0;
+  if (c.length !== 3) return 2;
+  try {
+    return new Intl.NumberFormat("en", { style: "currency", currency: c }).resolvedOptions().maximumFractionDigits ?? 2;
+  } catch {
+    return 2;
+  }
+}
+
+/** Round half-away-from-zero to `d` decimals, robust against float noise. */
+export function roundTo(n: number, d: number): number {
+  if (!Number.isFinite(n)) return 0;
+  const f = Math.pow(10, d);
+  return Math.sign(n) * Math.round(Math.abs(n) * f + 1e-9) / f;
+}
+
+/** Parse user input like "7.92" without truncation; null when invalid/empty. */
+export function parseAmountInput(value: string, decimals: number): number | null {
+  const v = (value || "").trim().replace(/,/g, "");
+  if (!v) return null;
+  if (!/^\d*\.?\d*$/.test(v) || v === ".") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return roundTo(n, decimals);
+}
+
+export function formatAmount(amount: number, decimals: number): string {
+  const n = Number.isFinite(amount) ? amount : 0;
+  return n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: decimals });
+}
+
+export interface AmountFields {
+  price?: number | null;
+  persons?: number | null;
+  originalAmount?: number | null;
+  originalCurrency?: string | null;
+  exchangeRateSnapshot?: number | null;
+}
+
+function hasOriginal(i: AmountFields): boolean {
+  return (
+    typeof i.originalAmount === "number" && Number.isFinite(i.originalAmount) && i.originalAmount > 0 &&
+    !!i.originalCurrency &&
+    typeof i.exchangeRateSnapshot === "number" && i.exchangeRateSnapshot > 0
+  );
+}
+
+/** Unrounded TWD value of an item (total, not per person). */
+export function itemTwdExact(i: AmountFields): number {
+  if (hasOriginal(i)) {
+    if (i.originalCurrency!.toUpperCase() === "TWD") return i.originalAmount!;
+    return i.originalAmount! / i.exchangeRateSnapshot!;
+  }
+  return typeof i.price === "number" && i.price > 0 ? i.price : 0;
+}
+
+/**
+ * Unrounded amount of an item in the project's local currency. Items recorded
+ * in that currency return their exact original amount (independent of later
+ * project-rate changes); others convert their TWD value with the project rate.
+ */
+export function itemLocalExact(i: AmountFields, currency: ProjectCurrency): number {
+  if (hasOriginal(i) && i.originalCurrency!.toUpperCase() === currency.code.toUpperCase()) {
+    return i.originalAmount!;
+  }
+  return itemTwdExact(i) * currency.rate;
+}
+
+function personsOf(i: AmountFields): number {
+  const p = Number(i.persons);
+  return Number.isFinite(p) && p >= 1 ? p : 1;
+}
+
+export interface AmountTotals {
+  /** Rounded TWD total (rounded once, at the end). */
+  twd: number;
+  /** Rounded local total, or null when the project is TWD-only. */
+  local: number | null;
+}
+
+/** Per-person totals: per-item shares are summed exactly, rounded once. */
+export function sumPerPerson(items: AmountFields[], currency: ProjectCurrency | null): AmountTotals {
+  let twd = 0;
+  let local = 0;
+  for (const i of items) {
+    const p = personsOf(i);
+    twd += itemTwdExact(i) / p;
+    if (currency) local += itemLocalExact(i, currency) / p;
+  }
+  return {
+    twd: Math.round(roundTo(twd, 6)),
+    local: currency ? roundTo(local, currencyDecimals(currency.code)) : null,
+  };
+}
+
+/** Display numbers for a single item (total + per person). */
+export function itemAmounts(i: AmountFields, currency: ProjectCurrency | null) {
+  const p = personsOf(i);
+  const twd = itemTwdExact(i);
+  const dec = currency ? currencyDecimals(currency.code) : 0;
+  const local = currency ? itemLocalExact(i, currency) : null;
+  return {
+    persons: p,
+    twd: Math.round(roundTo(twd, 6)),
+    twdPer: Math.round(roundTo(twd / p, 6)),
+    local: local === null ? null : roundTo(local, dec),
+    localPer: local === null ? null : roundTo(local / p, dec),
+    decimals: dec,
+  };
+}
