@@ -35,7 +35,7 @@ import { hasTimeConflict, findOverlappingItem } from "@/lib/time-validation";
 import { sanitizeMapUrl } from "@/utils/mapLink";
 import { useTranslation } from "react-i18next";
 import { Switch } from "@/components/ui/switch";
-import { ProjectCurrency, twdToLocal, localToTwd } from "@/lib/currency";
+import { ProjectCurrency, AmountFields, currencyDecimals, parseAmountInput, roundTo, itemAmounts, formatAmount } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 
@@ -94,8 +94,11 @@ export function ItineraryItemDialog({
   );
   const [price, setPrice] = useState<string>(initialData?.price?.toString() || "");
   const [persons, setPersons] = useState<string>(initialData?.persons?.toString() || "1");
-  // Display-only local-currency mirror of `price`. Never persisted.
+  // Local-currency input. When the user types here, it becomes the exact
+  // original amount (persisted); TWD is then only a derived reference.
   const [localPrice, setLocalPrice] = useState<string>("");
+  // Which amount field the user last edited in this session (null = untouched).
+  const [amountSource, setAmountSource] = useState<"twd" | "local" | null>(null);
   const [timeError, setTimeError] = useState<string | null>(null);
   const [mapUrlInvalid, setMapUrlInvalid] = useState(false);
   const [overlapWarningOpen, setOverlapWarningOpen] = useState(false);
@@ -167,14 +170,21 @@ export function ItineraryItemDialog({
       setImageUrl(initialData.imageUrl || "");
 
       setHighlightColor(initialData.highlightColor || "none");
-      setPrice(initialData.price?.toString() || "");
       setPersons(initialData.persons?.toString() || "1");
-      // Local amount is always DERIVED from the canonical TWD price.
-      setLocalPrice(
-        currency && initialData.price && initialData.price > 0
-          ? String(twdToLocal(initialData.price, currency.rate))
-          : ""
-      );
+      setAmountSource(null);
+      const init = itemAmounts(initialData, currency);
+      const oc = (initialData.originalCurrency || "").toUpperCase();
+      const hasOrig = typeof initialData.originalAmount === "number" && initialData.originalAmount > 0;
+      setPrice(hasOrig && oc === "TWD" ? String(initialData.originalAmount) : init.twd > 0 ? String(init.twd) : "");
+      if (currency) {
+        setLocalPrice(
+          hasOrig && oc === currency.code.toUpperCase()
+            ? String(initialData.originalAmount)
+            : init.local && init.local > 0 ? String(init.local) : ""
+        );
+      } else {
+        setLocalPrice("");
+      }
     } else {
       // Use suggested start time if available
       const defaultStart = suggestedStartTime || "09:00";
@@ -191,6 +201,7 @@ export function ItineraryItemDialog({
       setPrice("");
       setPersons("1");
       setLocalPrice("");
+      setAmountSource(null);
     }
     setTimeError(null);
     setMapUrlInvalid(false);
@@ -214,29 +225,61 @@ export function ItineraryItemDialog({
     }
   };
 
-  // Calculate per-person cost
-  const calculatePerPerson = (): number | null => {
-    const priceNum = parseInt(price, 10);
+  const localDecimals = currency ? currencyDecimals(currency.code) : 0;
+
+  /**
+   * Amount fields to persist. Untouched amounts in edit mode are passed through
+   * verbatim, so opening/saving never re-converts or rewrites the original.
+   */
+  const draftAmount = (): AmountFields => {
     const personsNum = parseInt(persons, 10) || 1;
-    if (isNaN(priceNum) || priceNum <= 0) return null;
-    return Math.round(priceNum / personsNum);
+    if (amountSource === null && mode === "edit" && initialData) {
+      return {
+        price: initialData.price ?? null,
+        persons: personsNum,
+        originalAmount: initialData.originalAmount ?? null,
+        originalCurrency: initialData.originalCurrency ?? null,
+        exchangeRateSnapshot: initialData.exchangeRateSnapshot ?? null,
+      };
+    }
+    const none = { originalAmount: null, originalCurrency: null, exchangeRateSnapshot: null };
+    if (amountSource === "local" && currency) {
+      const amt = parseAmountInput(localPrice, localDecimals);
+      if (!amt || amt <= 0) return { price: null, persons: personsNum, ...none };
+      return {
+        price: Math.max(1, Math.round(roundTo(amt / currency.rate, 6))),
+        persons: personsNum,
+        originalAmount: amt,
+        originalCurrency: currency.code.toUpperCase(),
+        exchangeRateSnapshot: currency.rate,
+      };
+    }
+    const twd = parseAmountInput(price, 0);
+    if (!twd || twd <= 0) return { price: null, persons: personsNum, ...none };
+    if (currency) {
+      return { price: twd, persons: personsNum, originalAmount: twd, originalCurrency: "TWD", exchangeRateSnapshot: 1 };
+    }
+    return { price: twd, persons: personsNum, ...none };
   };
 
-  const perPersonCost = calculatePerPerson();
+  const draft = draftAmount();
+  const draftNums = itemAmounts(draft, currency);
+  const perPersonCost: number | null = draftNums.twd > 0 || (draftNums.local ?? 0) > 0 ? draftNums.twdPer : null;
 
-  // Dual-currency handlers. TWD stays canonical; the local field is derived.
   const handlePriceChange = (value: string) => {
     setPrice(value);
+    setAmountSource("twd");
     if (!currency) return;
-    const n = parseInt(value, 10);
-    setLocalPrice(!isNaN(n) && n > 0 ? String(twdToLocal(n, currency.rate)) : "");
+    const n = parseAmountInput(value, 0);
+    setLocalPrice(n && n > 0 ? String(roundTo(n * currency.rate, localDecimals)) : "");
   };
 
   const handleLocalPriceChange = (value: string) => {
     setLocalPrice(value);
+    setAmountSource("local");
     if (!currency) return;
-    const n = parseInt(value, 10);
-    setPrice(!isNaN(n) && n > 0 ? String(localToTwd(n, currency.rate)) : "");
+    const n = parseAmountInput(value, localDecimals);
+    setPrice(n && n > 0 ? String(Math.max(1, Math.round(roundTo(n / currency.rate, 6)))) : "");
   };
 
   const handleSubmit = () => {
@@ -261,7 +304,7 @@ export function ItineraryItemDialog({
   };
 
   const submitItem = () => {
-    const priceNum = parseInt(price, 10);
+    const amount = draftAmount();
     const personsNum = parseInt(persons, 10) || 1;
     const cleanMapUrl = sanitizeMapUrl(googleMapsUrl);
     
@@ -288,8 +331,12 @@ export function ItineraryItemDialog({
       relatedLink: trimmedRelated || undefined,
       imageUrl: itemImageUrl as string | undefined,
       highlightColor: highlightColor,
-      price: !isNaN(priceNum) && priceNum > 0 ? priceNum : undefined,
+      // null (not undefined) when cleared, so the DB write actually clears it.
+      price: (amount.price && amount.price > 0 ? amount.price : null) as number | undefined,
       persons: personsNum > 0 ? personsNum : 1,
+      originalAmount: amount.originalAmount ?? null,
+      originalCurrency: amount.originalCurrency ?? null,
+      exchangeRateSnapshot: amount.exchangeRateSnapshot ?? null,
     }, imageFile || undefined);
     
     // Reset form
@@ -485,6 +532,7 @@ export function ItineraryItemDialog({
                       type="number"
                       inputMode="decimal"
                       placeholder={currency.code}
+                      step={localDecimals > 0 ? String(1 / Math.pow(10, localDecimals)) : "1"}
                       value={localPrice}
                       onChange={(e) => handleLocalPriceChange(e.target.value)}
                       className="rounded-xl text-base h-10 px-2 min-w-0 flex-[2_1_0%]"
@@ -509,7 +557,7 @@ export function ItineraryItemDialog({
                   ={" "}
                   <span className="font-bold text-primary">
                     {currency
-                      ? `NT$${perPersonCost.toLocaleString()} ≈ ${currency.symbol}${twdToLocal(perPersonCost, currency.rate).toLocaleString()}`
+                      ? `NT$${perPersonCost.toLocaleString()} ≈ ${currency.symbol}${formatAmount(draftNums.localPer ?? 0, draftNums.decimals)}`
                       : `$${perPersonCost}`}
                   </span>{" "}
                   {t("perPerson")}
