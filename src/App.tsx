@@ -1,4 +1,5 @@
 import { parseShareDeepLink } from "@/lib/deep-link";
+import { readPendingJoin } from "@/lib/pending-join";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { supabase } from "@/integrations/supabase/client";
