@@ -73,16 +73,9 @@ export function ShareDialog({
   const handleTogglePublic = async (checked: boolean) => {
     if (!project) return;
 
-    if (checked) {
-      if (!hasExistingPassword && !editPassword) {
-        toast.error(t("passwordRequired"));
-        return;
-      }
-      
-      if (editPassword && !validatePassword(editPassword)) {
-        toast.error(t("passwordRequired"));
-        return;
-      }
+    if (checked && editPassword && !validatePassword(editPassword)) {
+      toast.error(t("passwordRequired"));
+      return;
     }
 
     setSaving(true);
@@ -198,10 +191,6 @@ export function ShareDialog({
           {/* Password Section - Only shown for PUBLIC projects */}
           {isPublic && (
             <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <KeyRound className="w-4 h-4" />
-                {t("editPassword")}
-              </Label>
               <p className="text-xs text-muted-foreground">
                 {t("sharePasswordDesc")}
               </p>
