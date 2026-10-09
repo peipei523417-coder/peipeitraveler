@@ -7,8 +7,8 @@ android {
         applicationId "com.peitravel.smartplanner"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 157
-        versionName "1.3.30"
+        versionCode 158
+        versionName "1.3.31"
 
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
