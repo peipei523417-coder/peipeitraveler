@@ -71,34 +71,13 @@
 
 
 
-      // Redirect clean /share/XXX paths — on mobile, try native app first
+      // Redirect clean /share/XXX paths straight to the hash route.
+      // No automatic custom-scheme launch: installed apps are opened by the OS
+      // via Android App Links / iOS Universal Links before this page loads.
       (function() {
-        var path = window.location.pathname;
-        var match = path.match(/^\/share\/(.+)/);
+        var match = window.location.pathname.match(/^\/share\/(.+)/);
         if (!match) return;
-
-        var projectId = match[1];
-        var ua = navigator.userAgent;
-        var isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
-        var isNative = /capacitor/i.test(ua) || window.Capacitor;
-
-        if (isMobile && !isNative) {
-          // Mobile web: try to open the travel app via deep link
-          var deepLink = 'com.peitravel.smartplanner://share/' + projectId;
-          var didLeave = false;
-          window.addEventListener('blur', function() { didLeave = true; });
-          window.location.href = deepLink;
-
-          // If app didn't open after 1.5s, fall back to web share page
-          setTimeout(function() {
-            if (!didLeave) {
-              window.location.replace(window.location.origin + '/#/share/' + projectId);
-            }
-          }, 1500);
-        } else {
-          // Desktop or native app: just redirect to hash route
-          window.location.replace(window.location.origin + '/#/share/' + projectId);
-        }
+        window.location.replace(window.location.origin + '/#/share/' + match[1] + window.location.search);
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>

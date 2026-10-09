@@ -1,3 +1,4 @@
+import { parseShareDeepLink } from "@/lib/deep-link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,9 +62,8 @@ function DeepLinkHandler() {
       console.log("[DeepLink] Received:", url);
 
       // ── Share links ──
-      const shareMatch = url.match(/\/share\/([^?#\s]+)/);
-      if (shareMatch) {
-        const code = shareMatch[1].replace(/\/+$/, "");
+      const code = parseShareDeepLink(url);
+      if (code) {
         navigate(`/share/${code}`);
         return;
       }
