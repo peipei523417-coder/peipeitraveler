@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { sortDayItems, isHybridDay } from "@/lib/itinerary-order";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -13,7 +13,6 @@ import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
 import { TripOverviewDialog } from "@/components/TripOverviewDialog";
 import { resolveProjectCurrency, sumPerPerson, formatAmount, currencyDecimals } from "@/lib/currency";
 import { ItineraryItemDialog } from "@/components/ItineraryItemDialog";
-import { SmartAppBanner } from "@/components/SmartAppBanner";
 import { LoginDialog } from "@/components/LoginDialog";
 import { differenceInDays, addDays } from "date-fns";
 import { formatDate, formatShortDate } from "@/i18n/date-utils";
@@ -22,6 +21,7 @@ import dogTravelNew from "@/assets/dog-travel-new.png";
 import { useSignedImageUrl } from "@/hooks/useSignedImageUrl";
 import { useAuth } from "@/contexts/AuthContext";
 import { joinProject } from "@/lib/join-project";
+import { savePendingJoin, readPendingJoin, clearPendingJoin } from "@/lib/pending-join";
 import { useProjectCache } from "@/contexts/ProjectCacheContext";
 
 // Helper function to convert database rows to TravelProject
@@ -419,9 +419,12 @@ export default function SharePage() {
 
     if (!user) {
       setPendingJoinRole(role);
+      // Survives the full-page OAuth redirect; no password is stored.
+      if (shareCode) savePendingJoin(shareCode, role);
       setShowLoginDialog(true);
       return;
     }
+    clearPendingJoin();
 
     setJoining(true);
     try {
@@ -451,14 +454,36 @@ export default function SharePage() {
     }
   };
 
-  // After login, auto-join
+  // After login, auto-join (same page, e.g. popup OAuth)
   useEffect(() => {
     if (user && showLoginDialog) {
       setShowLoginDialog(false);
+      clearPendingJoin();
       // Small delay to let auth settle
       setTimeout(() => handleWebJoin(pendingJoinRole), 500);
     }
   }, [user]);
+
+  // After a full-page OAuth redirect: resume the pending join for this share.
+  // Editor joins must re-enter the edit password (never persisted for this flow).
+  const resumedJoinRef = useRef(false);
+  useEffect(() => {
+    if (!user || !project || !shareCode || resumedJoinRef.current) return;
+    const pending = readPendingJoin();
+    if (!pending || pending.shareCode !== shareCode) return;
+    resumedJoinRef.current = true;
+    clearPendingJoin();
+    if (pending.role === "editor" && hasEditPassword) {
+      setCanEdit(false);
+      setEditPassword(null);
+      sessionStorage.removeItem(`edit-password-${shareCode}`);
+      setPendingJoinRole("editor");
+      setShowPasswordPrompt(true);
+      toast.info(t("reenterPasswordToJoin"));
+    } else {
+      handleWebJoin("viewer");
+    }
+  }, [user, project, shareCode, hasEditPassword]);
 
   const handleAddItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
     if (!project || !editPassword) return;
@@ -654,9 +679,6 @@ export default function SharePage() {
   if (!showItinerary) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Smart App Banner */}
-        <SmartAppBanner projectId={project.id} />
-
         {/* Header */}
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-lg border-b border-border/50 shadow-sm">
           <div className="container max-w-4xl py-4">
@@ -759,9 +781,6 @@ export default function SharePage() {
   // Itinerary view
   return (
     <div className="min-h-screen bg-background">
-      {/* Smart App Banner */}
-      <SmartAppBanner projectId={project.id} />
-
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-lg border-b border-border/50 shadow-sm">
         <div className="container max-w-4xl py-4">

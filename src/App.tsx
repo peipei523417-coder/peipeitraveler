@@ -1,4 +1,5 @@
 import { parseShareDeepLink } from "@/lib/deep-link";
+import { readPendingJoin } from "@/lib/pending-join";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { supabase } from "@/integrations/supabase/client";
@@ -229,6 +230,21 @@ function DeepLinkHandler() {
   return null;
 }
 
+/** After web OAuth returns to the lobby, send the user back to the share page they came from. */
+function PendingJoinReturn() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    const pending = readPendingJoin();
+    if (!pending) return;
+    const target = `/share/${pending.shareCode}`;
+    if (location.pathname !== target) navigate(target, { replace: true });
+  }, [user, location.pathname, navigate]);
+  return null;
+}
+
 function AppContent() {
   const { hasInitiallyLoaded, markAsLoaded } = useLoading();
   const [showInitialLoader, setShowInitialLoader] = useState(!hasInitiallyLoaded);
@@ -265,6 +281,7 @@ function AppContent() {
   return (
     <HashRouter>
       <DeepLinkHandler />
+      <PendingJoinReturn />
       <FirstInstallOnboarding />
       {!isOnline && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white text-center text-sm py-1.5 px-4">
