@@ -73,7 +73,7 @@ export const translations = {
       noItems: "這天還沒有行程",
       tripOverview: "📍 總覽",
       overviewExpiryNotice: "已結束的行程將於七天後自動清除，如需保留資料，可先匯出 PDF 備份",
-      pdfBackupHint: "總行程結束一週後將自動清除；如需永久保存，可匯出 PDF 備份。",
+      pdfBackupHint: "總行程結束一週後將自動清除，想永久保存可匯出 PDF 備份。",
       lastDayBackupHint: "🎉 恭喜完成這趟旅程！\n這份行程將於旅程結束後 7 天自動清除，\n如需保留，可使用 PDF 匯出或行程總覽截圖備份喔",
       exportPdf: "備份行程 PDF",
       exportPdfHint: "永久保存，離線也能查看",
