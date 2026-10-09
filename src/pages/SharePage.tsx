@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { joinProject } from "@/lib/join-project";
 import { savePendingJoin, readPendingJoin, clearPendingJoin } from "@/lib/pending-join";
 import { useProjectCache } from "@/contexts/ProjectCacheContext";
+import { detectStorePlatform } from "@/config/storeLinks";
 
 // Helper function to convert database rows to TravelProject
 function dbRowToProject(row: any, items: any[] = []): TravelProject {
@@ -175,6 +176,22 @@ async function edgeFunctionUploadImage(
 
 export default function SharePage() {
   const { shareCode } = useParams<{ shareCode: string }>();
+  // Mobile web only (never inside the native app, never desktop).
+  const showOpenInApp = useMemo(() => {
+    const p = detectStorePlatform();
+    const native = !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+    return (p === "ios" || p === "android") && !native;
+  }, []);
+  // User click only. No timer, no store redirect: if nothing handles the scheme the page stays as is.
+  const handleOpenInApp = () => {
+    const code = (shareCode || "").trim().replace(/\/+$/, "");
+    if (!code) return;
+    try {
+      window.location.href = `com.peitravel.smartplanner://share/${encodeURIComponent(code)}`;
+    } catch {
+      /* stay on web */
+    }
+  };
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { user, loading: authLoading } = useAuth();
@@ -776,6 +793,23 @@ export default function SharePage() {
                   {t("joinAsViewer")}
                 </Button>
               </div>
+
+              {/* Secondary, user-initiated only: open the same share code in the installed app. */}
+              {showOpenInApp && shareCode && (
+                <div className="mt-4 text-center">
+                  <button
+                    type="button"
+                    onClick={handleOpenInApp}
+                    className="inline-flex items-center gap-1.5 text-sm text-primary underline underline-offset-2"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    {t("shareAppGateTitle")}
+                  </button>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("shareAppOpenHint", { defaultValue: "若未開啟 App，可直接在此網頁繼續加入。" })}
+                  </p>
+                </div>
+              )}
 
 
             </CardContent>
