@@ -26,6 +26,7 @@ import {
 import { ProjectCurrency, itemAmounts, sumPerPerson, formatAmount, currencyDecimals } from "@/lib/currency";
 import { sortDayItems } from "@/lib/itinerary-order";
 import { PdfBackupButton } from "@/components/PdfBackupButton";
+import { TimedPairOverlay } from "@/components/TimedPairOverlay";
 
 
 import {
@@ -122,6 +123,7 @@ function ItemRow({
     <div className={cn("relative flex gap-3", isDragging && "opacity-60")} data-pdf-card>
       {/* Timeline icon (NOT a drag handle — pointer-events stay on the picker) */}
       <div
+        data-row-icon={item.id}
         className="relative z-10 w-12 flex-shrink-0 flex flex-col items-center justify-center pt-1"
         style={{ pointerEvents: "auto" }}
         onPointerDown={(e) => e.stopPropagation()}
@@ -346,6 +348,8 @@ export function ItineraryList({
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const openPickerCountRef = useRef(0);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
 
   // Wraps the raw delete handler with a confirmation step so users can't
   // accidentally lose an itinerary item with a single tap.
@@ -401,6 +405,7 @@ export function ItineraryList({
   };
 
   const handleDragStart = (event: DragStartEvent) => {
+    setDragging(true);
     console.log("[DRAG_START]", {
       itemId: event.active.id,
       hasTime: false,
@@ -409,6 +414,7 @@ export function ItineraryList({
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    setDragging(false);
     const { active, over } = event;
     if (!over || active.id === over.id) {
       console.log("[DRAG_END]", { activeId: active.id, overId: over?.id, newOrder: null });
@@ -461,7 +467,8 @@ export function ItineraryList({
 
   return (
     <div className="space-y-3">
-      <div className="relative" style={{ isolation: 'isolate' }}>
+      <div ref={listRef} className="relative" style={{ isolation: 'isolate' }}>
+        <TimedPairOverlay containerRef={listRef} items={orderedAll} hidden={dragging} />
         <div className="absolute left-[23px] top-8 bottom-8 w-0.5 bg-primary/30" />
 
         <div className="space-y-2.5">
@@ -470,6 +477,7 @@ export function ItineraryList({
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
+            onDragCancel={() => setDragging(false)}
           >
             <SortableContext items={allIds} strategy={verticalListSortingStrategy}>
               {orderedAll.map((item, indexInAll) => {
