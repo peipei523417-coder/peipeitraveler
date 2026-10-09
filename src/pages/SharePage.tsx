@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { sortDayItems, isHybridDay } from "@/lib/itinerary-order";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -475,7 +475,7 @@ export default function SharePage() {
     clearPendingJoin();
     if (pending.role === "editor" && hasEditPassword) {
       setCanEdit(false);
-      setEditPassword(null as any);
+      setEditPassword(null);
       sessionStorage.removeItem(`edit-password-${shareCode}`);
       setPendingJoinRole("editor");
       setShowPasswordPrompt(true);
