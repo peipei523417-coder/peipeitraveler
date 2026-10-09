@@ -381,7 +381,7 @@ export default function SharePage() {
       toast.success(t("editUnlocked"));
       // After password verified, join project as editor and go to lobby/project
       setPendingJoinRole("editor");
-      await handleWebJoin("editor");
+      await handleWebJoin("editor", passwordInput);
     } else {
       toast.error(t("passwordIncorrect"));
     }
@@ -414,7 +414,7 @@ export default function SharePage() {
   // Remember which role the user picked so post-login auto-join uses it.
   const [pendingJoinRole, setPendingJoinRole] = useState<"editor" | "viewer">("editor");
 
-  const handleWebJoin = async (role: "editor" | "viewer" = "editor") => {
+  const handleWebJoin = async (role: "editor" | "viewer" = "editor", pwd?: string) => {
     if (!project) return;
 
     if (!user) {
@@ -425,7 +425,7 @@ export default function SharePage() {
 
     setJoining(true);
     try {
-      const result = await joinProject(project.id, role, role === "editor" ? editPassword : undefined);
+      const result = await joinProject(project.id, role, role === "editor" ? (pwd ?? editPassword ?? undefined) : undefined);
 
       if (result.alreadyOwner) {
         toast.info(t("alreadyOwner"));
