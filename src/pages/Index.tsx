@@ -1,3 +1,4 @@
+import { RecommendAppCard } from "@/components/RecommendAppCard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -570,6 +571,7 @@ export default function Index() {
 
       {/* Main Content - Scrollable */}
       <main className="container max-w-6xl px-6 py-12">
+        <RecommendAppCard />
         {projects.length === 0 && cachedJoined.length === 0 && !loading ? (
           <EmptyState
             title={t("noProjects")}
