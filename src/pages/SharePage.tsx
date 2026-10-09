@@ -192,6 +192,10 @@ export default function SharePage() {
       /* stay on web */
     }
   };
+  const isNativeShell = useMemo(
+    () => !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(),
+    [],
+  );
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { user, loading: authLoading } = useAuth();
@@ -397,8 +401,13 @@ export default function SharePage() {
       setPasswordInput("");
       toast.success(t("editUnlocked"));
       // After password verified, join project as editor and go to lobby/project
-      setPendingJoinRole("editor");
-      await handleWebJoin("editor", passwordInput);
+      if (user || isNativeShell) {
+        setPendingJoinRole("editor");
+        await handleWebJoin("editor", passwordInput);
+      } else {
+        // Web guest: edit right now via the password-checked server proxy. No account needed.
+        setShowItinerary(true);
+      }
     } else {
       toast.error(t("passwordIncorrect"));
     }
@@ -421,6 +430,13 @@ export default function SharePage() {
     // surface before the user types the edit password. Password is asked once,
     // after login returns to this share page.
     if (!user) {
+      if (!isNativeShell) {
+        // Web guest: no sign-in required. Viewer → read-only itinerary;
+        // editor → edit password (verified by the server on every write).
+        if (role === "editor" && !canEdit) setShowPasswordPrompt(true);
+        else setShowItinerary(true);
+        return;
+      }
       await handleWebJoin(role);
       return;
     }
@@ -884,10 +900,10 @@ export default function SharePage() {
                 </Button>
               )}
               {/* Join button in header */}
-              {!canEdit && user && (
+              {(user ? !canEdit : !isNativeShell) && (
                 <Button
                   size="sm"
-                  onClick={() => handleJoinProject("editor")}
+                  onClick={() => (user ? handleJoinProject("editor") : handleWebJoin(canEdit ? "editor" : "viewer"))}
                   disabled={joining}
                   className="gap-1.5"
                 >
