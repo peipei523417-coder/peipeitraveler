@@ -416,12 +416,49 @@ async function openWebFallback(normalizedUrl: string): Promise<boolean> {
  * Open a map URL (Google / Naver / Amap). Google uses app-first;
  * Naver and Amap go straight to the in-app browser (no app scheme).
  */
+/**
+ * Synchronous, conservative Desktop Web detection (Windows / Mac only).
+ * Anything uncertain (phones, iPad incl. Desktop Mode, Android tablets incl.
+ * Desktop Mode, native app) returns false → existing behaviour is kept.
+ * Touch capability alone never turns a Windows device into "mobile".
+ */
+function isDesktopWebSync(): boolean {
+  try {
+    const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+    if (cap?.isNativePlatform?.()) return false;
+    const ua = navigator.userAgent || "";
+    if (/Android|iPhone|iPad|iPod|Mobile|Tablet|Silk|Kindle/i.test(ua)) return false;
+    if (/Windows NT/i.test(ua)) return true;
+    // iPadOS Desktop Mode reports "Macintosh" but has multi-touch.
+    if (/Macintosh|Mac OS X/i.test(ua)) return (navigator.maxTouchPoints || 0) <= 1;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export async function openMapUrl(url: string): Promise<boolean> {
   const normalizedUrl = normalizeMapUrl(url);
   if (!normalizedUrl) {
     console.warn("[MAP_OPEN_INVALID]", { url });
     return false;
   }
+
+  // Desktop Web: open synchronously (before any await) to keep user
+  // activation. Never navigate the PeiTravel tab away.
+  if (isDesktopWebSync()) {
+    console.log("[MAP_OPEN_STRATEGY]", { platform: "desktop-web", normalizedUrl });
+    try {
+      const w = window.open(normalizedUrl, "_blank", "noopener,noreferrer");
+      if (w) return true;
+    } catch (e) {
+      console.warn("[MAP_OPEN_WINDOW_OPEN_FAIL]", e);
+    }
+    // With "noopener" some browsers return null even on success; fall back
+    // to an anchor click (still a new tab, never window.location).
+    return openInNewTabViaAnchor(normalizedUrl);
+  }
+
 
   const parsed = new URL(normalizedUrl);
   const provider = detectProvider(parsed.host.toLowerCase(), parsed.pathname);
