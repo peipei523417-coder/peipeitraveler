@@ -44,7 +44,8 @@ export async function leaveSharedProject(projectId: string): Promise<{ success: 
 
 export async function joinProject(
   projectId: string,
-  role: "editor" | "viewer" = "editor"
+  role: "editor" | "viewer" = "editor",
+  password?: string
 ): Promise<{
   success: boolean;
   alreadyJoined?: boolean;
@@ -72,6 +73,7 @@ export async function joinProject(
           action: "join-project",
           projectId,
           role,
+          ...(password ? { password } : {}),
         }),
       }
     );

@@ -381,7 +381,7 @@ export default function SharePage() {
       toast.success(t("editUnlocked"));
       // After password verified, join project as editor and go to lobby/project
       setPendingJoinRole("editor");
-      await handleWebJoin("editor");
+      await handleWebJoin("editor", passwordInput);
     } else {
       toast.error(t("passwordIncorrect"));
     }
@@ -395,8 +395,10 @@ export default function SharePage() {
     return isMobile && !isNativeApp;
   })();
 
-  const handleJoinProject = async (role: "editor" | "viewer" = "editor") => {
+  const handleJoinProject = async (requested: "editor" | "viewer" = "editor") => {
     if (!project) return;
+    // No edit password set → viewer only
+    const role: "editor" | "viewer" = hasEditPassword ? requested : "viewer";
 
     // Editor join requires password verification first (if project has one set)
     if (role === "editor" && hasEditPassword && !canEdit) {
@@ -412,7 +414,7 @@ export default function SharePage() {
   // Remember which role the user picked so post-login auto-join uses it.
   const [pendingJoinRole, setPendingJoinRole] = useState<"editor" | "viewer">("editor");
 
-  const handleWebJoin = async (role: "editor" | "viewer" = "editor") => {
+  const handleWebJoin = async (role: "editor" | "viewer" = "editor", pwd?: string) => {
     if (!project) return;
 
     if (!user) {
@@ -423,7 +425,7 @@ export default function SharePage() {
 
     setJoining(true);
     try {
-      const result = await joinProject(project.id, role);
+      const result = await joinProject(project.id, role, role === "editor" ? (pwd ?? editPassword ?? undefined) : undefined);
 
       if (result.alreadyOwner) {
         toast.info(t("alreadyOwner"));
@@ -712,8 +714,8 @@ export default function SharePage() {
 
               {/* Action Buttons — exactly two options. Both JOIN the project; only role differs. */}
               <div className="flex flex-col gap-3">
-                {/* Join as Editor (requires edit password if set) */}
-                <Button
+                {/* Join as Editor (only when edit password is set) */}
+                {hasEditPassword && <Button
                   onClick={() => handleJoinProject("editor")}
                   className="w-full gap-2"
                   size="lg"
@@ -725,7 +727,7 @@ export default function SharePage() {
                     <Edit2 className="w-4 h-4" />
                   )}
                   {joining ? t("joiningProject") : t("joinAsEditor")}
-                </Button>
+                </Button>}
 
                 {/* Join as Viewer */}
                 <Button

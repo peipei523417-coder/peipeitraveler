@@ -751,7 +751,7 @@ serve(async (req) => {
       // Check project exists and is public
       const { data: project, error: projError } = await supabase
         .from("travel_projects")
-        .select("id, is_public, user_id")
+        .select("id, is_public, user_id, edit_password_hash")
         .eq("id", projectIdResult.value)
         .single();
 
@@ -792,8 +792,20 @@ serve(async (req) => {
         );
       }
 
-      // Determine role (default editor). Only editor/viewer allowed.
-      const role = requestedRole === "viewer" ? "viewer" : "editor";
+      // No edit password → viewer only. With password → editor requires correct password.
+      let role: "editor" | "viewer" = requestedRole === "viewer" ? "viewer" : "editor";
+      if (!project.edit_password_hash) {
+        role = "viewer";
+      } else if (role === "editor") {
+        const ok = typeof password === "string" && password.length > 0 && password.length <= 64
+          && await bcrypt.compare(password, project.edit_password_hash);
+        if (!ok) {
+          return new Response(
+            JSON.stringify({ error: "Invalid password" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
 
       // Add as collaborator
       const { error: insertError } = await supabase
