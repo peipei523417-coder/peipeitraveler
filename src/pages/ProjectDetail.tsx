@@ -935,7 +935,7 @@ function ProjectDetailInner() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border/50 shadow-sm">
+      <header className="sticky top-0 z-50 bg-background border-b border-border/50 shadow-sm before:content-[''] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-[200px] before:bg-background">
         <div className="container max-w-4xl py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
