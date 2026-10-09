@@ -449,13 +449,17 @@ export async function openMapUrl(url: string): Promise<boolean> {
   if (isDesktopWebSync()) {
     console.log("[MAP_OPEN_STRATEGY]", { platform: "desktop-web", normalizedUrl });
     try {
-      const w = window.open(normalizedUrl, "_blank", "noopener,noreferrer");
-      if (w) return true;
+      // No "noopener" feature string: it makes window.open return null even
+      // on success, which would trigger a duplicate tab. Detach opener manually.
+      const w = window.open(normalizedUrl, "_blank");
+      if (w) {
+        try { w.opener = null; } catch { /* ignore */ }
+        return true;
+      }
     } catch (e) {
       console.warn("[MAP_OPEN_WINDOW_OPEN_FAIL]", e);
     }
-    // With "noopener" some browsers return null even on success; fall back
-    // to an anchor click (still a new tab, never window.location).
+    // Popup blocked → anchor click (still a new tab, never window.location).
     return openInNewTabViaAnchor(normalizedUrl);
   }
 
