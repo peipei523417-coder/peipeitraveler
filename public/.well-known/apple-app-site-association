@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "K3D34578Q7.com.peipeigo.travel",
+        "appIDs": ["K3D34578Q7.com.peipeigo.travel"],
+        "paths": ["/share", "/share/", "/share/*"],
+        "components": [
+          { "/": "/share" },
+          { "/": "/share/" },
+          { "/": "/share/*" }
+        ]
+      }
+    ]
+  }
+}

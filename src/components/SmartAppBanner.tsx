@@ -42,44 +42,22 @@ export function SmartAppBanner({ projectId }: SmartAppBannerProps) {
 
   if (!isMobileWeb || dismissed) return null;
 
+  // User-initiated only. No timeout guessing, no automatic store redirect:
+  // if the app is not installed the browser simply stays on this web page.
   const handleOpenInApp = () => {
-    const platform = detectStorePlatform();
-    console.log("[SHARE_APP_OPEN_ATTEMPT]", { platform, shareCode: projectId });
-    console.log("[SHARE_DEEPLINK_ATTEMPT]", { shareCode: projectId, platform });
-
-    // Try custom scheme first — preserves existing share/deep-link flow.
     const deepLink = shareTarget
       ? `com.peitravel.smartplanner://share/${encodeURIComponent(shareTarget)}`
       : `com.peitravel.smartplanner://`;
+    try {
+      window.location.href = deepLink;
+    } catch {
+      // Browser refused the scheme — stay on web.
+    }
+  };
 
-    let leftPage = false;
-    const onBlur = () => { leftPage = true; };
-    window.addEventListener("blur", onBlur, { once: true });
-    window.location.href = deepLink;
-
-    // Fallback to store after delay (only if user is still on this page).
-    setTimeout(() => {
-      window.removeEventListener("blur", onBlur);
-      if (leftPage) return; // App opened — do nothing.
-
-      const storeUrl = getStoreUrlForPlatform(platform);
-      console.log("[SHARE_APP_NOT_INSTALLED]", { platform, shareCode: projectId });
-      console.log("[SHARE_APP_NOT_INSTALLED_FALLBACK]", {
-        platform,
-        targetStoreUrl: storeUrl,
-      });
-      if (storeUrl) {
-        console.log("[SHARE_STORE_REDIRECT]", { platform, targetStoreUrl: storeUrl });
-        window.location.href = storeUrl;
-      } else {
-        // Unknown/desktop — go to download page instead of forcing a store.
-        const target = `${window.location.origin}/#/download${
-          projectId ? `?share=${encodeURIComponent(projectId)}` : ""
-        }`;
-        console.log("[SHARE_STORE_FALLBACK]", { platform, targetStoreUrl: target });
-        window.location.href = target;
-      }
-    }, 1500);
+  const handleDownload = () => {
+    const storeUrl = getStoreUrlForPlatform(detectStorePlatform());
+    if (storeUrl) window.location.href = storeUrl;
   };
 
   return (
@@ -89,13 +67,22 @@ export function SmartAppBanner({ projectId }: SmartAppBannerProps) {
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-foreground">{t("shareAppGateTitle")}</p>
           <p className="text-xs text-muted-foreground">{t("shareAppGateDesc")}</p>
-          <button
-            type="button"
-            onClick={() => setDismissed(true)}
-            className="mt-1 text-xs text-primary underline underline-offset-2"
-          >
-            {t("shareAppGateWeb")}
-          </button>
+          <div className="mt-1 flex gap-3">
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="text-xs text-primary underline underline-offset-2"
+            >
+              {t("shareAppGateDownload")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDismissed(true)}
+              className="text-xs text-muted-foreground underline underline-offset-2"
+            >
+              {t("shareAppGateWeb")}
+            </button>
+          </div>
         </div>
         <Button
           size="sm"
