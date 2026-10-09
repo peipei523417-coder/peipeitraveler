@@ -78,14 +78,16 @@ function PlayIcon() {
 
 export function RecommendAppCard() {
   return (
-    <section className="mb-8 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
-      <h2 className="text-base font-bold text-foreground">推薦 PeiTravel 給朋友</h2>
-      <p className="mt-0.5 text-sm font-normal text-foreground/70 break-words">共編行程、整合導航、各種小療癒圖示 ✨</p>
-      <div className="mt-2.5 grid grid-cols-2 gap-2">
+    <section className="mb-5 rounded-2xl border border-primary/20 bg-primary/5 px-3.5 py-2.5 md:flex md:items-center md:justify-between md:gap-4 md:py-2">
+      <div className="min-w-0">
+        <h2 className="text-[15px] font-bold leading-tight text-foreground">推薦 PeiTravel 給朋友</h2>
+        <p className="mt-0.5 text-[13px] font-normal leading-snug text-foreground/70 break-words">共編行程、整合導航、各種小療癒圖示 ✨</p>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 md:mt-0 md:flex md:shrink-0">
         <button
           type="button"
           onClick={() => sharePromo(IOS_APP_STORE_URL)}
-          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 text-sm font-semibold text-foreground active:bg-muted/40"
+          className="inline-flex min-h-[44px] md:min-h-[38px] items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 md:px-3 text-sm font-semibold text-foreground active:bg-muted/40"
         >
           <AppleIcon />
           分享 iOS 版
@@ -93,7 +95,7 @@ export function RecommendAppCard() {
         <button
           type="button"
           onClick={() => sharePromo(ANDROID_PLAY_STORE_URL)}
-          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 text-sm font-semibold text-foreground active:bg-muted/40"
+          className="inline-flex min-h-[44px] md:min-h-[38px] items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 md:px-3 text-sm font-semibold text-foreground active:bg-muted/40"
         >
           <PlayIcon />
           分享 Android 版
