@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/contexts/AuthContext";
-import { detectInAppBrowser, getInAppBrowserInstructions } from "@/lib/in-app-browser";
+import { detectInAppBrowser } from "@/lib/in-app-browser";
 
 import { toast } from "sonner";
 
@@ -320,17 +320,25 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
           </div>
         ) : inAppBrowserBlocked ? (
           <div className="flex flex-col gap-3 pt-4">
-            <div className="rounded-lg bg-muted/40 p-3 text-sm space-y-1">
-              <p className="font-medium">
-                此瀏覽器無法直接使用 Google 登入，請選擇以 Safari 或 Chrome 開啟後再登入。
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {getInAppBrowserInstructions().zh}
-              </p>
-              <p className="text-xs text-muted-foreground/80">
-                {getInAppBrowserInstructions().en}
-              </p>
+            <div className="rounded-lg bg-muted/40 p-3 text-sm space-y-2">
+              <p className="font-medium">{t("iabTitle")}</p>
+              <p className="text-xs text-muted-foreground">{t("iabSteps")}</p>
             </div>
+            <Button
+              size="lg"
+              className="w-full rounded-xl h-12"
+              onClick={async () => {
+                const url = window.location.href.replace("/#/share/", "/share/");
+                try {
+                  await navigator.clipboard.writeText(url);
+                  toast.success(t("iabCopied"));
+                } catch {
+                  toast.info(url, { duration: 15000 });
+                }
+              }}
+            >
+              {t("iabCopy")}
+            </Button>
             <Button
               variant="ghost"
               size="sm"
