@@ -43,12 +43,18 @@ export function buildTimedPairs(ordered: TimedLike[]): TimedPair[] {
   return out;
 }
 
-export function formatInterval(minutes: number): string {
+/** Compact parts: 10 → ["10分"], 60 → ["1時"], 150 → ["2時", "30分"]. */
+export function intervalParts(minutes: number): string[] {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h && m) return `間隔 ${h} 小時 ${m} 分`;
-  if (h) return `間隔 ${h} 小時`;
-  return `間隔 ${m} 分`;
+  const out: string[] = [];
+  if (h) out.push(`${h}時`);
+  if (m) out.push(`${m}分`);
+  return out;
+}
+
+export function formatInterval(minutes: number): string {
+  return intervalParts(minutes).join("");
 }
 
 const LATLNG = /^-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?$/;

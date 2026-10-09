@@ -570,7 +570,7 @@ export default function Index() {
       </header>
 
       {/* Main Content - Scrollable */}
-      <main className="container max-w-6xl px-6 pt-5 pb-12 md:pt-6">
+      <main className="container max-w-6xl px-6 pt-4 pb-12 md:pt-5">
         <RecommendAppCard />
         {projects.length === 0 && cachedJoined.length === 0 && !loading ? (
           <EmptyState

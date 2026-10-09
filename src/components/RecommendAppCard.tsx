@@ -62,7 +62,7 @@ async function sharePromo(storeUrl: string) {
 
 function AppleIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="currentColor" aria-hidden>
+    <svg viewBox="0 0 24 24" className="w-3 h-3 shrink-0" fill="currentColor" aria-hidden>
       <path d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.87-.76-1.47.02-2.83.86-3.59 2.18-1.53 2.66-.39 6.6 1.1 8.76.73 1.06 1.6 2.24 2.73 2.2 1.1-.05 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.84-1.22 1.18-2.41 1.2-2.47-.03-.01-2.3-.88-2.29-3.52ZM14.2 6.13c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.31-.56.64-1.05 1.68-.92 2.67.97.08 1.96-.49 2.56-1.22Z" />
     </svg>
   );
@@ -70,7 +70,7 @@ function AppleIcon() {
 
 function PlayIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="currentColor" aria-hidden>
+    <svg viewBox="0 0 24 24" className="w-3 h-3 shrink-0" fill="currentColor" aria-hidden>
       <path d="M3.6 2.2a1 1 0 0 0-.6.93v17.74a1 1 0 0 0 .6.93l9.56-9.8L3.6 2.2Zm10.97 8.36 2.7-2.77L5.1 1.05l9.47 9.51Zm0 2.88L5.1 22.95l12.17-6.74-2.7-2.77Zm4.12-4.85-3.04 3.11 3.04 3.12 2.86-1.58a1 1 0 0 0 0-1.75l-2.86-1.9Z" />
     </svg>
   );
@@ -78,16 +78,16 @@ function PlayIcon() {
 
 export function RecommendAppCard() {
   return (
-    <section className="mb-5 rounded-2xl border border-primary/20 bg-primary/5 px-3.5 py-2.5 md:flex md:items-center md:justify-between md:gap-4 md:py-2">
+    <section className="mb-4 rounded-xl border border-primary/15 bg-primary/5 px-3 py-2 md:flex md:items-center md:justify-between md:gap-3 md:py-1.5">
       <div className="min-w-0">
-        <h2 className="text-[15px] font-bold leading-tight text-foreground">推薦 PeiTravel 給朋友</h2>
-        <p className="mt-0.5 text-[13px] font-normal leading-snug text-foreground/70 break-words">共編行程、整合導航、各種小療癒圖示 ✨</p>
+        <h2 className="text-[13px] font-bold leading-tight text-foreground">推薦 PeiTravel 給朋友</h2>
+        <p className="text-[11.5px] font-normal leading-snug text-foreground/70 break-words">共編行程、整合導航、各種小療癒圖示 ✨</p>
       </div>
-      <div className="mt-2 grid grid-cols-2 gap-2 md:mt-0 md:flex md:shrink-0">
+      <div className="mt-1.5 grid grid-cols-2 gap-1.5 md:mt-0 md:flex md:shrink-0">
         <button
           type="button"
           onClick={() => sharePromo(IOS_APP_STORE_URL)}
-          className="inline-flex min-h-[44px] md:min-h-[38px] items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 md:px-3 text-sm font-semibold text-foreground active:bg-muted/40"
+          className="inline-flex min-h-[44px] md:min-h-[32px] items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 md:px-2.5 text-xs font-semibold text-foreground active:bg-muted/40"
         >
           <AppleIcon />
           分享 iOS 版
@@ -95,7 +95,7 @@ export function RecommendAppCard() {
         <button
           type="button"
           onClick={() => sharePromo(ANDROID_PLAY_STORE_URL)}
-          className="inline-flex min-h-[44px] md:min-h-[38px] items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 md:px-3 text-sm font-semibold text-foreground active:bg-muted/40"
+          className="inline-flex min-h-[44px] md:min-h-[32px] items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 md:px-2.5 text-xs font-semibold text-foreground active:bg-muted/40"
         >
           <PlayIcon />
           分享 Android 版

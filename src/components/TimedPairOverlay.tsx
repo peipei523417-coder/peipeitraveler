@@ -1,8 +1,7 @@
 import { useLayoutEffect, useMemo, useState, type RefObject } from "react";
-import { Route } from "lucide-react";
 import type { ItineraryItem } from "@/types/travel";
-import { buildTimedPairs, buildRouteUrl, formatInterval } from "@/lib/route-pair";
-import { openMapUrl } from "@/lib/maps-url";
+import { buildTimedPairs, buildRouteUrl, intervalParts } from "@/lib/route-pair";
+import { openExternalLink } from "@/lib/external-link";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -20,7 +19,8 @@ interface Geo {
   routeUrl: string | null;
 }
 
-const LABEL_H = 26;
+const LABEL_H = 30;
+const ICON = 48; // timeline icon is w-12 h-12, vertically centred in its column (pt-1 → +2px)
 
 /**
  * Pure overlay inside the existing left icon column. It reads positions of the
@@ -38,12 +38,17 @@ export function TimedPairOverlay({ containerRef, items, hidden }: Props) {
     }
     const measure = () => {
       const base = el.getBoundingClientRect();
+      if (base.height <= 0) return; // transient (hidden/re-parenting): keep last good geometry
       const iconBox = (id: string) => {
-        const node = el.querySelector<HTMLElement>(`[data-row-icon="${CSS.escape(id)}"]`);
-        const icon = (node?.firstElementChild as HTMLElement | null) ?? node;
-        if (!icon) return null;
-        const r = icon.getBoundingClientRect();
-        return { top: r.top - base.top, bottom: r.bottom - base.top };
+        // Measure the stable icon COLUMN (never its children): opening the icon
+        // picker swaps/wraps the child, which used to collapse the measured box
+        // and drop the pair.
+        const col = el.querySelector<HTMLElement>(`[data-row-icon="${CSS.escape(id)}"]`);
+        if (!col) return null;
+        const r = col.getBoundingClientRect();
+        if (r.height <= 0) return null;
+        const mid = r.top - base.top + r.height / 2 + 2;
+        return { top: mid - ICON / 2, bottom: mid + ICON / 2 };
       };
       const ids = items.map((i) => i.id);
       const out: Geo[] = [];
@@ -90,42 +95,48 @@ export function TimedPairOverlay({ containerRef, items, hidden }: Props) {
       window.removeEventListener("resize", measure);
     };
   }, [containerRef, pairs, items]);
+  // NOTE: no early setGeo([]) on transient measure failures; pairs only change with data.
 
   if (hidden || geo.length === 0) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-y-0 left-0 w-12 z-20" aria-hidden={false}>
-      {geo.map((g) => (
-        <div key={g.key}>
-          <div
-            className="absolute left-0.5 w-1.5 border-l border-t border-b border-primary/60"
-            style={{ top: g.top, height: g.height }}
-          />
-          <div
-            className="absolute left-1.5 right-0 flex flex-col items-center text-center leading-[1.15]"
-            style={{ top: g.labelTop }}
-          >
-            <span className="rounded bg-background/90 px-0.5 text-[9px] font-semibold text-primary/80">
-              {formatInterval(g.minutes)}
-            </span>
-            {g.routeUrl && (
-              <button
-                type="button"
-                className="pointer-events-auto mt-0.5 inline-flex items-center gap-0.5 rounded bg-background/90 px-0.5 text-[9px] font-semibold text-primary underline-offset-2 active:underline"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  const ok = await openMapUrl(g.routeUrl!);
-                  if (!ok) toast({ title: "無法開啟地圖，請稍後再試。" });
-                }}
-              >
-                <Route className="w-2.5 h-2.5" />
-                路徑
-              </button>
-            )}
+    <div className="pointer-events-none absolute inset-y-0 left-0 w-12 z-20">
+      {geo.map((g) => {
+        const parts = intervalParts(g.minutes);
+        return (
+          <div key={g.key}>
+            <div
+              className="absolute left-0.5 w-1.5 border-l border-t border-b border-foreground/25"
+              style={{ top: g.top, height: g.height }}
+            />
+            {/* Label lives in the page margin LEFT of the bracket (container padding is 24px). */}
+            <div
+              className="absolute flex flex-col items-end text-right leading-[1.1] text-[9px] font-semibold text-foreground/60"
+              style={{ top: g.labelTop, left: -23, width: 24 }}
+            >
+              {parts.map((p) => (
+                <span key={p} className="whitespace-nowrap">{p}</span>
+              ))}
+              {g.routeUrl && (
+                <button
+                  type="button"
+                  className="pointer-events-auto !min-h-0 !min-w-0 mt-0.5 py-1 -my-1 whitespace-nowrap text-[9px] font-semibold text-foreground/70 underline underline-offset-2 touch-manipulation"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const ok = await openExternalLink(g.routeUrl!);
+                    if (!ok) toast({ title: "無法開啟地圖，請稍後再試。" });
+                  }}
+                >
+                  路徑
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
