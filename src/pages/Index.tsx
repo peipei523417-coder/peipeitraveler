@@ -116,9 +116,14 @@ export default function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isLoaded]);
 
+  // Monotonic request id: a slower, older joined-projects query never
+  // overwrites a newer one. Existing list stays visible while fetching.
+  const joinedReqIdRef = useRef(0);
   const loadJoinedProjectsData = async () => {
+    const reqId = ++joinedReqIdRef.current;
     try {
       const joined = await getJoinedProjects();
+      if (reqId !== joinedReqIdRef.current) return;
       const ownedIds = new Set(cachedProjects.map(p => p.id));
       const filtered = (joined as TravelProject[]).filter(p => !ownedIds.has(p.id));
       setJoinedProjects(filtered);
@@ -127,6 +132,42 @@ export default function Index() {
       // Silently fail
     }
   };
+
+  // Refresh ONLY the shared-projects list when the app/tab returns to the
+  // foreground (e.g. user joined in Safari, then switched back to the App).
+  // visibilitychange + Capacitor resume are de-duplicated by a short throttle.
+  const loadJoinedRef = useRef(loadJoinedProjectsData);
+  loadJoinedRef.current = loadJoinedProjectsData;
+  useEffect(() => {
+    if (!user) return;
+    let last = 0;
+    const refresh = () => {
+      const now = Date.now();
+      if (now - last < 2000) return;
+      last = now;
+      loadJoinedRef.current();
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    let handle: { remove: () => Promise<void> } | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [{ App: CapApp }, { Capacitor }] = await Promise.all([
+          import("@capacitor/app"),
+          import("@capacitor/core"),
+        ]);
+        if (!Capacitor.isNativePlatform()) return;
+        const h = await CapApp.addListener("appStateChange", (s) => { if (s.isActive) refresh(); });
+        if (cancelled) h.remove(); else handle = h;
+      } catch { /* not native */ }
+    })();
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      handle?.remove();
+    };
+  }, [user?.id]);
 
   // Check for expiring projects once when projects load (throttled: 1/day, max 3 total)
   useEffect(() => {

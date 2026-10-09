@@ -400,13 +400,20 @@ export default function SharePage() {
     // No edit password set → viewer only
     const role: "editor" | "viewer" = hasEditPassword ? requested : "viewer";
 
+    // Sign in FIRST (before any password entry) so in-app-browser login limits
+    // surface before the user types the edit password. Password is asked once,
+    // after login returns to this share page.
+    if (!user) {
+      await handleWebJoin(role);
+      return;
+    }
+
     // Editor join requires password verification first (if project has one set)
     if (role === "editor" && hasEditPassword && !canEdit) {
       setShowPasswordPrompt(true);
       return;
     }
 
-    // Inside native app or desktop — do web join directly
     await handleWebJoin(role);
   };
 
@@ -459,6 +466,12 @@ export default function SharePage() {
     if (user && showLoginDialog) {
       setShowLoginDialog(false);
       clearPendingJoin();
+      resumedJoinRef.current = true;
+      if (pendingJoinRole === "editor" && hasEditPassword && !canEdit) {
+        // Logged in on this page; now ask for the edit password once.
+        setShowPasswordPrompt(true);
+        return;
+      }
       // Small delay to let auth settle
       setTimeout(() => handleWebJoin(pendingJoinRole), 500);
     }
