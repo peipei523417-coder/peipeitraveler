@@ -119,10 +119,10 @@ function ItemRow({
   const safeMapUrl = sanitizeMapUrl(item.googleMapsUrl);
   const normalizedMapUrl = normalizeMapUrl(safeMapUrl);
   return (
-    <div className={cn("relative flex gap-4", isDragging && "opacity-60")} data-pdf-card>
+    <div className={cn("relative flex gap-3", isDragging && "opacity-60")} data-pdf-card>
       {/* Timeline icon (NOT a drag handle — pointer-events stay on the picker) */}
       <div
-        className="relative z-10 w-12 flex-shrink-0 flex flex-col items-center justify-center pt-2"
+        className="relative z-10 w-12 flex-shrink-0 flex flex-col items-center justify-center pt-1"
         style={{ pointerEvents: "auto" }}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -148,22 +148,22 @@ function ItemRow({
         {...(dragAttrs || {})}
         {...(dragListeners || {})}
       >
-        <CardContent className="p-4">
+        <CardContent className="px-3 py-2.5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               {hasTime && (
-                <div className="flex items-center gap-1.5 text-sm text-primary font-bold mb-2">
+                <div className="flex items-center gap-1.5 text-sm text-primary font-bold mb-1">
                   <Clock className="w-4 h-4" />
                   {item.startTime} - {item.endTime}
                 </div>
               )}
 
-              <p className="text-foreground font-bold mb-3 whitespace-pre-line">
+              <p className="text-foreground font-bold mb-1.5 leading-snug whitespace-pre-line">
                 {item.description}
               </p>
 
               {(() => { const a = itemAmounts(item, currency ?? null); return (a.twd > 0 || (a.local ?? 0) > 0) && (
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-3">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-1.5">
                   <DollarSign className="w-3.5 h-3.5" />
                   {currency ? (
                     <span>
@@ -269,7 +269,7 @@ function ItemRow({
 
             {!readOnly && (
               <div
-                className="flex flex-col gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                className="flex flex-col gap-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 <Button
@@ -460,11 +460,11 @@ export function ItineraryList({
   const allIds = orderedAll.map(i => i.id);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="relative" style={{ isolation: 'isolate' }}>
         <div className="absolute left-[23px] top-8 bottom-8 w-0.5 bg-primary/30" />
 
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
