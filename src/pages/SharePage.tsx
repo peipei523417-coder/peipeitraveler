@@ -262,10 +262,10 @@ export default function SharePage() {
     }
   }, [user, authLoading, navigate, wasUserRef]);
 
-  const loadProject = async () => {
+  const loadProject = async (silent = false) => {
     if (!shareCode) return;
 
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
 
     // Sanitize the shareCode — strip whitespace, trailing slashes, and any
@@ -623,6 +623,45 @@ export default function SharePage() {
     }
   };
 
+  // Guest same-day drag (password editors only). Optimistic, serialized, and
+  // reverted on any server failure; the server re-checks password + scope.
+  const [reorderSaving, setReorderSaving] = useState(false);
+  const handleReorderItem = async (dayNumber: number, movedId: string, orderedIds: string[]) => {
+    if (!project || !editPassword || !canEdit || reorderSaving) return;
+    const previous = project;
+    const rank = new Map(orderedIds.map((id, i) => [id, (i + 1) * 100]));
+    const hd = project.hybridDays || [];
+    setProject({
+      ...project,
+      hybridDays: hd.includes(dayNumber) ? hd : [...hd, dayNumber],
+      itinerary: project.itinerary.map((d) =>
+        d.dayNumber !== dayNumber
+          ? d
+          : { ...d, items: sortDayItems(d.items.map((i) => ({ ...i, sortOrder: rank.get(i.id) ?? i.sortOrder })), true) },
+      ),
+    });
+    setReorderSaving(true);
+    let ok = false;
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-edit-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        body: JSON.stringify({ action: "reorder-day", projectId: project.id, password: editPassword, dayNumber, itemId: movedId, orderedIds }),
+      });
+      const result = await response.json().catch(() => ({}));
+      ok = response.ok && !!result?.success;
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      setProject(previous);
+      toast.error(t("saveFailed"));
+    }
+    // Re-read the server truth either way (no skeleton) so ranks match exactly.
+    await loadProject(true);
+    setReorderSaving(false);
+  };
+
   // Show skeleton while loading
   if (loading) {
     return <PageSkeleton variant="share" />;
@@ -964,6 +1003,7 @@ export default function SharePage() {
             onDeleteItem={canEdit ? handleDeleteItem : () => {}}
             onUpdateItemIcon={canEdit ? handleUpdateItemIcon : undefined}
             readOnly={!canEdit}
+            onReorderItem={canEdit && editPassword && !reorderSaving ? handleReorderItem : undefined}
             hybrid={isHybridDay(project.hybridDays, currentDay.dayNumber)}
           />
         )}
