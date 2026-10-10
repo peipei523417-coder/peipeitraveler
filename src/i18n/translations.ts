@@ -131,7 +131,7 @@ export const translations = {
       appGateHint: "完整編輯行程・拖曳排序・導航功能",
       promoCopyFailed: "無法複製，請稍後再試",
       promoCopied: "已複製分享內容，可貼到 LINE 或其他 App",
-      promoText: "✈️ PeiTravel 免費規劃旅行\n🗺️📍 整合地圖導航\n✨ 不用再傳截圖，一起編輯行程，分享超方便！",
+      promoText: "✈️ PeiTravel 免費規劃旅行\n📍 整合地圖導航\n👍 不用再傳截圖，一起編輯行程",
       shareAndroidVersion: "分享 Android 版",
       shareIosVersion: "分享 iOS 版",
       recommendSubtitle: "共編行程、整合導航、各種小療癒圖示 ✨",
