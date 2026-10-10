@@ -346,7 +346,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setInAppBrowserBlocked(null)}
+              onClick={() => { setInAppBrowserBlocked(null); onOpenChange(false); }}
             >
               {t("iabLater", { defaultValue: t("cancel") })}
             </Button>
