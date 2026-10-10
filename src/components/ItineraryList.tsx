@@ -151,7 +151,7 @@ function ItemRow({
         {...(dragListeners || {})}
       >
         <CardContent className="px-3 py-2.5">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-1 md:gap-3">
             <div className="flex-1 min-w-0">
               {hasTime && (
                 <div className="flex items-center gap-1.5 text-sm text-primary font-bold mb-1">
@@ -271,7 +271,7 @@ function ItemRow({
 
             {!readOnly && (
               <div
-                className="flex flex-col gap-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                className="-mr-2 md:mr-0 flex shrink-0 flex-col gap-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 <Button
