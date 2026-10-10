@@ -823,7 +823,7 @@ export default function SharePage() {
               </div>
 
 
-              {showOpenInApp && shareCode && !webChosen ? (
+              {showOpenInApp && shareCode ? (
                 /* Level 1 (mobile web only): App first, web kept as a full option. User click only. */
                 <div className="flex flex-col gap-3">
                   <Button onClick={handleOpenInApp} className="w-full gap-2" size="lg">
