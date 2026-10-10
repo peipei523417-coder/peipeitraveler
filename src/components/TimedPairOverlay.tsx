@@ -1,7 +1,8 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import type { ItineraryItem } from "@/types/travel";
-import { buildTimedPairs, buildRouteUrl, intervalParts } from "@/lib/route-pair";
+import { useTranslation } from "react-i18next";
+import { buildTimedPairs, buildRouteUrl, intervalParts, separateBrackets } from "@/lib/route-pair";
 import { openExternalLink } from "@/lib/external-link";
 import { toast } from "@/hooks/use-toast";
 
@@ -20,7 +21,7 @@ interface Geo {
 
 /** Bracket sits in the page margin just right of the cards (container padding is 24px). */
 const ARM = 9; // horizontal arm length from card edge to the vertical line
-const LABEL_W = 22;
+const LABEL_W = 22; // nominal; labels are nowrap and centred, so longer locales grow evenly
 const LABEL_GAP = 30; // vertical space kept free in the line for the label group
 
 /**
@@ -30,6 +31,11 @@ const LABEL_GAP = 30; // vertical space kept free in the line for the label grou
  * unlike a ref on the parent element, which is attached after child effects.
  */
 export function TimedPairOverlay({ items, hidden }: Props) {
+  const { t } = useTranslation();
+  const units = useMemo(
+    () => ({ hour: (n: number) => t("intervalHour", { n }), min: (n: number) => t("intervalMin", { n }) }),
+    [t],
+  );
   const rootRef = useRef<HTMLDivElement>(null);
   const pairs = useMemo(() => buildTimedPairs(items), [items]);
   const [geo, setGeo] = useState<Geo[]>([]);
@@ -66,7 +72,7 @@ export function TimedPairOverlay({ items, hidden }: Props) {
           routeUrl: buildRouteUrl(A?.googleMapsUrl, B?.googleMapsUrl),
         });
       }
-      setGeo(out);
+      setGeo(separateBrackets(out));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -84,7 +90,7 @@ export function TimedPairOverlay({ items, hidden }: Props) {
     <div ref={rootRef} className="pointer-events-none absolute inset-y-0 left-full w-0 z-20">
       {!hidden &&
         geo.map((g) => {
-          const parts = intervalParts(g.minutes);
+          const parts = intervalParts(g.minutes, units);
           const mid = g.height / 2;
           const gap = Math.min(LABEL_GAP, Math.max(0, g.height - 8));
           const seg = Math.max(0, mid - gap / 2);
@@ -111,7 +117,7 @@ export function TimedPairOverlay({ items, hidden }: Props) {
                 {g.routeUrl && (
                   <button
                     type="button"
-                    aria-label="開啟 A 到 B 路徑"
+                    aria-label={t("routeAria")}
                     className="pointer-events-auto relative !min-h-0 !min-w-0 inline-flex items-center whitespace-nowrap text-[9px] font-semibold text-foreground/70 underline underline-offset-2 touch-manipulation before:absolute before:-inset-x-1 before:-inset-y-2 before:content-['']"
                     onPointerDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
@@ -119,10 +125,10 @@ export function TimedPairOverlay({ items, hidden }: Props) {
                       e.preventDefault();
                       e.stopPropagation();
                       const ok = await openExternalLink(g.routeUrl!);
-                      if (!ok) toast({ title: "無法開啟地圖，請稍後再試。" });
+                      if (!ok) toast({ title: t("mapOpenFailed") });
                     }}
                   >
-                    路徑
+                    {t("routeLabel")}
                     <ArrowUpRight className="h-2 w-2" />
                   </button>
                 )}

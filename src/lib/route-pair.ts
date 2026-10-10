@@ -43,14 +43,42 @@ export function buildTimedPairs(ordered: TimedLike[]): TimedPair[] {
   return out;
 }
 
-/** Compact parts: 10 → ["10分"], 60 → ["1時"], 150 → ["2時", "30分"]. */
-export function intervalParts(minutes: number): string[] {
+export interface IntervalUnits {
+  hour: (n: number) => string;
+  min: (n: number) => string;
+}
+const ZH_UNITS: IntervalUnits = { hour: (n) => `${n}時`, min: (n) => `${n}分` };
+
+/** Compact parts: 10 → ["10分"], 60 → ["1時"], 150 → ["2時", "30分"]. Units are localizable. */
+export function intervalParts(minutes: number, units: IntervalUnits = ZH_UNITS): string[] {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   const out: string[] = [];
-  if (h) out.push(`${h}時`);
-  if (m) out.push(`${m}分`);
+  if (h) out.push(units.hour(h));
+  if (m) out.push(units.min(m));
   return out;
+}
+
+/** Gap kept between two brackets that meet at the same timed row (px, split across both). */
+export const BRACKET_JUNCTION_GAP = 7;
+
+/**
+ * Trim bracket ends that touch a neighbour sharing the same row, so A→B and B→D
+ * never look like one continuous line. Input/Output: [{top, height}] in display order.
+ */
+export function separateBrackets<T extends { top: number; height: number }>(
+  geo: T[],
+  gap: number = BRACKET_JUNCTION_GAP,
+): T[] {
+  const half = gap / 2;
+  return geo.map((g, i) => {
+    const prev = geo[i - 1];
+    const next = geo[i + 1];
+    const end = g.top + g.height;
+    const trimTop = prev && Math.abs(prev.top + prev.height - g.top) < 1 ? half : 0;
+    const trimBottom = next && Math.abs(next.top - end) < 1 ? half : 0;
+    return { ...g, top: g.top + trimTop, height: Math.max(0, g.height - trimTop - trimBottom) };
+  });
 }
 
 export function formatInterval(minutes: number): string {

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import bcrypt from "https://esm.sh/bcryptjs@2.4.3";
+import { planReorder, type DayRow } from "./reorder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -281,7 +282,7 @@ serve(async (req) => {
   }
 
   try {
-    const { projectId, password, action, shareCode, itemData, itemId, dayNumber, imageBase64, imageFileName, iconType, role: requestedRole } = await req.json();
+    const { projectId, password, action, shareCode, itemData, itemId, dayNumber, imageBase64, imageFileName, iconType, role: requestedRole, orderedIds } = await req.json();
 
     // Service role client for database operations
     const supabase = createClient(
@@ -714,6 +715,85 @@ serve(async (req) => {
         JSON.stringify({ success: true }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // ========== GUEST SAME-DAY REORDER (password editors) ==========
+    if (action === "reorder-day") {
+      const json = (body: unknown, status: number) =>
+        new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const projectIdResult = validateUuid(projectId, "Project ID");
+      if (!projectIdResult.valid) return json({ error: projectIdResult.error }, 400);
+      const itemIdResult = validateUuid(itemId, "Item ID");
+      if (!itemIdResult.valid) return json({ error: itemIdResult.error }, 400);
+      if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 400) return json({ error: "Invalid day number" }, 400);
+      if (!Array.isArray(orderedIds) || orderedIds.length < 1 || orderedIds.length > 500) {
+        return json({ error: "Invalid order" }, 400);
+      }
+      for (const id of orderedIds) {
+        if (!validateUuid(id, "Item ID").valid) return json({ error: "Invalid order" }, 400);
+      }
+      if (!password || typeof password !== "string") return json({ error: "Password is required" }, 400);
+
+      const { valid, isPublic } = await verifyProjectPassword(projectIdResult.value!, password);
+      if (!isPublic) return json({ error: "Project not found or not public" }, 404);
+      if (!valid) return json({ error: "Invalid password" }, 401);
+
+      const pid = projectIdResult.value!;
+      const { data: proj, error: projErr } = await supabase
+        .from("travel_projects").select("hybrid_days").eq("id", pid).single();
+      if (projErr || !proj) return json({ error: "Project not found" }, 404);
+      const hybridDays: number[] = Array.isArray(proj.hybrid_days) ? proj.hybrid_days : [];
+
+      const { data: rows, error: rowsErr } = await supabase
+        .from("itinerary_items").select("id, sort_order, start_time")
+        .eq("project_id", pid).eq("day_number", dayNumber);
+      if (rowsErr || !rows) return json({ error: "Failed to load day" }, 500);
+
+      const plan = planReorder(rows as DayRow[], orderedIds as string[], itemIdResult.value!, hybridDays.includes(dayNumber));
+      if (!plan.ok) return json({ error: plan.error }, plan.status);
+
+      if (plan.kind === "single") {
+        const { data: upd, error } = await supabase
+          .from("itinerary_items").update({ sort_order: plan.sortOrder })
+          .eq("id", plan.itemId).eq("project_id", pid).eq("day_number", dayNumber)
+          .select("id");
+        if (error || !upd?.length) return json({ error: "Failed to save order" }, 500);
+        return json({ success: true }, 200);
+      }
+
+      // Re-space: only sort_order is written; every row is scoped to (project, day).
+      // No multi-statement transaction is available here without a schema change,
+      // so on any failure all already-written rows are restored to their previous rank.
+      const previous = new Map((rows as DayRow[]).map((r) => [r.id, r.sort_order ?? 0]));
+      const written: string[] = [];
+      const rollback = async () => {
+        for (const id of written) {
+          await supabase.from("itinerary_items").update({ sort_order: previous.get(id)! })
+            .eq("id", id).eq("project_id", pid).eq("day_number", dayNumber);
+        }
+      };
+      for (const r of plan.ranks) {
+        if (previous.get(r.id) === r.sortOrder) continue;
+        const { data: upd, error } = await supabase
+          .from("itinerary_items").update({ sort_order: r.sortOrder })
+          .eq("id", r.id).eq("project_id", pid).eq("day_number", dayNumber)
+          .select("id");
+        if (error || !upd?.length) {
+          await rollback();
+          return json({ error: "Failed to save order" }, 500);
+        }
+        written.push(r.id);
+      }
+      if (plan.markHybrid) {
+        const { error } = await supabase
+          .from("travel_projects").update({ hybrid_days: [...hybridDays, dayNumber] })
+          .eq("id", pid);
+        if (error) {
+          await rollback();
+          return json({ error: "Failed to save order" }, 500);
+        }
+      }
+      return json({ success: true }, 200);
     }
 
     // ========== JOIN PROJECT ==========

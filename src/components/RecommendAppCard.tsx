@@ -1,11 +1,15 @@
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { IOS_APP_STORE_URL, ANDROID_PLAY_STORE_URL } from "@/config/storeLinks";
 
-const PROMO_TEXT =
-  "✈️ 下載 PeiTravel 免費規劃旅行！\n❤️ 一起編輯行程、整合導航\n旅行不用再傳一堆截圖，行程分享超方便！✨";
+/** Final approved zh-TW copy; other languages come from i18n `promoText`. */
+export const PROMO_TEXT_ZH =
+  "✈️ PeiTravel 免費規劃旅行\n🗺️📍 整合地圖導航\n✨ 不用再傳截圖，一起編輯行程，分享超方便！";
 
-export function buildPromoMessage(storeUrl: string): string {
-  return `${PROMO_TEXT}\n${storeUrl}`;
+/** Promo lines, one blank line, then the store URL on its own line. */
+export function buildPromoMessage(storeUrl: string, promoText: string = PROMO_TEXT_ZH): string {
+  return `${promoText}\n\n${storeUrl}`;
 }
 
 function isCancel(e: unknown): boolean {
@@ -35,13 +39,14 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 async function sharePromo(storeUrl: string) {
-  const text = buildPromoMessage(storeUrl);
+  const t = i18n.t.bind(i18n);
+  const text = buildPromoMessage(storeUrl, t("promoText"));
   const isNative = !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
   // URL is already inside `text`; passing it separately makes some apps (LINE) show it twice.
   if (isNative) {
     try {
       const { Share } = await import("@capacitor/share");
-      await Share.share({ text, dialogTitle: "推薦 PeiTravel 給朋友" });
+      await Share.share({ text, dialogTitle: t("recommendTitle") });
       return;
     } catch (e) {
       if (isCancel(e)) return;
@@ -56,8 +61,8 @@ async function sharePromo(storeUrl: string) {
       if (isCancel(e)) return;
     }
   }
-  if (await copyText(text)) toast.success("已複製分享內容，可貼到 LINE 或其他 App");
-  else toast.error("無法複製，請稍後再試");
+  if (await copyText(text)) toast.success(t("promoCopied"));
+  else toast.error(t("promoCopyFailed"));
 }
 
 function AppleIcon() {
@@ -77,11 +82,12 @@ function PlayIcon() {
 }
 
 export function RecommendAppCard() {
+  const { t } = useTranslation();
   return (
     <section className="mb-4 rounded-xl border border-primary/15 bg-primary/5 px-3 py-2 md:flex md:items-center md:justify-between md:gap-3 md:py-1.5">
       <div className="min-w-0">
-        <h2 className="text-[13px] font-bold leading-tight text-foreground">推薦 PeiTravel 給朋友</h2>
-        <p className="text-[11.5px] font-normal leading-snug text-foreground/70 break-words">共編行程、整合導航、各種小療癒圖示 ✨</p>
+        <h2 className="text-[13px] font-bold leading-tight text-foreground">{t("recommendTitle")}</h2>
+        <p className="text-[11.5px] font-normal leading-snug text-foreground/70 break-words">{t("recommendSubtitle")}</p>
       </div>
       <div className="mt-1.5 grid grid-cols-2 gap-1.5 md:mt-0 md:flex md:shrink-0">
         <button
@@ -90,7 +96,7 @@ export function RecommendAppCard() {
           className="inline-flex min-h-[44px] md:min-h-[32px] items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 md:px-2.5 text-xs font-semibold text-foreground active:bg-muted/40"
         >
           <AppleIcon />
-          分享 iOS 版
+          {t("shareIosVersion")}
         </button>
         <button
           type="button"
@@ -98,7 +104,7 @@ export function RecommendAppCard() {
           className="inline-flex min-h-[44px] md:min-h-[32px] items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 md:px-2.5 text-xs font-semibold text-foreground active:bg-muted/40"
         >
           <PlayIcon />
-          分享 Android 版
+          {t("shareAndroidVersion")}
         </button>
       </div>
     </section>

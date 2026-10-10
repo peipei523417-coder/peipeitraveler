@@ -6,3 +6,4 @@
 - Legacy → Hybrid initialization and rank re-spacing go through the single RPC `apply_hybrid_day_order` — ranks and marker must change in one transaction.
 - When `itinerary_items.original_amount` is set it is the source of truth; `price` (TWD integer) is derived from it by the DB trigger `itinerary_sync_price_from_original` — protects foreign amounts from older app versions that only write `price`.
 - All money totals go through `src/lib/currency.ts` (`sumPerPerson` / `itemAmounts`), summing exact values and rounding once — keeps list, share page, cards and PDF identical.
+- Password-guest drag on SharePage goes only through the `reorder-day` action of `verify-edit-password` (plan logic in its `reorder.ts`, mirroring itinerary-order); the RPC `apply_hybrid_day_order` is unusable there because `can_modify_project` needs auth.uid().
