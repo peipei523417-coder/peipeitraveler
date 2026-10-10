@@ -825,26 +825,27 @@ export default function SharePage() {
 
               {showOpenInApp && shareCode ? (
                 /* Level 1 (mobile web only): App first, web kept as a full option. User click only. */
-                <div className="flex flex-col gap-3">
-                  <Button onClick={handleOpenInApp} className="w-full gap-2" size="lg">
-                    <Smartphone className="w-4 h-4" />
-                    {t("shareAppGateTitle")}
-                  </Button>
-                  <p className="-mt-1 text-center text-xs text-muted-foreground">{t("appGateHint")}</p>
-                  <Button onClick={() => { setWebChosen(true); setShowItinerary(true); }} variant="outline" className="w-full" size="lg">
-                    {t("shareAppGateWeb")}
-                  </Button>
-                  <p className="text-center text-xs text-muted-foreground">
-                    {t("appGateFallback")}
-                    {storeUrl && (
-                      <>
-                        {" "}
-                        <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
-                          {t("appGateInstall")}
-                        </a>
-                      </>
-                    )}
-                  </p>
+                <div className="flex flex-col">
+                  <div className="flex flex-col gap-2">
+                    <Button onClick={handleOpenInApp} className="w-full gap-2" size="lg">
+                      <Smartphone className="w-4 h-4" />
+                      {t("shareAppGateTitle")}
+                    </Button>
+                    <p className="text-center text-xs text-muted-foreground">{t("appGateHint")}</p>
+                  </div>
+                  <div className="mt-5 flex flex-col gap-2 border-t border-border/60 pt-5">
+                    <Button onClick={() => { setWebChosen(true); setShowItinerary(true); }} variant="outline" className="w-full" size="lg">
+                      {t("shareAppGateWeb")}
+                    </Button>
+                    <p className="text-center text-xs text-muted-foreground">{t("appGateFallback")}</p>
+                  </div>
+                  {storeUrl && (
+                    <p className="mt-3 text-center text-xs">
+                      <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
+                        {t("appGateInstall")}
+                      </a>
+                    </p>
+                  )}
                 </div>
               ) : (
                 <>
