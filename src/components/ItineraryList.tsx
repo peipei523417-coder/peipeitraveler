@@ -468,7 +468,7 @@ export function ItineraryList({
   return (
     <div className="space-y-3">
       <div ref={listRef} className="relative" style={{ isolation: 'isolate' }}>
-        <TimedPairOverlay containerRef={listRef} items={orderedAll} hidden={dragging} />
+        <TimedPairOverlay items={orderedAll} hidden={dragging} />
         <div className="absolute left-[23px] top-8 bottom-8 w-0.5 bg-primary/30" />
 
         <div className="space-y-2.5">
