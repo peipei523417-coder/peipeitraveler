@@ -322,7 +322,11 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
           <div className="flex flex-col gap-3 pt-4">
             <div className="rounded-lg bg-muted/40 p-3 text-sm space-y-2">
               <p className="font-medium">{t("iabTitle")}</p>
-              <p className="text-xs text-muted-foreground">{t("iabSteps")}</p>
+              <p className="text-xs text-muted-foreground">
+                {/iPhone|iPad|iPod/i.test(navigator.userAgent)
+                  ? t("iabStepsIos", { defaultValue: t("iabSteps") })
+                  : t("iabSteps")}
+              </p>
             </div>
             <Button
               size="lg"
@@ -344,7 +348,7 @@ export function LoginDialog({ open, onOpenChange }: LoginDialogProps) {
               size="sm"
               onClick={() => setInAppBrowserBlocked(null)}
             >
-              {t("cancel")}
+              {t("iabLater", { defaultValue: t("cancel") })}
             </Button>
           </div>
         ) : (
