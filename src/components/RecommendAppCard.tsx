@@ -5,7 +5,7 @@ import { IOS_APP_STORE_URL, ANDROID_PLAY_STORE_URL } from "@/config/storeLinks";
 
 /** Final approved zh-TW copy; other languages come from i18n `promoText`. */
 export const PROMO_TEXT_ZH =
-  "✈️ PeiTravel 免費規劃旅行\n🗺️📍 整合地圖導航\n✨ 不用再傳截圖，一起編輯行程，分享超方便！";
+  "✈️ PeiTravel 免費規劃旅行\n📍 整合地圖導航\n👍 不用再傳截圖，一起編輯行程";
 
 /** Promo lines, one blank line, then the store URL on its own line. */
 export function buildPromoMessage(storeUrl: string, promoText: string = PROMO_TEXT_ZH): string {

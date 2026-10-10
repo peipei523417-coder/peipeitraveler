@@ -12,8 +12,8 @@ describe("recommend app share", () => {
     const lines = buildPromoMessage(ANDROID_PLAY_STORE_URL).split("\n");
     expect(lines).toEqual([
       "✈️ PeiTravel 免費規劃旅行",
-      "🗺️📍 整合地圖導航",
-      "✨ 不用再傳截圖，一起編輯行程，分享超方便！",
+      "📍 整合地圖導航",
+      "👍 不用再傳截圖，一起編輯行程",
       "",
       ANDROID_PLAY_STORE_URL,
     ]);

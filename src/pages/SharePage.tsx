@@ -182,6 +182,8 @@ export default function SharePage() {
     const native = !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
     return (p === "ios" || p === "android") && !native;
   }, []);
+  // Mobile web share visitors are always read-only (edit in the App; desktop/native keep password editing).
+  const mobileWebReadOnly = showOpenInApp;
   const [webChosen, setWebChosen] = useState(false);
   const storeUrl = useMemo(() => getStoreUrlForPlatform(detectStorePlatform()), []);
   // User click only. No timer, no store redirect: if nothing handles the scheme the page stays as is.
@@ -502,7 +504,7 @@ export default function SharePage() {
       setShowLoginDialog(false);
       clearPendingJoin();
       resumedJoinRef.current = true;
-      if (pendingJoinRole === "editor" && hasEditPassword && !canEdit) {
+      if (!mobileWebReadOnly && pendingJoinRole === "editor" && hasEditPassword && !canEdit) {
         // Logged in on this page; now ask for the edit password once.
         setShowPasswordPrompt(true);
         return;
@@ -534,7 +536,7 @@ export default function SharePage() {
   }, [user, project, shareCode, hasEditPassword]);
 
   const handleAddItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
-    if (!project || !editPassword) return;
+    if (mobileWebReadOnly || !project || !editPassword) return;
     
     let imageUrl = item.imageUrl;
     if (imageFile) {
@@ -556,7 +558,7 @@ export default function SharePage() {
   };
 
   const handleEditItem = async (item: Omit<ItineraryItem, "id">, imageFile?: File) => {
-    if (!project || !editingItem || !editPassword) return;
+    if (mobileWebReadOnly || !project || !editingItem || !editPassword) return;
     
     let imageUrl = item.imageUrl;
     if (imageFile) {
@@ -579,7 +581,7 @@ export default function SharePage() {
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!project || !editPassword) return;
+    if (mobileWebReadOnly || !project || !editPassword) return;
     
     const result = await edgeFunctionCrud("delete-item", project.id, editPassword, {
       itemId,
@@ -594,7 +596,7 @@ export default function SharePage() {
   };
 
   const handleUpdateItemIcon = async (itemId: string, iconType: string) => {
-    if (!project || !editPassword) return;
+    if (mobileWebReadOnly || !project || !editPassword) return;
     
     try {
       const response = await fetch(
@@ -627,7 +629,7 @@ export default function SharePage() {
   // reverted on any server failure; the server re-checks password + scope.
   const [reorderSaving, setReorderSaving] = useState(false);
   const handleReorderItem = async (dayNumber: number, movedId: string, orderedIds: string[]) => {
-    if (!project || !editPassword || !canEdit || reorderSaving) return;
+    if (mobileWebReadOnly || !project || !editPassword || !canEdit || reorderSaving) return;
     const previous = project;
     const rank = new Map(orderedIds.map((id, i) => [id, (i + 1) * 100]));
     const hd = project.hybridDays || [];
@@ -821,28 +823,29 @@ export default function SharePage() {
               </div>
 
 
-              {showOpenInApp && shareCode && !webChosen ? (
+              {showOpenInApp && shareCode ? (
                 /* Level 1 (mobile web only): App first, web kept as a full option. User click only. */
-                <div className="flex flex-col gap-3">
-                  <Button onClick={handleOpenInApp} className="w-full gap-2" size="lg">
-                    <Smartphone className="w-4 h-4" />
-                    {t("shareAppGateTitle")}
-                  </Button>
-                  <p className="-mt-1 text-center text-xs text-muted-foreground">{t("appGateHint")}</p>
-                  <Button onClick={() => setWebChosen(true)} variant="outline" className="w-full" size="lg">
-                    {t("shareAppGateWeb")}
-                  </Button>
-                  <p className="text-center text-xs text-muted-foreground">
-                    {t("appGateFallback")}
-                    {storeUrl && (
-                      <>
-                        {" "}
-                        <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
-                          {t("appGateInstall")}
-                        </a>
-                      </>
-                    )}
-                  </p>
+                <div className="flex flex-col">
+                  <div className="flex flex-col gap-2">
+                    <Button onClick={handleOpenInApp} className="w-full gap-2" size="lg">
+                      <Smartphone className="w-4 h-4" />
+                      {t("shareAppGateTitle")}
+                    </Button>
+                    <p className="text-center text-xs text-muted-foreground">{t("appGateHint")}</p>
+                  </div>
+                  <div className="mt-5 flex flex-col gap-2 border-t border-border/60 pt-5">
+                    <Button onClick={() => { setWebChosen(true); setShowItinerary(true); }} variant="outline" className="w-full" size="lg">
+                      {t("shareAppGateWeb")}
+                    </Button>
+                    <p className="text-center text-xs text-muted-foreground">{t("appGateFallback")}</p>
+                  </div>
+                  {storeUrl && (
+                    <p className="mt-3 text-center text-xs">
+                      <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
+                        {t("appGateInstall")}
+                      </a>
+                    </p>
+                  )}
                 </div>
               ) : (
                 <>
@@ -892,6 +895,7 @@ export default function SharePage() {
     );
   }
 
+  const editAllowed = canEdit && !mobileWebReadOnly;
   // Itinerary view
   return (
     <div className="min-h-screen bg-background">
@@ -914,8 +918,8 @@ export default function SharePage() {
                 </h1>
                 <p className="text-xs text-muted-foreground">
                   {formatShortDate(project.startDate, i18n.language)} - {formatShortDate(project.endDate, i18n.language)}
-                  <span className={`ml-2 ${canEdit ? "text-primary" : "text-muted-foreground"}`}>
-                    • {canEdit ? t("editMode") : t("readOnlyMode")}
+                  <span className={`ml-2 ${editAllowed ? "text-primary" : "text-muted-foreground"}`}>
+                    • {editAllowed ? t("editMode") : t("readOnlyMode")}
                   </span>
                 </p>
                 {totalBudget > 0 && (
@@ -939,7 +943,7 @@ export default function SharePage() {
                 <BookOpen className="w-3.5 h-3.5" />
                 {t("tripOverview")}
               </Button>
-              {hasEditPassword && !canEdit && (
+              {!mobileWebReadOnly && hasEditPassword && !editAllowed && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -951,10 +955,10 @@ export default function SharePage() {
                 </Button>
               )}
               {/* Join button in header */}
-              {(user ? !canEdit : !isNativeShell) && (
+              {!mobileWebReadOnly && (user ? !editAllowed : !isNativeShell) && (
                 <Button
                   size="sm"
-                  onClick={() => (user ? handleJoinProject("editor") : handleWebJoin(canEdit ? "editor" : "viewer"))}
+                  onClick={() => (user ? handleJoinProject("editor") : handleWebJoin(editAllowed ? "editor" : "viewer"))}
                   disabled={joining}
                   className="gap-1.5"
                 >
@@ -998,12 +1002,12 @@ export default function SharePage() {
           <ItineraryList
             currency={shareCurrency}
             day={currentDay}
-            onAddItem={() => canEdit && setDialogOpen(true)}
-            onEditItem={(item) => canEdit && setEditingItem(item)}
-            onDeleteItem={canEdit ? handleDeleteItem : () => {}}
-            onUpdateItemIcon={canEdit ? handleUpdateItemIcon : undefined}
-            readOnly={!canEdit}
-            onReorderItem={canEdit && editPassword && !reorderSaving ? handleReorderItem : undefined}
+            onAddItem={() => editAllowed && setDialogOpen(true)}
+            onEditItem={(item) => editAllowed && setEditingItem(item)}
+            onDeleteItem={editAllowed ? handleDeleteItem : () => {}}
+            onUpdateItemIcon={editAllowed ? handleUpdateItemIcon : undefined}
+            readOnly={!editAllowed}
+            onReorderItem={editAllowed && editPassword && !reorderSaving ? handleReorderItem : undefined}
             hybrid={isHybridDay(project.hybridDays, currentDay.dayNumber)}
           />
         )}
