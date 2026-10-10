@@ -1,11 +1,11 @@
-import { useLayoutEffect, useMemo, useState, type RefObject } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpRight } from "lucide-react";
 import type { ItineraryItem } from "@/types/travel";
 import { buildTimedPairs, buildRouteUrl, intervalParts } from "@/lib/route-pair";
 import { openExternalLink } from "@/lib/external-link";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
-  containerRef: RefObject<HTMLDivElement>;
   items: ItineraryItem[]; // already in display order
   hidden?: boolean;
 }
@@ -14,72 +14,54 @@ interface Geo {
   key: string;
   top: number;
   height: number;
-  labelTop: number;
   minutes: number;
   routeUrl: string | null;
 }
 
-const LABEL_H = 30;
-const ICON = 48; // timeline icon is w-12 h-12, vertically centred in its column (pt-1 → +2px)
+/** Bracket sits in the page margin just right of the cards (container padding is 24px). */
+const ARM = 9; // horizontal arm length from card edge to the vertical line
+const LABEL_W = 22;
+const LABEL_GAP = 30; // vertical space kept free in the line for the label group
 
 /**
- * Pure overlay inside the existing left icon column. It reads positions of the
- * rendered icons and never changes layout (absolute, pointer-events: none).
+ * Pure overlay; never changes layout (absolute, pointer-events: none except "路徑").
+ * It measures from its OWN root's parent: when the list remounts (e.g. switching
+ * to an empty day and back) this ref is attached before our layout effect runs,
+ * unlike a ref on the parent element, which is attached after child effects.
  */
-export function TimedPairOverlay({ containerRef, items, hidden }: Props) {
+export function TimedPairOverlay({ items, hidden }: Props) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const pairs = useMemo(() => buildTimedPairs(items), [items]);
   const [geo, setGeo] = useState<Geo[]>([]);
 
   useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el || pairs.length === 0) {
+    const el = rootRef.current?.parentElement;
+    if (!el) return;
+    if (pairs.length === 0) {
       setGeo([]);
       return;
     }
     const measure = () => {
       const base = el.getBoundingClientRect();
-      if (base.height <= 0) return; // transient (hidden/re-parenting): keep last good geometry
-      const iconBox = (id: string) => {
-        // Measure the stable icon COLUMN (never its children): opening the icon
-        // picker swaps/wraps the child, which used to collapse the measured box
-        // and drop the pair.
+      if (base.height <= 0) return; // transient: keep last good geometry
+      const rowMid = (id: string) => {
         const col = el.querySelector<HTMLElement>(`[data-row-icon="${CSS.escape(id)}"]`);
         if (!col) return null;
         const r = col.getBoundingClientRect();
         if (r.height <= 0) return null;
-        const mid = r.top - base.top + r.height / 2 + 2;
-        return { top: mid - ICON / 2, bottom: mid + ICON / 2 };
+        return r.top - base.top + r.height / 2;
       };
-      const ids = items.map((i) => i.id);
       const out: Geo[] = [];
       for (const p of pairs) {
-        const a = iconBox(p.fromId);
-        const b = iconBox(p.toId);
-        if (!a || !b) continue;
-        const top = a.bottom + 2;
-        const bottom = b.top - 2;
-        if (bottom - top < 8) continue;
-        // Free vertical gaps between icons from A to B; label goes in the largest.
-        const from = ids.indexOf(p.fromId);
-        const to = ids.indexOf(p.toId);
-        const boxes = ids.slice(from, to + 1).map(iconBox).filter(Boolean) as { top: number; bottom: number }[];
-        let best = { start: top, size: bottom - top };
-        if (boxes.length > 2) {
-          best = { start: top, size: -1 };
-          for (let k = 0; k + 1 < boxes.length; k++) {
-            const s = boxes[k].bottom + 2;
-            const size = boxes[k + 1].top - 2 - s;
-            if (size > best.size) best = { start: s, size };
-          }
-        }
-        const labelTop = best.start + Math.max(0, (best.size - LABEL_H) / 2);
-        const A = items[from];
-        const B = items[to];
+        const a = rowMid(p.fromId);
+        const b = rowMid(p.toId);
+        if (a === null || b === null || b - a < 8) continue;
+        const A = items.find((i) => i.id === p.fromId);
+        const B = items.find((i) => i.id === p.toId);
         out.push({
           key: `${p.fromId}-${p.toId}`,
-          top,
-          height: bottom - top,
-          labelTop,
+          top: a,
+          height: b - a,
           minutes: p.minutes,
           routeUrl: buildRouteUrl(A?.googleMapsUrl, B?.googleMapsUrl),
         });
@@ -89,54 +71,65 @@ export function TimedPairOverlay({ containerRef, items, hidden }: Props) {
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    // Images / icons loading change row heights inside without resizing el's width.
+    el.querySelectorAll("[data-row-icon]").forEach((n) => ro.observe(n));
     window.addEventListener("resize", measure);
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [containerRef, pairs, items]);
-  // NOTE: no early setGeo([]) on transient measure failures; pairs only change with data.
-
-  if (hidden || geo.length === 0) return null;
+  }, [pairs, items]);
 
   return (
-    <div className="pointer-events-none absolute inset-y-0 left-0 w-12 z-20">
-      {geo.map((g) => {
-        const parts = intervalParts(g.minutes);
-        return (
-          <div key={g.key}>
-            <div
-              className="absolute left-0.5 w-1.5 border-l border-t border-b border-foreground/25"
-              style={{ top: g.top, height: g.height }}
-            />
-            {/* Label lives in the page margin LEFT of the bracket (container padding is 24px). */}
-            <div
-              className="absolute flex flex-col items-end text-right leading-[1.1] text-[9px] font-semibold text-foreground/60"
-              style={{ top: g.labelTop, left: -23, width: 24 }}
-            >
-              {parts.map((p) => (
-                <span key={p} className="whitespace-nowrap">{p}</span>
-              ))}
-              {g.routeUrl && (
-                <button
-                  type="button"
-                  className="pointer-events-auto !min-h-0 !min-w-0 mt-0.5 py-1 -my-1 whitespace-nowrap text-[9px] font-semibold text-foreground/70 underline underline-offset-2 touch-manipulation"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const ok = await openExternalLink(g.routeUrl!);
-                    if (!ok) toast({ title: "無法開啟地圖，請稍後再試。" });
-                  }}
-                >
-                  路徑
-                </button>
-              )}
+    <div ref={rootRef} className="pointer-events-none absolute inset-y-0 left-full w-0 z-20">
+      {!hidden &&
+        geo.map((g) => {
+          const parts = intervalParts(g.minutes);
+          const mid = g.height / 2;
+          const gap = Math.min(LABEL_GAP, Math.max(0, g.height - 8));
+          const seg = Math.max(0, mid - gap / 2);
+          return (
+            <div key={g.key} className="absolute left-0" style={{ top: g.top, height: g.height }}>
+              {/* top arm + upper line */}
+              <div
+                className="absolute left-0.5 border-t border-r border-foreground/25"
+                style={{ top: 0, width: ARM, height: seg }}
+              />
+              {/* lower line + bottom arm */}
+              <div
+                className="absolute left-0.5 border-b border-r border-foreground/25"
+                style={{ bottom: 0, width: ARM, height: seg }}
+              />
+              {/* label group, centred on the bracket's vertical line */}
+              <div
+                className="absolute flex -translate-y-1/2 flex-col items-center text-center leading-[1.1] text-[9px] font-semibold text-foreground/60"
+                style={{ top: mid, left: 2 + ARM - LABEL_W / 2, width: LABEL_W }}
+              >
+                {parts.map((p) => (
+                  <span key={p} className="whitespace-nowrap">{p}</span>
+                ))}
+                {g.routeUrl && (
+                  <button
+                    type="button"
+                    aria-label="開啟 A 到 B 路徑"
+                    className="pointer-events-auto relative !min-h-0 !min-w-0 inline-flex items-center whitespace-nowrap text-[9px] font-semibold text-foreground/70 underline underline-offset-2 touch-manipulation before:absolute before:-inset-x-1 before:-inset-y-2 before:content-['']"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const ok = await openExternalLink(g.routeUrl!);
+                      if (!ok) toast({ title: "無法開啟地圖，請稍後再試。" });
+                    }}
+                  >
+                    路徑
+                    <ArrowUpRight className="h-2 w-2" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
     </div>
   );
 }
