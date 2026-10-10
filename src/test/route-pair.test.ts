@@ -44,3 +44,28 @@ describe("route url", () => {
     expect(buildRouteUrl(A, "not a url")).toBeNull();
   });
 });
+
+import { separateBrackets, intervalParts } from "@/lib/route-pair";
+describe("bracket separation", () => {
+  it("A→B and B→D sharing row B get a 7px gap at the junction only", () => {
+    const [ab, bd] = separateBrackets([
+      { top: 10, height: 100 },
+      { top: 110, height: 60 },
+    ]);
+    expect(ab).toEqual({ top: 10, height: 96.5 });
+    expect(bd).toEqual({ top: 113.5, height: 56.5 });
+    expect(bd.top - (ab.top + ab.height)).toBe(7);
+  });
+  it("non-touching brackets are unchanged", () => {
+    expect(separateBrackets([{ top: 0, height: 50 }, { top: 80, height: 40 }])).toEqual([
+      { top: 0, height: 50 },
+      { top: 80, height: 40 },
+    ]);
+  });
+  it("localized units", () => {
+    const en = { hour: (n: number) => `${n} h`, min: (n: number) => `${n} min` };
+    expect(intervalParts(10, en)).toEqual(["10 min"]);
+    expect(intervalParts(150, en)).toEqual(["2 h", "30 min"]);
+    expect(intervalParts(10)).toEqual(["10分"]);
+  });
+});
