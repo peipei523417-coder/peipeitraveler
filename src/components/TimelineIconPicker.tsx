@@ -248,7 +248,7 @@ export function TimelineIconPicker({ value, onChange, disabled = false, onOpenCh
       >
         {currentIcon.image === null ? (
           <div className="w-6 h-6 rounded-full bg-primary ring-4 ring-background flex items-center justify-center">
-            <div className="w-3 h-3 rounded-full bg-background" />
+            <div className="w-1/2 h-1/2 rounded-full bg-background" />
           </div>
         ) : (
           <img 
@@ -272,7 +272,7 @@ export function TimelineIcon({ type, className }: { type: TimelineIconType; clas
   if (iconOption.image === null) {
     return (
       <div className={cn("w-6 h-6 rounded-full bg-primary ring-4 ring-background flex items-center justify-center", className)}>
-        <div className="w-3 h-3 rounded-full bg-background" />
+        <div className="w-1/2 h-1/2 rounded-full bg-background" />
       </div>
     );
   }
