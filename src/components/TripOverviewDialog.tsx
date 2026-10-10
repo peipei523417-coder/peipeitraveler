@@ -89,13 +89,13 @@ export function TripOverviewDialog({
                       .map((item) => (
                         <div key={item.id} className="flex items-start gap-2 text-sm min-w-0">
                           {item.startTime ? (
-                            <span className="text-xs font-mono text-primary font-semibold whitespace-nowrap mt-0.5 flex-shrink-0">
+                            <span className="w-[40px] text-xs font-mono text-primary font-semibold whitespace-nowrap mt-0.5 flex-shrink-0">
                               {item.startTime}
                             </span>
                           ) : (
                             <span className="w-[40px] flex-shrink-0" />
                           )}
-                          <TimelineIcon type={item.iconType || "default"} className="mt-0.5 h-4 w-4 flex-shrink-0 ring-2" />
+                          <TimelineIcon type={item.iconType || "default"} className="mt-0.5 h-4 w-4 flex-shrink-0 ring-0 drop-shadow-none" />
                           <span className="text-foreground/90 leading-snug min-w-0" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                             {item.description}
                           </span>

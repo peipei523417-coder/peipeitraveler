@@ -487,10 +487,11 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                         alignItems: "flex-start",
                       }}
                     >
-                      {row.time && (
+                      {(
                         <span
                           style={{
                             color: "#64748b",
+                            width: 44,
                             minWidth: 44,
                             fontVariantNumeric: "tabular-nums",
                             flexShrink: 0,
@@ -499,7 +500,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                           {row.time}
                         </span>
                       )}
-                      <TimelineIcon type={row.icon} className="mt-[3px] h-4 w-4 flex-shrink-0 ring-2" />
+                      <TimelineIcon type={row.icon} className="mt-[3px] h-4 w-4 flex-shrink-0 ring-0 drop-shadow-none" />
                       <span
                         style={{
                           flex: 1,
