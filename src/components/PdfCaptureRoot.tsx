@@ -16,6 +16,8 @@ import { useEffect, useRef } from "react";
 import { TravelProject, ItineraryItem } from "@/types/travel";
 import { ItineraryList, calculateDayTotal } from "@/components/ItineraryList";
 import { isHybridDay, sortDayItems } from "@/lib/itinerary-order";
+import { TimelineIcon } from "@/components/TimelineIconPicker";
+import type { TimelineIconType } from "@/types/travel";
 import { sanitizeMapUrl, getMapProviderLabel } from "@/utils/mapLink";
 import { buildPdfMapAnnotation } from "@/lib/maps-url";
 import pdfEndBrand from "@/assets/pdf-end-brand.png.asset.json";
@@ -455,6 +457,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
             // index and must match what users see in-App.
             const rows = items.map((i) => ({
               time: i.startTime || "",
+              icon: (i.iconType || "default") as TimelineIconType,
               title: String(i.description || "").replace(/\s+$/g, ""),
             }));
             return (
@@ -496,6 +499,7 @@ export function PdfCaptureRoot({ project, coverImageUrl, endLogoUrl, onReady }: 
                           {row.time}
                         </span>
                       )}
+                      <TimelineIcon type={row.icon} className="mt-[3px] h-4 w-4 flex-shrink-0 ring-2" />
                       <span
                         style={{
                           flex: 1,

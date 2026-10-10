@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { PdfBackupButton } from "@/components/PdfBackupButton";
 import { TravelProject } from "@/types/travel";
 import { isHybridDay, sortDayItems } from "@/lib/itinerary-order";
+import { TimelineIcon } from "@/components/TimelineIconPicker";
 import { formatShortDate } from "@/i18n/date-utils";
 
 interface TripOverviewDialogProps {
@@ -94,6 +95,7 @@ export function TripOverviewDialog({
                           ) : (
                             <span className="w-[40px] flex-shrink-0" />
                           )}
+                          <TimelineIcon type={item.iconType || "default"} className="mt-0.5 h-4 w-4 flex-shrink-0 ring-2" />
                           <span className="text-foreground/90 leading-snug min-w-0" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                             {item.description}
                           </span>
