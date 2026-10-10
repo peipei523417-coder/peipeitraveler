@@ -789,17 +789,17 @@ export default function SharePage() {
                     <Smartphone className="w-4 h-4" />
                     {t("shareAppGateTitle")}
                   </Button>
-                  <p className="-mt-1 text-center text-xs text-muted-foreground">完整行程編輯、拖曳排序與導航體驗</p>
+                  <p className="-mt-1 text-center text-xs text-muted-foreground">{t("appGateHint")}</p>
                   <Button onClick={() => setWebChosen(true)} variant="outline" className="w-full" size="lg">
-                    繼續使用網頁版
+                    {t("shareAppGateWeb")}
                   </Button>
                   <p className="text-center text-xs text-muted-foreground">
-                    若未開啟 App，可直接使用網頁版。
+                    {t("appGateFallback")}
                     {storeUrl && (
                       <>
                         {" "}
                         <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">
-                          還沒安裝？下載 App
+                          {t("appGateInstall")}
                         </a>
                       </>
                     )}
