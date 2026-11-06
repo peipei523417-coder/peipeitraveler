@@ -1,11 +1,15 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.peitravel.smartplanner",
       "sha256_cert_fingerprints": [
-        "57:1A:7D:2C:C7:10:69:C3:7A:3B:99:17:8C:1C:C8:6E:79:DA:F5:0C:0B:E5:2C:1C:16:25:0D:A1:8E:6D:C1:93"
+        "57:1A:7D:2C:C7:10:69:C3:7A:3B:99:17:8C:1C:C8:6E:79:DA:F5:0C:0B:E5:2C:1C:16:25:0D:A1:8E:6D:C1:93",
+        "18:0A:1B:F8:5E:18:64:1F:6C:6B:03:2B:0F:7E:BD:56:BB:98:4D:31:F9:C9:D5:54:0C:34:63:89:47:B3:94:00"
       ]
     }
   }
