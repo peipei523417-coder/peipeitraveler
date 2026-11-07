@@ -1,5 +1,5 @@
 import { RecommendAppCard } from "@/components/RecommendAppCard";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { Fragment, useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { TravelProject, ProjectFormData } from "@/types/travel";
@@ -607,39 +607,42 @@ export default function Index() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {projects.map((project) => (
-                    <div
-                      key={project.id}
-                      onTouchStart={() => handleTouchStart(project)}
-                      onTouchEnd={handleTouchEnd}
-                      onTouchCancel={handleTouchCancel}
-                      onTouchMove={handleTouchMove}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        setActionSheetProject(project);
-                      }}
-                    >
-                      <ProjectCard
-                        project={project}
-                        onClick={handleProjectClick}
-                        onEdit={(p) => setEditingProject(p)}
-                        onDelete={(p) => {
-                          setDeletingProject(p);
-                          setDeleteDialogOpen(true);
+                  {projects.map((project, index) => (
+                    <Fragment key={project.id}>
+                      <div
+                        onTouchStart={() => handleTouchStart(project)}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchCancel={handleTouchCancel}
+                        onTouchMove={handleTouchMove}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          setActionSheetProject(project);
                         }}
-                        onDuplicate={handleDuplicateProject}
-                        onShare={handleShareProject}
-                      />
-                    </div>
+                      >
+                        <ProjectCard
+                          project={project}
+                          onClick={handleProjectClick}
+                          onEdit={(p) => setEditingProject(p)}
+                          onDelete={(p) => {
+                            setDeletingProject(p);
+                            setDeleteDialogOpen(true);
+                          }}
+                          onDuplicate={handleDuplicateProject}
+                          onShare={handleShareProject}
+                        />
+                      </div>
+                      {/* One-time retention reminder, fixed directly below the first project card */}
+                      {index === 0 && (
+                        <div className="col-span-full flex items-center gap-2.5 rounded-xl border border-sky-100 bg-sky-50/70 px-3.5 py-2.5">
+                          <Info className="w-4 h-4 shrink-0 text-sky-400" />
+                          <div className="flex min-w-0 flex-col gap-0.5 text-xs leading-relaxed text-slate-600">
+                            <span className="whitespace-nowrap">{t("retentionReminderLine1")}</span>
+                            <span className="whitespace-nowrap">{t("retentionReminderLine2")}</span>
+                          </div>
+                        </div>
+                      )}
+                    </Fragment>
                   ))}
-                </div>
-
-                {/* One-time retention reminder at the bottom of "My Trips" */}
-                <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-sky-100 bg-sky-50/70 px-3.5 py-2.5">
-                  <Info className="w-4 h-4 shrink-0 text-sky-400" />
-                  <p className="text-xs leading-relaxed text-slate-600">
-                    {t("retentionReminder")}
-                  </p>
                 </div>
               </>
             )}
