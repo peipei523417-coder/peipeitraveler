@@ -459,7 +459,7 @@ export const translations = {
       openInAppAndJoin: "Open in App & Join",
       downloadApp: "Download App",
       sharedWithMe: "Shared with Me",
-      retentionReminderLine1: "Trips auto-clear 7 days after they end",
+      retentionReminderLine1: "Trips auto-clear 7 days after ending",
       retentionReminderLine2: "Export a PDF to keep them ♡",
       sharedProject: "Shared",
       joinAsCompanion: "Join as a travel companion and edit the itinerary together",
