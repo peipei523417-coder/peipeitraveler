@@ -21,7 +21,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { ProjectActionSheet } from "@/components/ProjectActionSheet";
 import { Button } from "@/components/ui/button";
-import { Plane, Plus, Users } from "lucide-react";
+import { Info, Plane, Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginDialog } from "@/components/LoginDialog";
@@ -632,6 +632,14 @@ export default function Index() {
                       />
                     </div>
                   ))}
+                </div>
+
+                {/* One-time retention reminder at the bottom of "My Trips" */}
+                <div className="mt-6 flex items-center gap-2.5 rounded-xl border border-sky-100 bg-sky-50/70 px-3.5 py-2.5">
+                  <Info className="w-4 h-4 shrink-0 text-sky-400" />
+                  <p className="text-xs leading-relaxed text-slate-600">
+                    {t("retentionReminder")}
+                  </p>
                 </div>
               </>
             )}
