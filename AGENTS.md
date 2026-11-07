@@ -1,5 +1,7 @@
 # Agent rules
 
+- Native release versions come only from the App Xcode target and Android app Gradle settings; formal CI verifies packaged IPA/AAB versions against pre-build snapshots and leaves store upload manual, preventing silent overrides and unconfirmed uploads.
+
 - Itinerary ordering lives only in `src/lib/itinerary-order.ts`; every loader/view (ProjectDetail, SharePage, join-project, TripOverview, PDF) must use it — keeps all screens in the same order.
 - A day is Hybrid only when its number is in `travel_projects.hybrid_days`; never infer the mode from `sort_order` values — legacy data has arbitrary non-zero ranks.
 - In Hybrid days the DB trigger `itinerary_hybrid_rank` is the authority for timed/inserted/moved item ranks; the client only mirrors it optimistically — keeps share-page edits (edge functions) consistent.
