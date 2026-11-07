@@ -635,9 +635,9 @@ export default function Index() {
                       {index === 0 && (
                         <div className="col-span-full flex items-center gap-2.5 rounded-xl border border-sky-100 bg-sky-50/70 px-3.5 py-2.5">
                           <Info className="w-4 h-4 shrink-0 text-sky-400" />
-                          <div className="flex flex-col gap-0.5 text-xs leading-relaxed text-slate-600">
-                            <span>{t("retentionReminderLine1")}</span>
-                            <span>{t("retentionReminderLine2")}</span>
+                          <div className="flex min-w-0 flex-col gap-0.5 text-xs leading-relaxed text-slate-600">
+                            <span className="whitespace-nowrap">{t("retentionReminderLine1")}</span>
+                            <span className="whitespace-nowrap">{t("retentionReminderLine2")}</span>
                           </div>
                         </div>
                       )}
