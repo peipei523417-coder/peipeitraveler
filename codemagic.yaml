@@ -168,17 +168,34 @@ workflows:
           xcodebuild -exportArchive \
             -archivePath $CM_BUILD_DIR/App.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
-            -exportPath $CM_BUILD_DIR/ipa
+            -exportPath $CM_BUILD_DIR/ipa-unverified
 
-      - name: Verify actual IPA before manual upload
+      - name: Verify actual IPA before automatic TestFlight upload
         script: |
           set -euo pipefail
           shopt -s nullglob
-          ipas=("$CM_BUILD_DIR"/ipa/*.ipa)
+          ipas=("$CM_BUILD_DIR"/ipa-unverified/*.ipa)
           test "${#ipas[@]}" -eq 1
           python3 scripts/verify-native-versions.py --snapshot "$CM_BUILD_DIR/native-versions.json" \
             --platform ios --artifact "${ipas[0]}"
+          python3 - "${ipas[0]}" <<'PY'
+          import importlib.util
+          import sys
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location("versions", "scripts/verify-native-versions.py")
+          versions = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(versions)
+          versions.assert_match({"version": "6.1.81", "build": "123"}, versions.ipa_version(Path(sys.argv[1])))
+          print("iOS upload approved: IPA 6.1.81 / Build 123")
+          PY
+          mkdir -p "$CM_BUILD_DIR/ipa"
+          mv "${ipas[0]}" "$CM_BUILD_DIR/ipa/"
 
     artifacts:
       - $CM_BUILD_DIR/ipa/*.ipa
-    # Store upload is manual, after the user confirms the verified artifact versions.
+    # Only verified IPAs enter the publishing artifact directory.
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
