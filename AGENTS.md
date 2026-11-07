@@ -1,6 +1,6 @@
 # Agent rules
 
-- Native release versions come only from the App Xcode target and Android app Gradle settings; formal CI verifies packaged IPA/AAB versions against pre-build snapshots and leaves store upload manual, preventing silent overrides and unconfirmed uploads.
+- Native release versions come only from the App Xcode target and Android app Gradle settings; CI verifies packaged IPA/AAB versions against pre-build snapshots. Codemagic exposes only verified IPAs for automatic App Store Connect/TestFlight upload (never App Store submission); Android provides verified signed AABs for manual Google Play upload, preserving platform-specific release flows.
 
 - Itinerary ordering lives only in `src/lib/itinerary-order.ts`; every loader/view (ProjectDetail, SharePage, join-project, TripOverview, PDF) must use it — keeps all screens in the same order.
 - A day is Hybrid only when its number is in `travel_projects.hybrid_days`; never infer the mode from `sort_order` values — legacy data has arbitrary non-zero ranks.
