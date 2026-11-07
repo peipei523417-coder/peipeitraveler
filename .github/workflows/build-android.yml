@@ -13,6 +13,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check configured native versions
+        run: python3 scripts/verify-native-versions.py --snapshot "$RUNNER_TEMP/native-versions.json"
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -127,9 +130,21 @@ jobs:
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload AAB artifact
+      - name: Read and verify actual signed AAB version
+        id: versions
+        env:
+          SIGNED_AAB: ${{ steps.sign_app.outputs.signedReleaseFile }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --max-time 120 \
+            https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar \
+            --output "$RUNNER_TEMP/bundletool.jar"
+          python3 scripts/verify-native-versions.py --snapshot "$RUNNER_TEMP/native-versions.json" \
+            --platform android --artifact "$SIGNED_AAB" --bundletool "$RUNNER_TEMP/bundletool.jar"
+
+      - name: Upload verified AAB artifact for manual store upload
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-v1.3.36-163-signed
-          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          name: ${{ steps.versions.outputs.artifact_name }}
+          path: ${{ steps.versions.outputs.artifact_path }}
           retention-days: 7

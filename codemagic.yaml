@@ -15,6 +15,11 @@ workflows:
           - PeiGo_Store_Final_New
 
     scripts:
+      - name: Check configured native versions
+        script: |
+          set -euo pipefail
+          python3 scripts/verify-native-versions.py --snapshot "$CM_BUILD_DIR/native-versions.json"
+
       - name: Clean old dependencies and iOS generated files
         script: |
           rm -rf node_modules
@@ -106,34 +111,26 @@ workflows:
                 config.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
                 config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = 'PeiGo_Store_Final'
                 config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.peipeigo.travel'
-                config.build_settings['MARKETING_VERSION'] = '6.1.80'
-                config.build_settings['CURRENT_PROJECT_VERSION'] = '122'  # must be > previously uploaded build
               end
             end
           end
 
           project.save
-          puts "MARKETING_VERSION: 6.1.80"
-          puts "CURRENT_PROJECT_VERSION: 122"
 
           RUBY
-
-      - name: Verify Info.plist and build settings versions
-        script: |
-          cd ios/App
-          PLIST=App/Info.plist
-          echo "=== Info.plist raw values ==="
-          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST" || true
-          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST" || true
-          echo "=== Resolved xcodebuild settings ==="
-          xcodebuild -workspace App.xcworkspace -scheme App -showBuildSettings 2>/dev/null \
-            | grep -E "MARKETING_VERSION|CURRENT_PROJECT_VERSION|CFBundleShortVersionString|CFBundleVersion" \
-            | head -20
 
       - name: Install CocoaPods
         script: |
           cd ios/App
           pod install
+
+      - name: Verify resolved Release versions
+        script: |
+          set -euo pipefail
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
+            -showBuildSettings -json > "$CM_BUILD_DIR/release-settings.json"
+          python3 scripts/verify-native-versions.py --snapshot "$CM_BUILD_DIR/native-versions.json" \
+            --xcode-settings "$CM_BUILD_DIR/release-settings.json"
 
       - name: Build archive
         script: |
@@ -173,10 +170,15 @@ workflows:
             -exportOptionsPlist ExportOptions.plist \
             -exportPath $CM_BUILD_DIR/ipa
 
+      - name: Verify actual IPA before manual upload
+        script: |
+          set -euo pipefail
+          shopt -s nullglob
+          ipas=("$CM_BUILD_DIR"/ipa/*.ipa)
+          test "${#ipas[@]}" -eq 1
+          python3 scripts/verify-native-versions.py --snapshot "$CM_BUILD_DIR/native-versions.json" \
+            --platform ios --artifact "${ipas[0]}"
+
     artifacts:
       - $CM_BUILD_DIR/ipa/*.ipa
-
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
+    # Store upload is manual, after the user confirms the verified artifact versions.
